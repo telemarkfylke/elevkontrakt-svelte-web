@@ -140,21 +140,21 @@
                     },
                     {
                         label: "Faktura 1",
-                        key: "fakturaInfo.rate1",
+                        key: "fakturaInfo.rate1.status",
                         extra: [
                             // Fyllinn faktura data når vi har datastruktur
                         ]
                     },
                     {
                         label: "Faktura 2",
-                        key: "fakturaInfo.rate2",
+                        key: "fakturaInfo.rate2.status",
                         extra: [
                             // Fyllinn faktura data når vi har datastruktur
                         ]
                     },
                     {
                         label: "Faktura 3",
-                        key: "fakturaInfo.rate3",
+                        key: "fakturaInfo.rate3.status",
                         extra: [
                             // Fyllinn faktura data når vi har datastruktur
                         ]

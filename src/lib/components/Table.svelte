@@ -44,7 +44,7 @@
             // Override highlight cells for specific columns. This is done to get the correct format for values that needs to be checked in if statements.
             // If this is not done, the values returned will be <div>...</div> and not Ja or Nei.
             if(overrideHighlightCells !== true) {
-                if(formattedValue === "Ja") {
+                if(formattedValue === "Ja" || formattedValue === 'Betalt') {
                     return `<div style="border: 1px solid var(--gress-50);;
                                         padding: 0.25rem;
                                         background-color: var(--gress-30);;
@@ -52,10 +52,18 @@
                                         border-radius: 0.25rem;">
                                         ${formattedValue}
                             </div>`
-                } else if (formattedValue === "Nei") {
+                } else if (formattedValue === "Nei" || formattedValue === "Ikke Fakturert") {
                     return `<div style="border: 1px solid var(--nype-50);;
                                         padding: 0.25rem;
                                         background-color: var(--nype-30);;
+                                        font-weight: bold;
+                                        border-radius: 0.25rem;">
+                                        ${formattedValue}
+                            </div>`
+                } else if(formattedValue === "Fakturert") {
+                    return `<div style="border: 1px solid var(--korn-50);;
+                                        padding: 0.25rem;
+                                        background-color: var(--korn-30);;
                                         font-weight: bold;
                                         border-radius: 0.25rem;">
                                         ${formattedValue}
