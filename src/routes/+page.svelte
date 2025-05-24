@@ -45,14 +45,14 @@
                 const { data } = await getExtendedUserInfo(token.upn)
                 response = await getContracts(data.companyName)
             } catch (error) {
-                throw error(500, 'Noe gikk galt med å hente kontrakter')
+                throw error(500, 'Noe gikk galt med å hente avtaler')
             }           
 
         } else {
             try {
                 response = await getContracts()
             } catch (error) {
-                throw error(500, 'Noe gikk galt med å hente kontrakter')
+                throw error(500, 'Noe gikk galt med å hente avtaler')
             }
         }
         // Create headers and data from response
@@ -164,7 +164,7 @@
                         key: "ansvarligInfo.navn"
                     },
                     {
-                        label: "Kontraktstype",
+                        label: "Avtale type",
                         key: "unSignedskjemaInfo.kontraktType"
                     },
             ]
@@ -299,7 +299,7 @@
                             </ul>
                         </div>
                         <div class="isSigned-info">
-                            <p>Ønsker du å søke etter status på signeringen kan du bruke filteret "Kun signerte kontrakter".</p>
+                            <p>Ønsker du å søke etter status på signeringen kan du bruke filteret "Kun signerte avtaler".</p>
                         </div>
                     {/if}
                 </div>
@@ -338,12 +338,12 @@
                             {#if isProcessing === true}
                                 <Modal bind:showModal={showModal} disableClickOutSide={true} disableStandardButton={true}>
                                     <div slot="header">
-                                        <h2>Rediger kontrakt</h2>
+                                        <h2>Rediger avtale</h2>
                                     </div>
                                     <div slot="mainContent">
                                         <div class="info-container">
-                                            <p>Kontrakt for: <strong>{contractToBeEdited.elevInfo.navn}</strong></p>
-                                            <p>Kontraktstype: <strong>{contractToBeEdited.unSignedskjemaInfo.kontraktType}</strong></p>
+                                            <p>Avtale for: <strong>{contractToBeEdited.elevInfo.navn}</strong></p>
+                                            <p>Avtale type: <strong>{contractToBeEdited.unSignedskjemaInfo.kontraktType}</strong></p>
                                             <br>
                                             <IconSpinner width="50px" />
                                             <p>Lagrer endring...</p>
@@ -353,11 +353,11 @@
                             {:else}
                                 <Modal bind:showModal={showModal} disableClickOutSide={true} disableStandardButton={true} >
                                     <div slot="header">
-                                        <h2>Rediger kontrakt</h2>
+                                        <h2>Rediger Avtale</h2>
                                     </div>
                                     <div slot="mainContent">
-                                        <p>Kontrakt for: <strong>{contractToBeEdited.elevInfo.navn}</strong></p>
-                                        <p>Kontraktstype: <strong>{contractToBeEdited.unSignedskjemaInfo.kontraktType}</strong></p>
+                                        <p>Avtale for: <strong>{contractToBeEdited.elevInfo.navn}</strong></p>
+                                        <p>Avtale type: <strong>{contractToBeEdited.unSignedskjemaInfo.kontraktType}</strong></p>
                                         <br>
                                         {#if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false"}
                                             <p>Du kan levere ut pcen. Husk å krysse av og lagre.</p>
@@ -388,7 +388,7 @@
                                             <p>PCen er alt innlevert</p>
                                             <p>Mener du at dette er feil, kontakt en administrator.</p>
                                         {:else}
-                                            <p>Kontrakten er ikke signert, kan ikke utlevere PC</p>
+                                            <p>Avtalen er ikke signert, kan ikke utlevere PC</p>
                                         {/if}
                                         <br>
                                         {#if saveErrorMessage.length > 0}

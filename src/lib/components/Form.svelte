@@ -34,7 +34,7 @@
 			errors.name = 'Navn er obligatorisk';
 		}
 		if (touchedFields.type && type === '') {
-			errors.type = 'Kontrakt type er obligatorisk';
+			errors.type = 'Avtale type er obligatorisk';
 		}
         if (touchedFields.attachment && !attachment) {
             errors.attachment = 'Attachment is required';
@@ -86,7 +86,7 @@
             if(result.name === '' || result.type === '' || result.attachment === null || result.schoolName === '' || result.schoolOrgNumber === '' || result.fnr === '' || result.foresattValg === '' || result.foresatt === '') {
                 errors = {
                     name: 'Navn er obligatorisk',
-                    type: 'Kontrakt type er obligatorisk',
+                    type: 'Avtale type er obligatorisk',
                     attachment: 'Attachment is required',
                     schoolName: 'Skolenavn er obligatorisk',
                     schoolOrgNumber: 'Skole organisasjonsnummer er obligatorisk',
@@ -127,7 +127,7 @@
             {#if data?.studentData?.isUnder18 === true || data?.needAnsvarlig === true}
                 {#if data?.studentData?.isUnder18 === true}
                     <p>Eleven er under 18 år og må ha en ansvarlig</p>
-                    <p>❗Viktig at den foresatte har signert kontrakten som lastes opp❗</p>
+                    <p>❗Viktig at den foresatte har signert avtalen som lastes opp❗</p>
                     <Select 
                         label="Velg foresatt"
                         bind:value={foresatt}
@@ -175,23 +175,23 @@
                 error={errors.schoolOrgNumber}
             />
             <Select
-                label="Type kontrakt"
+                label="Type avtale"
                 bind:value={type}
                 on:blur={() => touchedFields.type = true}
                 error={errors.type}
             >
-                <option value="Leiekontrakt">Leiekontrakt</option>
-                <option value="Lånekontrakt">Lånekontrakt</option>
+                <option value="Leieavtale">Leieavtale</option>
+                <option value="Låneavtale">Låneavtale</option>
             </Select>
             <Input
                 type="file"
-                label="Signert kontrakt"
+                label="Signert avtale"
                 bind:value={attachment}
                 attachment={attachment}
                 on:blur={() => touchedFields.attachment = true}
                 error={errors.attachment}
             />
-            <button on:click={validateAndSubmit}>Opprett kontrakt</button>
+            <button on:click={validateAndSubmit}>Opprett avtale</button>
             <!-- <div>
                 <pre>
                     {JSON.stringify(result, null, 2)}

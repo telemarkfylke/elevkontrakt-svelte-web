@@ -190,11 +190,11 @@
             <div class="filters">
                 <div class="checkBoxFilter">
                     <input type="checkbox" id="signed" name="signed" value="signed" bind:checked={isSignedOnlyChecked} disabled={false}>
-                    <label for="signed">Kun signerte kontrakter</label>
+                    <label for="signed">Kun signerte avtaler</label>
                 </div>
                 <div class="checkBoxFilter">
                     <input type="checkbox" id="unSigned" name="unSigned" value="unSigned" bind:checked={isUnSignedOnlyChecked} disabled={false}>
-                    <label for="unSigned">Kun usignerte kontrakter</label>
+                    <label for="unSigned">Kun usignerte avtaler</label>
                 </div>
                 <div class="schoolFilter">
                     <label for="school">Velg Skole: </label>

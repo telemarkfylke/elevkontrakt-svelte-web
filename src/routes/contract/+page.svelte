@@ -32,7 +32,7 @@
 {:then token}
     {#if !token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))}
         <div class="error">
-            <h2>Du har ikke tilgang til å opprette kontrakt</h2>
+            <h2>Du har ikke tilgang til å opprette en avtale</h2>
             <p>Vennligst ta kontakt med din administrator for å få tilgang.</p>
         </div>
     {:else}
@@ -65,11 +65,11 @@
                 <Form data={data} onSubmit={(data) => submittedData = data} />
                 {#if submittedData}
                     <div>
-                        <h3>Er du sikker på at du vil opprette kontrakten?</h3>
+                        <h3>Er du sikker på at du vil opprette avtalenen?</h3>
                         <pre>
                             {JSON.stringify(submittedData, null, 2)}
                         </pre>
-                        <button on:click={() => postManualContract(submittedData)}>Opprett kontrakt</button>
+                        <button on:click={() => postManualContract(submittedData)}>Opprett avtale</button>
                     </div>
                 {/if}
                 <!-- <div>

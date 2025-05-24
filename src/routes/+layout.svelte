@@ -35,7 +35,7 @@
       }
     })
 
-    const appTitle = "Elevkontrakt"
+    const appTitle = "Elevavtaler"
     let logo = ""
     let iconPath = ""
     if(import.meta.env.VITE_COUNTY === 'Telemark') {
@@ -75,7 +75,7 @@
   const checkRoles = async (token) => {
     if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))) {
       sideMenuItems.splice(1, 0, {
-        title: 'Opprett kontrakt',
+        title: 'Opprett avtale',
         href: '/contract',
         icon: 'assignment'
       })
