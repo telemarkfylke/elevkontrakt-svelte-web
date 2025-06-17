@@ -78,14 +78,14 @@
                         key: "elevInfo.skole",
                         extra: [ 
                             {
-                                label: "Klasse",
-                                key: "elevInfo.klasse"
-                            },
-                            {
                                 label: "Trinn",
                                 key: "elevInfo.trinn"
                             },
                         ]
+                    },
+                    {
+                        label: "Klasse",
+                        key: "elevInfo.klasse"
                     },
                     {
                         label: "QrKode",
@@ -187,38 +187,61 @@
     }
 
     const search = (searchValue) => {
-		const filterFunc = (dataArray) => {
-			const sv = searchValue.toLowerCase()
-            const svArray = sv.split(';')
-            if(svArray.lastIndexOf('') !== -1) {
-                svArray.splice(svArray.lastIndexOf(''), 1)
-            }
-            const data = dataArray.filter((data) => {
-                const searchInData = (searchData, searchValue) => {
-                    // Get the keys of the searchData object
-                    const keys = Object.keys(searchData);
-                    // Check if any of the keys match the search value
-                    for (const key of keys) {
-                        // Check if the value of the key is an object
-                        if (typeof searchData[key] === 'object' && searchData[key] !== null) {
-                            // If it is an object, call the function recursively
-                            if (searchInData(searchData[key], searchValue)) {
-                                return true;
-                            }
-                        } else {
-                            // If it is not an object, check if it matches the search value
-                            if (searchData[key].toString().toLowerCase().startsWith(searchValue)) {
-                                return true;
-                            }
-                        }
-                    }                    
+        const filterFunc = (dataArray) => {
+            const sv = searchValue.toLowerCase();
+            const svArray = sv.split(';').filter(s => s !== '');
+
+            // Special handling for isSigned:true or isSigned:false
+            const isSignedSearch = svArray.find(s => s.startsWith('signert:'));
+            let filteredData = dataArray;
+
+            if (isSignedSearch) {
+                let value = isSignedSearch.split(':')[1];
+                // Normalize value to lowercase for comparison
+                value = value.toLowerCase();    
+                // Convert 'ja' to 'true' and 'nei' to 'false'
+                // This allows for searching with 'signert:ja' or 'signert:nei' 
+                if (value === 'ja') {
+                    value = 'true';
+                } else if (value === 'nei') {
+                    value = 'false';
+                } else {
+                    // If the value is not true or false, we can skip filtering
+                    return filteredData;
                 }
-                return searchInData(data, svArray)
-            })
-            return data
-		}
-        searchResults = filterFunc(response.result)
-	}
+                filteredData = filteredData.filter(item => {
+                    // Normalize both to string for comparison
+                    return String(item.isSigned).toLowerCase() === value;
+                });
+                // Remove isSigned from further search
+                svArray.splice(svArray.indexOf(isSignedSearch), 1);
+            }
+
+            // A recursive function that takes the dataArray and the svArray and returns the filtered dataArray
+            const filterRecursive = (dataArray, svArray) => {
+                if (svArray.length === 0) {
+                    return dataArray;
+                }
+                const currentSv = svArray[0];
+                const filtered = dataArray.filter(item => {
+                    // Check if the currentSv is in any of the keys in the item
+                    return Object.keys(item).some(key => {
+                        if (typeof item[key] === 'string') {
+                            return item[key].toLowerCase().includes(currentSv);
+                        } else if (typeof item[key] === 'object' && item[key] !== null) {
+                            // If the key is an object, check if any of the values in the object contains the currentSv
+                            return Object.values(item[key]).some(value => typeof value === 'string' && value.toLowerCase().includes(currentSv));
+                        }
+                        return false;
+                    });
+                });
+                // Call the function recursively with the filtered data and the rest of the svArray
+                return filterRecursive(filtered, svArray.slice(1));
+            };
+            return filterRecursive(filteredData, svArray);
+        };
+        searchResults = filterFunc(response.result);
+    }
 
     const handleModalButtonClicks = async (clickedButton, action) => {
         if(clickedButton === 'Lagre') {
@@ -300,6 +323,12 @@
                         </div>
                         <div class="isSigned-info">
                             <p>Ønsker du å søke etter status på signeringen kan du bruke filteret "Kun signerte avtaler".</p>
+                            <p>Om du ønsker å søke etter flere verdier, kan du bruke semikolon (;) som skille.</p>
+                            <p>F.eks Bamble;2ABC</p>
+                            <p>Vil du søke etter signerte avtaler, kan du bruke "signert:ja" som filter.</p>
+                            <p>Vil du søke etter ikke-signerte avtaler, kan du bruke "signert:nei" som filter.</p>
+                            <p>Dette kan du kombinere med andre filtre for mer spesifikke søk.</p>
+                            <p>F.eks Bamble;2ABC;signert:ja</p>
                         </div>
                     {/if}
                 </div>
