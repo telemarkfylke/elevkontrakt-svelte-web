@@ -86,8 +86,8 @@
             if(result.name === '' || result.type === '' || result.attachment === null || result.schoolName === '' || result.schoolOrgNumber === '' || result.fnr === '' || result.foresattValg === '' || result.foresatt === '') {
                 errors = {
                     name: 'Navn er obligatorisk',
-                    type: 'Avtale type er obligatorisk',
-                    attachment: 'Attachment is required',
+                    type: 'Type avtale er obligatorisk',
+                    attachment: 'Kontrakt er obligatorisk',
                     schoolName: 'Skolenavn er obligatorisk',
                     schoolOrgNumber: 'Skole organisasjonsnummer er obligatorisk',
                     fnr: 'Fødselsnummer er obligatorisk',
@@ -112,7 +112,8 @@
             <Input
                 type="text"
                 label="Navn på elev"
-                bind:value={name}
+                value={data.studentData.student.fulltnavn}
+                disabled
                 on:blur={() => touchedFields.name = true}
                 error={errors.name}
             />

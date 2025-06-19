@@ -2,6 +2,8 @@
     import { get } from "svelte/store";
     import IconSpinner from "./IconSpinner.svelte";
     import JsBarcode from "jsbarcode";
+    import { clickToCopy } from "$lib/helpers/clickToCopy";
+    import { getStudentShortName } from "$lib/helpers/studentShortName";
 
     export let columns = []
     export let data = []
@@ -162,11 +164,6 @@
         const uniqueClasses = getUniqueValue(data.map(item => item.elevInfo.klasse))
         return uniqueClasses
     }
-
-    const getStudentShortName = (upn) => {
-        const studentShortName = upn.split('@')[0].split('.').pop()
-        return studentShortName
-    }
     
     const createBarCode = (upn) => {
         const studentShortName = getStudentShortName(upn)
@@ -238,7 +235,15 @@
             <div class="table-header">
             {#each columns as column}
                <div class="table-header-cell">
+                {#if column.label === 'QrKode'}
                     {column.label}
+                    <div class="tooltip">
+                        <span class="material-symbols-outlined">help</span>
+                        <span class="tooltiptext">Klikk på strekkoden for å kopiere verdien</span>
+                    </div>
+                {:else}
+                    {column.label} 
+                {/if}
                </div> 
             {/each}
             </div>
@@ -253,8 +258,10 @@
                             <div class="table-cell">
                                 <div class="cell-content">
                                     <div class="cell-text-value">
-                                        {#if column.label === 'QrKode'} 
-                                            <img alt="barcode" src={createBarCode(row.elevInfo.upn)} width="100%" height="80%" />
+                                        {#if column.label === 'QrKode'}
+                                            <div class="qr-code">
+                                                <img use:clickToCopy={'img'} alt={`barcode ${row.elevInfo.upn}`} src={createBarCode(row.elevInfo.upn)} width="100%" height="80%" />
+                                            </div>
                                         {/if}
                                         {#if column.key !== 'actions' && column.label !== 'QrKode'}
                                             {@html getNestedValue(row, column.key)}
@@ -429,5 +436,80 @@
         flex-direction: row;
         justify-content: center;
         align-items: center;
-    }  
+    } 
+
+    .qr-code {
+        position: relative;
+    }
+    .qr-code:hover {
+        cursor: pointer;
+        z-index: 1000;
+        position: static;
+        transition: transform 0.3s ease;
+        transform: scale(3);
+        box-shadow: 0 0 0 100vmax rgba(0,0,0,0.8);
+        backdrop-filter: blur(100px);
+    }
+    /* .qr-code:hover::after {
+        content: 'Kopiert ✅';
+        display: block;
+        position: absolute;
+        top: 110%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #222;
+        color: #fff;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 1rem;
+        z-index: 2000;
+        white-space: nowrap;
+        pointer-events: none;
+    } */
+    .qr-code:active {
+        cursor: pointer;
+        z-index: 1000;
+        position: static;
+        transition: transform 0.1s ease;
+        transform: scale(3.2);
+        box-shadow: 0 0 0 100vmax rgba(0,0,0,0.85);
+        backdrop-filter: blur(100px);
+        outline: 2px solid var(--gress-50);
+    }
+
+    .tooltip {
+        cursor: pointer;
+        position: relative;
+        display: inline-block;
+        border-bottom: 1px dotted black;
+        }
+
+    .tooltip .tooltiptext {
+        visibility: hidden;
+        width: 120px;
+        background-color: black;
+        color: #fff;
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px 0;
+        position: absolute;
+        z-index: 1;
+        top: 150%;
+        left: 50%;
+        margin-left: -60px;
+    }
+
+    .tooltip .tooltiptext::after {
+        content: " ";
+        position: absolute;
+        bottom: 100%;  /* At the top of the tooltip */
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: transparent transparent black transparent;
+    }
+    .tooltip:hover .tooltiptext {
+        visibility: visible;
+    }
 </style>
