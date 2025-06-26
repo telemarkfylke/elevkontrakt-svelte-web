@@ -289,6 +289,80 @@
             showModal = false
         }
     }
+
+    const exportData = () => {
+        // Export data to CSV with selectable headers and fields
+        // 1. Define available headers and their keys
+        const availableHeaders = [
+            // { label: "Fulltnavn", key: "elevInfo.navn" },
+            { label: "Fornavn", key: "elevInfo.fornavn" },
+            { label: "Etternavn", key: "elevInfo.etternavn" },
+            // { label: "Elevnummer", key: "elevInfo.elevnr" },
+            // { label: "Epost", key: "elevInfo.upn" },
+            { label: "Skole", key: "elevInfo.skole" },
+            { label: "Trinn", key: "elevInfo.trinn" },
+            { label: "Klasse", key: "elevInfo.klasse" },
+            // { label: "Status signering", key: "isSigned" },
+            // { label: "Signert av", key: "signedBy.navn" },
+            // { label: "Signert dato", key: "signedSkjemaInfo.createdTimeStamp" },
+            // { label: "Dokumentnummer", key: "signedSkjemaInfo.archiveDocumentNumber" },
+            // { label: "PC - Utlevert", key: "pcInfo.released" },
+            // { label: "Utlevert av", key: "pcInfo.releasedBy" },
+            // { label: "Utlevert dato", key: "pcInfo.releasedDate" },
+            // { label: "PC - Innlevert", key: "pcInfo.returned" },
+            // { label: "Motatt av", key: "pcInfo.returnedBy" },
+            // { label: "Innlevert dato", key: "pcInfo.returnedDate" },
+            // { label: "Faktura 1", key: "fakturaInfo.rate1.status" },
+            // { label: "Faktura 2", key: "fakturaInfo.rate2.status" },
+            // { label: "Faktura 3", key: "fakturaInfo.rate3.status" },
+            // { label: "Ansvarlig", key: "ansvarligInfo.navn" },
+            // { label: "Avtale type", key: "unSignedskjemaInfo.kontraktType" }
+        ];
+        /**
+         * Keep for later, maybe we want to let the user select which columns to export (maybe not)
+         */
+        // // 2. Prompt user for which columns to export, prompt is good enough for Tormod
+        // const selectedLabels = prompt(
+        //     "Skriv inn hvilke kolonner du vil eksportere, separert med komma:\n" +
+        //     availableHeaders.map(h => h.label).join(", "),
+        //     availableHeaders.map(h => h.label).join(", ")
+        // );
+        // if (!selectedLabels) return;
+        // const selected = selectedLabels.split(",").map(s => s.trim()).filter(Boolean);
+        // const selectedHeaders = availableHeaders.filter(h => selected.includes(h.label));
+        // if (selectedHeaders.length === 0) {
+        //     alert("Ingen gyldige kolonner valgt.");
+        //     return;
+        // }
+
+        // 3. Helper to get nested value by key string (e.g. "elevInfo.navn")
+        const getValue = (obj, key) => {
+            return key.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : ""), obj);
+        }
+
+        // 4. Build CSV rows
+        const csvRows = [availableHeaders.map(h => `${h.label}`).join(",") ]
+        response.result.forEach(row => {
+            csvRows.push(
+            availableHeaders.map(h => {
+                let val = getValue(row, h.key)
+                if (typeof val === "boolean") val = val ? "Ja" : "Nei"
+                if (val === null || val === undefined) val = ""
+                return `${String(val).replace(/"/g, '""')}`
+            }).join(",")
+            )
+        });
+
+        // 5. Download CSV
+        const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "elevkontrakter.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
 </script>
 
 <main>
@@ -342,15 +416,22 @@
                     {/if}
                 </div>
                 {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite'].includes(r))}
-                    {#if deliveryModeActive === false}
-                        <div class="delivery-button">
-                            <button on:click={ () => deliveryMode() }>Utleveringsmodus</button>
-                        </div>
-                    {:else}
-                        <div class="delivery-button">
-                            <button on:click={ () => deliveryMode() }>Tilbake til normalmodus</button>
-                        </div>
-                    {/if}
+                    <div class="hidden-buttons">
+                        {#if deliveryModeActive === false}
+                            <div class="delivery-button">
+                                <button on:click={ () => deliveryMode() }>Utleveringsmodus</button>
+                            </div>
+                        {:else}
+                            <div class="delivery-button">
+                                <button on:click={ () => deliveryMode() }>Tilbake til normalmodus</button>
+                            </div>
+                        {/if}
+                        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                            <div class="delivery-button">
+                                <button on:click={() => exportData()}>Eksporter data</button>
+                            </div>
+                        {/if}
+                    </div>
                 {/if}
                 <div class="table-container">
                     <!-- Table -->
@@ -551,5 +632,12 @@
         justify-content: center;
         align-items: center;
         margin: 0rem 0rem 1rem 0rem;
+    }
+    .hidden-buttons {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-around;
+        width: 100%;
+        max-width: 50rem;
     }
 </style>
