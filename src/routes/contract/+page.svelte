@@ -42,8 +42,8 @@
     {:else}
         <main>
             <div>
-                <h1>Opprett elevkontrakt</h1>
-                <p>Her kan du opprette en elevkontrakt for en elev som ikke har en digital kontrakt.</p>
+                <h1>Opprett elevavtaler</h1>
+                <p>Her kan du opprette en elevavtale for en elev som ikke har en digital avtale.</p>
                 <p>Fyll inn elevens fødselsnummer/D-nummer og trykk på "Hent elev" for å hente informasjon om eleven.</p>
                 <br>
                 <p>Lenker til papirversjon av skjemaene:</p>

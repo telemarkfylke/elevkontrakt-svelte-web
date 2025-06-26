@@ -46,7 +46,7 @@
 			errors.type = 'Avtale type er obligatorisk'
 		}
         if (touchedFields.attachment && !attachment) {
-            errors.attachment = 'Kontrakt er obligatorisk'
+            errors.attachment = 'Avtale er obligatorisk'
         }
         if (touchedFields.fnr && data.studentData?.fnr === '') {
             if(data.studentData?.fnr.length < 11) {
@@ -115,7 +115,7 @@
                 errors = {
                     name: 'Navn er obligatorisk',
                     type: 'Type avtale er obligatorisk',
-                    attachment: 'Kontrakt er obligatorisk',
+                    attachment: 'Avtale er obligatorisk',
                     schoolName: 'Skolenavn er obligatorisk',
                     schoolOrgNumber: 'Skole organisasjonsnummer er obligatorisk',
                     fnr: 'Fødselsnummer er obligatorisk',
