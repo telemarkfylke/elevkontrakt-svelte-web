@@ -73,7 +73,7 @@
                         </div>
                     {:else}
                         <div>
-                            <h3>Er du sikker på at du vil opprette avtalenen?</h3>
+                            <h3>Er du sikker på at du vil opprette avtalen?</h3>
                             <button on:click={() => postToManualContract(submittedData)}>Opprett avtale</button>
                         </div>
                     {/if}
@@ -82,7 +82,7 @@
                         <h2>Avtalen er opprettet og arkivert ✅</h2>
                         <p>Avtalen er arikvert med dette dokumentnummeret: <strong>{result.data.document.signedSkjemaInfo.archiveDocumentNumber}</strong></p>
                         <br>
-                        <p>Ønsker du å opprette en ny avtale kan du skrive inn et nytt Fødselsnummer og hente en ny elev.</p>
+                        <p>Ønsker du å opprette en ny avtale kan du skrive inn et nytt fødselsnummer og hente en ny elev.</p>
                     </div>
                 {:else if result !== undefined && result?.data?.result?.acknowledged !== true}
                     <div class="error">
