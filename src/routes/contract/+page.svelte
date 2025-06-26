@@ -41,11 +41,26 @@
         </div>
     {:else}
         <main>
-            <div class="getStudent">
-                <p>NB: Eleven må finnes i VIS</p>
-                <div class="searchField">
-                    <Input disabled="{isLoadingStudentData}" type="text" bind:value={studentSSN} placeholder="Fødselsnummer/D-Nummer" />
-                    <button disabled="{studentSSN.length !== 11 || isLoadingStudentData}" on:click={() => checkStudentSSN(studentSSN)}>Hent elev</button>
+            <div>
+                <h1>Opprett elevkontrakt</h1>
+                <p>Her kan du opprette en elevkontrakt for en elev som ikke har en digital kontrakt.</p>
+                <p>Fyll inn elevens fødselsnummer/D-nummer og trykk på "Hent elev" for å hente informasjon om eleven.</p>
+                <br>
+                <p>Lenker til papirversjon av skjemaene:</p>
+                <ul style="list-style-type: none; padding: 0;">
+                    <li><a href="https://telemarkfylke.no/globalassets/tfk/dokumenter/opplaring-og-folkehelse/elev-pc/leieavtale/avtale-leie-elev-pc-og-utlansmidler---revisjon250625.pdf" target="_blank">Lenke til leieavtale for utskrift</a></li>
+                    <li><a href="https://telemarkfylke.no/globalassets/tfk/dokumenter/opplaring-og-folkehelse/elev-pc/laneavtale/avtale-utlan-elev-pc-og-gratis-laremidler---revisjon250625.pdf" target="_blank">Lenke til låneavtale for utskrift</a></li>
+                </ul>
+                <br>
+                <div class="getStudent">
+                    <p>NB: Eleven må finnes i VIS</p>
+                    <div class="searchField">
+                        <Input disabled="{isLoadingStudentData}" type="text" bind:value={studentSSN} placeholder="Fødselsnummer/D-Nummer" />
+                        <button disabled="{studentSSN.length !== 11 || isLoadingStudentData}" on:click={() => checkStudentSSN(studentSSN)}>Hent elev</button>
+                    </div>
+                </div>
+                <div class="links">
+                    
                 </div>
             </div>
             <div>
@@ -107,5 +122,11 @@
         display: flex;
         gap: 1rem;
         align-items: center;
+    }
+
+    .links {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
     }
 </style>
