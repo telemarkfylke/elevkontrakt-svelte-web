@@ -114,3 +114,23 @@ export const checkStudent = async (ssn) => {
   const { data } = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
   return data;
 }
+
+
+
+export const postManualContract = async (contractData) => {
+  // Check if the contractData is provided, if not, return an error
+  // Post contractData to the Elevkontrakt API for manual contract creation and archiving.
+  const body = {
+    ...contractData,
+    isManual: true
+  }
+  const token = await getElevkontraktToken()
+    const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/handleDbRequest${import.meta.env.VITE_MOCK_DATA === "true" ? '?isMock=true' : '?isMock=false'}`;
+    try {
+        const data = await axios.post(url, body, {headers: { Authorization: `Bearer ${token}` }});
+        return data
+    } catch (error) {
+        return error; // Rethrow the error to handle it in the calling function
+    }
+  // Return the response from the API
+}

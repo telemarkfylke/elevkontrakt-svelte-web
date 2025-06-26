@@ -8,7 +8,7 @@
     export let needAnsvarlig = false
     export let isLoading = false
 
-	let name = data.name ?? ''
+    let name = data.studentData.student.fulltnavn ?? ''
 	let type = data.type ?? ''
     let attachment = data.attachment ?? null
     let schoolName = data.schoolName ?? ''
@@ -23,67 +23,95 @@
     let dataSubmitted = false
 	
 	$: result = {
-		name, type, attachment, schoolName: data.studentData?.schoolInfo?.navn, schoolOrgNumber:data.studentData?.schoolInfo?.orgnr, fnr, foresatt, foresattValg: result?.foresatt?.fulltnavn, foresattNavn: result?.foresatt?.fulltnavn, foresattFnr: result?.foresatt?.foedselsEllerDNummer
+		name:data?.studentData?.student?.fulltnavn, 
+        type, 
+        attachment, 
+        schoolName: data.studentData?.schoolInfo?.navn, 
+        schoolOrgNumber:data.studentData?.schoolInfo?.orgnr, 
+        fnr, 
+        foresatt, 
+        foresattValg: result?.foresatt?.fulltnavn, 
+        foresattNavn: result?.foresatt?.fulltnavn || foresattNavn, 
+        foresattFnr: result?.foresatt?.foedselsEllerDNummer || foresattFnr
 	}
 	
 	$: errors = validate(touchedFields, result)
 
 	const validate = () => {
 		const errors = {};
-		if (touchedFields.name && name === '') {
-			errors.name = 'Navn er obligatorisk';
+		if (touchedFields.name && data.studentData.student.fulltnavn === '') {
+			errors.name = 'Navn er obligatorisk'
 		}
 		if (touchedFields.type && type === '') {
-			errors.type = 'Avtale type er obligatorisk';
+			errors.type = 'Avtale type er obligatorisk'
 		}
         if (touchedFields.attachment && !attachment) {
-            errors.attachment = 'Attachment is required';
+            errors.attachment = 'Kontrakt er obligatorisk'
         }
         if (touchedFields.fnr && data.studentData?.fnr === '') {
             if(data.studentData?.fnr.length < 11) {
-                errors.fnr = 'Fødselsnummer er for kort';
+                errors.fnr = 'Fødselsnummer er for kort'
             } else {
-                errors.fnr = 'Fødselsnummer er for langt';
+                errors.fnr = 'Fødselsnummer er for langt'
             }
-            errors.fnr = 'Fødselsnummer er obligatorisk';
+            errors.fnr = 'Fødselsnummer er obligatorisk'
         }
         if (touchedFields.schoolName && data.studentData?.schoolInfo?.navn === '') {
-            errors.schoolName = 'Skolenavn er obligatorisk';
+            errors.schoolName = 'Skolenavn er obligatorisk'
         }
 
         if (touchedFields.schoolOrgNumber && data.studentData?.schoolInfo?.orgnr === '') {
             if(data.studentData?.schoolInfo?.orgnr.length < 9) {
-                errors.schoolOrgNumber = 'Skole organisasjonsnummer er for kort';
+                errors.schoolOrgNumber = 'Skole organisasjonsnummer er for kort'
             } else {
-                errors.schoolOrgNumber = 'Skole organisasjonsnummer er for langt';
+                errors.schoolOrgNumber = 'Skole organisasjonsnummer er for langt'
             }
-            errors.schoolOrgNumber = 'Skole organisasjonsnummer er obligatorisk';
+            errors.schoolOrgNumber = 'Skole organisasjonsnummer er obligatorisk'
         }
 
-        if(touchedFields.foresattFnr && data.studentData?.ansvarlig?.foedselsEllerDNummer === '') {
-            if(data.studentData?.ansvarlig?.foedselsEllerDNummer.length < 11) {
-                errors.foresattFnr = 'Fødselsnummer er for kort';
-            } else {
-                errors.foresattFnr = 'Fødselsnummer er for langt';
-            }
-            errors.foresattFnr = 'Fødselsnummer er obligatorisk';
+        if(touchedFields.foresattFnr && result?.foresattFnr === '' && data?.studentData?.isUnder18) {
+            errors.foresattFnr = 'Fødselsnummer er obligatorisk'
+        }
+        if(touchedFields.foresattFnr && result?.foresattFnr.toString().length < 11 && data?.studentData?.isUnder18) {
+            errors.foresattFnr = 'Fødselsnummer er for kort'
+        }
+        if(touchedFields.foresattFnr && result?.foresattFnr.toString().length > 11 && data?.studentData?.isUnder18) {
+            errors.foresattFnr = 'Fødselsnummer er for langt'
+        }
+        if(touchedFields.foresattNavn && result?.foresattNavn === '') {
+            errors.foresattNavn = 'Navn er obligatorisk'
         }
 
-        if(touchedFields.foresattNavn && data.studentData?.ansvarlig?.fulltnavn === '') {
-            errors.foresattNavn = 'Navn er obligatorisk';
-        }
-
-        if (touchedFields.foresatt && foresatt === '') {
-			errors.foresattValg = 'Å velge en foresatt er obligatorisk';
+        if (touchedFields.foresatt && foresatt === '' && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0) && data?.studentData?.isUnder18) {
+			errors.foresattValg = 'Å velge en foresatt er obligatorisk'
 		}
 		return errors;
 	};
 	
 	const validateAndSubmit = () => {
-		touchedFields = { name: true, type: true, attachment: true,  schoolOrgNumber: true, schoolName: true, fnr: true, foresattValg: true, foresatt: true };
+		touchedFields = { 
+            name: true, 
+            type: true, 
+            attachment: true,  
+            schoolOrgNumber: true, 
+            schoolName: true, 
+            fnr: true, 
+            foresattValg: data?.studentData?.isUnder18 === true ? true : false, 
+            foresatt: data?.studentData?.isUnder18 === true ? true : false,
+            foresattFnr: data?.studentData?.isUnder18 === true ? true : false,
+            foresattNavn: data?.studentData?.isUnder18 === true ? true : false 
+        }
 		if (Object.keys(errors).length === 0) {
             // If there are no errors, and the fields are not empty, we can submit the data
-            if(result.name === '' || result.type === '' || result.attachment === null || result.schoolName === '' || result.schoolOrgNumber === '' || result.fnr === '' || result.foresattValg === '' || result.foresatt === '') {
+            if(result.name === '' || 
+                result.type === '' || 
+                result.attachment === null || 
+                result.schoolName === '' || 
+                result.schoolOrgNumber === '' || 
+                result.fnr === '' || 
+                (result.foresattValg === '' && result.foresattNavn === '' && data?.studentData?.isUnder18)  || 
+                (result.foresatt ===  '' && result.foresattFnr === '' && data?.studentData?.isUnder18)) {
+
                 errors = {
                     name: 'Navn er obligatorisk',
                     type: 'Type avtale er obligatorisk',
@@ -92,10 +120,13 @@
                     schoolOrgNumber: 'Skole organisasjonsnummer er obligatorisk',
                     fnr: 'Fødselsnummer er obligatorisk',
                     foresattValg: 'Å velge en foresatt er obligatorisk',
-                    foresatt: 'Å velge en foresatt er obligatorisk'
+                    foresatt: 'Å velge en foresatt er obligatorisk',
+                    foresattFnr: 'Fødselsnummer til foresatt er obligatorisk',
+                    foresattNavn: 'Navn på foresatt er obligatorisk'
                 }
             } else {
                 dataSubmitted = true;
+                result.foresattFnr = result.foresattFnr.toString()
 			    onSubmit(result);
             }
             
@@ -129,33 +160,69 @@
                 {#if data?.studentData?.isUnder18 === true}
                     <p>Eleven er under 18 år og må ha en ansvarlig</p>
                     <p>❗Viktig at den foresatte har signert avtalen som lastes opp❗</p>
-                    <Select 
-                        label="Velg foresatt"
-                        bind:value={foresatt}
-                        on:blur={() => touchedFields.foresattValg = true}
-                        error={errors.foresattValg}
-                        >
-                        {#each data?.studentData?.ansvarlig as foresatt}
-                            <option value={foresatt}>{foresatt.fulltnavn}</option>
-                        {/each}
-                    </Select>                
+                    {#if data?.studentData?.ansvarlig?.length > 0}
+                        <Select 
+                            label="Velg foresatt"
+                            bind:value={foresatt}
+                            on:blur={() => touchedFields.foresattValg = true}
+                            error={errors.foresattValg}
+                            >
+                            {#each data?.studentData?.ansvarlig as foresatt}
+                                <option value={foresatt}>{foresatt.fulltnavn}</option>
+                            {/each}
+                        </Select>
+                    {:else if data?.studentData?.ansvarligSomIkkeKanVarsles?.length > 0 && data?.studentData?.ansvarlig?.length === 0}
+                        <Select 
+                            label="Velg foresatt"
+                            bind:value={foresatt}
+                            on:blur={() => touchedFields.foresattValg = true}
+                            error={errors.foresattValg}
+                            >
+                            {#each data?.studentData?.ansvarligSomIkkeKanVarsles as foresatt}
+                                <option value={foresatt}>{foresatt.fulltnavn}</option>
+                            {/each}
+                        </Select>
+                    {:else if data?.studentData?.ansvarligSomIkkeKanVarsles?.length === 0 && data?.studentData?.ansvarlig?.length === 0}
+                        <strong> ❗ Ingen foresatte funnet for denne eleven. Vennligst legg til en foresatt. ❗</strong>
+                    {/if}             
                 {/if}
-                <Input
-                    type="text"
-                    label="Navn på foresatt"
-                    disabled={data?.studentData?.isUnder18 === true}
-                    value={result?.foresatt?.fulltnavn}
-                    on:blur={() => touchedFields.foresattNavn = true}
-                    error={errors.foresattNavn}
-                />
-                <Input
-                    type="text"
-                    label="Fødselsnummer/D-nummer til foresatt" 
-                    disabled={data?.studentData?.isUnder18 === true}
-                    value={result?.foresatt?.foedselsEllerDNummer}
-                    on:blur={() => touchedFields.foresattFnr = true}
-                    error={errors.foresattFnr}
-                />
+                {#if data?.studentData?.ansvarligSomIkkeKanVarsles?.length === 0 && data?.studentData?.ansvarlig?.length === 0}
+                    <Input
+                        type="text"
+                        label="Navn på foresatt"
+                        disabled={false}
+                        bind:value={foresattNavn}
+                        foresattNavn={foresattNavn}
+                        on:blur={() => touchedFields.foresattNavn = true}
+                        error={errors.foresattNavn}
+                    />
+                    <Input
+                        type="number"
+                        label="Fødselsnummer/D-nummer til foresatt" 
+                        disabled={false}
+                        bind:value={foresattFnr}
+                        foresattFnr={foresattFnr}
+                        on:blur={() => touchedFields.foresattFnr = true}
+                        error={errors.foresattFnr}
+                    />
+                {:else}
+                    <Input
+                        type="text"
+                        label="Navn på foresatt"
+                        disabled={data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0)}
+                        value={result?.foresatt?.fulltnavn ?? ''}
+                        on:blur={() => touchedFields.foresattNavn = true}
+                        error={errors.foresattNavn}
+                    />
+                    <Input
+                        type="text"
+                        label="Fødselsnummer/D-nummer til foresatt" 
+                        disabled={data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0)}
+                        value={result?.foresatt?.foedselsEllerDNummer ?? ''}
+                        on:blur={() => touchedFields.foresattFnr = true}
+                        error={errors.foresattFnr}
+                    />
+                {/if}
             {/if}
             <Input
                 type="text"

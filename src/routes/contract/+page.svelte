@@ -2,15 +2,17 @@
     import IconSpinner from '$lib/components/IconSpinner.svelte';
     import Input from '$lib/components/Input.svelte';
 	import Form from '../../lib/components/Form.svelte';
-    import { checkStudent, getElevkontraktToken } from '../../lib/useApi.js';
+    import { checkStudent, getElevkontraktToken, postManualContract } from '../../lib/useApi.js';
 	
-	let data = {};
-	let submittedData;
+	let data = {}
+	let submittedData = null
     let studentSSN = ''
     let isLoadingStudentData = false
     let isLoading = false
+    let result
 
     const checkStudentSSN = async (ssn) => {
+        result = undefined
         isLoadingStudentData = true
         const student = await checkStudent(ssn);
         data.studentData = student
@@ -18,9 +20,11 @@
         isLoadingStudentData = false
     }
 
-    const postManualContract = async (data) => {
-        // TODO: Jobb for å opprette kontrakt
-        // console.log('postManualContract', data)
+    const postToManualContract = async (data) => {
+        isLoading = true
+        result = await postManualContract(data);
+        submittedData = null; // Reset submitted data after posting
+        isLoading = false
     }
 
 </script>
@@ -55,29 +59,37 @@
                 <div class="loading">
                     <IconSpinner width={"32px"} />
                 </div>
-            {:else if data?.studentData?.isError || data?.studentData?.isNonFixAbleError}
+            {:else if (data?.studentData?.isError || data?.studentData?.isNonFixAbleError) && (data?.studentData?.error !== "No foreldre/ansvarlig that can be contacted digitally")}
                 <div class="error">
                     <h2>Noe gikk galt, fant ikke elev eller annen viktig informasjon!</h2>
                     <p>Vennligst sjekk at fødselsnummeret er korrekt, at eleven er opprettet i <strong>VIS</strong> og at eleven har et gyldig skoleforhold.</p>
-                    <p>Er eleven under 18 er det viktig at de foresatte kan kontaktes digitalt.</p>
                 </div>
             {:else if data?.studentData}
                 <Form data={data} onSubmit={(data) => submittedData = data} />
                 {#if submittedData}
-                    <div>
-                        <h3>Er du sikker på at du vil opprette avtalenen?</h3>
-                        <pre>
-                            {JSON.stringify(submittedData, null, 2)}
-                        </pre>
-                        <button on:click={() => postManualContract(submittedData)}>Opprett avtale</button>
+                    {#if isLoading}
+                        <div class="loading">
+                            <IconSpinner width={"32px"} />
+                        </div>
+                    {:else}
+                        <div>
+                            <h3>Er du sikker på at du vil opprette avtalenen?</h3>
+                            <button on:click={() => postToManualContract(submittedData)}>Opprett avtale</button>
+                        </div>
+                    {/if}
+                {:else if result?.data?.result?.acknowledged === true && result !== undefined}
+                    <div class="success">
+                        <h2>Avtalen er opprettet og arkivert ✅</h2>
+                        <p>Avtalen er arikvert med dette dokumentnummeret: <strong>{result.data.document.signedSkjemaInfo.archiveDocumentNumber}</strong></p>
+                        <br>
+                        <p>Ønsker du å opprette en ny avtale kan du skrive inn et nytt Fødselsnummer og hente en ny elev.</p>
+                    </div>
+                {:else if result !== undefined && result?.data?.result?.acknowledged !== true}
+                    <div class="error">
+                        <h2>Noe gikk galt under oppretting av avtalen!</h2>
+                        <p>Vennligst prøv igjen senere.</p>
                     </div>
                 {/if}
-                <!-- <div>
-                    <span>Submitted Data</span>
-                    <pre>
-                        {JSON.stringify(submittedData, null, 2)}
-                    </pre>
-                </div> -->
             {/if}
         </main>
     {/if}
