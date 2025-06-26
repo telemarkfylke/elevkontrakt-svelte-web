@@ -159,7 +159,7 @@
             {#if data?.studentData?.isUnder18 === true || data?.needAnsvarlig === true}
                 {#if data?.studentData?.isUnder18 === true}
                     <p>Eleven er under 18 år og må ha en ansvarlig</p>
-                    <p>❗Viktig at den foresatte har signert avtalen som lastes opp❗</p>
+                    <strong><h3>❗Viktig at den foresatte har signert avtalen som lastes opp❗</h3></strong>
                     {#if data?.studentData?.ansvarlig?.length > 0}
                         <Select 
                             label="Velg foresatt"
