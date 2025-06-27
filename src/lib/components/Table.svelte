@@ -22,8 +22,8 @@
     export let isFilterApplied = false
     export let isSearchActive = false
 
-    $: isSignedOnlyChecked = false
-    $: isUnSignedOnlyChecked = false
+    $: isLaanOnlyChecked = false
+    $: isLeieOnlyChecked = false
     $: schoolSelected = ''
     $: classSelected = ''
 
@@ -100,20 +100,20 @@
         buttonClicked = true
     }
 
-    const applyFilter = (signedOnly, unSignedOnly, schoolSelected, classSelected) => {
+    const applyFilter = (laanOnly, leieOnly, schoolSelected, classSelected) => {
         // Reset data to original data if no filters are selected
-        if(signedOnly === false || !schoolSelected === true || !classSelected === true || unSignedOnly === false) {
+        if(laanOnly === false || !schoolSelected === true || !classSelected === true || leieOnly === false) {
             isFilterApplied = false
             resetFilter()
         }
         // Filter data based on selected filters
-        if(signedOnly) {
+        if(laanOnly) {
             isFilterApplied = true
-            data = data.filter(item => item.isSigned === "true")
+            data = data.filter(item => item.unSignedskjemaInfo.kontraktType === "låneavtale")
         }
-        if(unSignedOnly) {
+        if(leieOnly) {
             isFilterApplied = true
-            data = data.filter(item => item.isSigned === "false")
+            data = data.filter(item => item.unSignedskjemaInfo.kontraktType === "leieavtale")
         }
         if(schoolSelected) {
             isFilterApplied = true
@@ -136,8 +136,8 @@
     }
 
     const resetFilterButton = () => {
-        isSignedOnlyChecked = false
-        isUnSignedOnlyChecked = false
+        isLaanOnlyChecked = false
+        isLeieOnlyChecked = false
         schoolSelected = ''
         classSelected = ''
     }
@@ -186,12 +186,12 @@
         {#if !isSearchActive}
             <div class="filters">
                 <div class="checkBoxFilter">
-                    <input type="checkbox" id="signed" name="signed" value="signed" bind:checked={isSignedOnlyChecked} disabled={false}>
-                    <label for="signed">Kun signerte avtaler</label>
+                    <input type="checkbox" id="signed" name="signed" value="signed" bind:checked={isLaanOnlyChecked} disabled={false}>
+                    <label for="signed">Kun låneavtaler</label>
                 </div>
                 <div class="checkBoxFilter">
-                    <input type="checkbox" id="unSigned" name="unSigned" value="unSigned" bind:checked={isUnSignedOnlyChecked} disabled={false}>
-                    <label for="unSigned">Kun usignerte avtaler</label>
+                    <input type="checkbox" id="unSigned" name="unSigned" value="unSigned" bind:checked={isLeieOnlyChecked} disabled={false}>
+                    <label for="unSigned">Kun leieavtaler</label>
                 </div>
                 <div class="schoolFilter">
                     <label for="school">Velg Skole: </label>
@@ -226,10 +226,10 @@
                 <p>Du kan ikke bruke filter når søkefeltet er aktivt</p>
             </div>
         {/if}
-        {#if isSignedOnlyChecked || isUnSignedOnlyChecked || schoolSelected || classSelected}
-            {applyFilter(isSignedOnlyChecked, isUnSignedOnlyChecked, schoolSelected, classSelected)}
-        {:else if !isSignedOnlyChecked || !isUnSignedOnlyChecked || !schoolSelected || !classSelected}
-            {applyFilter(isSignedOnlyChecked, isUnSignedOnlyChecked, schoolSelected, classSelected)}
+        {#if isLaanOnlyChecked || isLeieOnlyChecked || schoolSelected || classSelected}
+            {applyFilter(isLaanOnlyChecked, isLeieOnlyChecked, schoolSelected, classSelected)}
+        {:else if !isLaanOnlyChecked || !isLeieOnlyChecked || !schoolSelected || !classSelected}
+            {applyFilter(isLaanOnlyChecked, isLeieOnlyChecked, schoolSelected, classSelected)}
         {/if}
         <div class="table">
             <div class="table-header">
