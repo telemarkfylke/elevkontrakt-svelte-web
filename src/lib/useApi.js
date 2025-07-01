@@ -134,3 +134,16 @@ export const postManualContract = async (contractData) => {
     }
   // Return the response from the API
 }
+
+export const deleteContract = async (contractID) => {
+  // Check if the contractID is provided, if not, return an error
+  if(!contractID) return { error: 'No contractID provided' }
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/handleDbRequest${import.meta.env.VITE_MOCK_DATA === "true" ? '?isMock=true' : '?isMock=false'}`;
+  try {
+    const response = await axios.delete(url, { data: { contractID }, headers: { Authorization: `Bearer ${token}` } });
+    return response
+  } catch (error) {
+    return error
+  }
+}

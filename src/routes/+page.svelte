@@ -3,7 +3,7 @@
     import IconSpinner from '$lib/components/IconSpinner.svelte';
     import Modal from '$lib/components/Modal.svelte';
     import Table from '$lib/components/Table.svelte';
-    import { getContracts, getElevkontraktToken, getExtendedUserInfo, putContractPCStatusChange } from '$lib/useApi';
+    import { getContracts, getElevkontraktToken, getExtendedUserInfo, putContractPCStatusChange, deleteContract } from '$lib/useApi';
     import { error } from '@sveltejs/kit';
     import { onMount } from 'svelte';
     import { get } from 'svelte/store';
@@ -17,6 +17,7 @@
     let isProcessing = false
     let isFilterApplied = false
     let deliveryModeActive = false
+    let enabledActions = false
     let statusCode = 0
     let actionClicked
     let contractToBeEdited
@@ -40,6 +41,11 @@
     }
 
     const contracts = async (token) => {
+        // Enable actions for administrators
+        if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))) {
+            enabledActions = true
+        }
+
         if(!token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite'].includes(r))) {
             try {
                 const { data } = await getExtendedUserInfo(token.upn)
@@ -261,7 +267,7 @@
                     saveErrorMessage = "Du må krysse av for å utlevere PC"
                     isProcessing = false
                 }
-            } else {
+            } else if (action === "innlever") {
                 const innleverpc = document.getElementById('innleverpc').checked
                 if(innleverpc === true) {
                     try {
@@ -272,6 +278,13 @@
                     }
                 } else {
                     saveErrorMessage = "Du må krysse av for å registrere inn PC"
+                    isProcessing = false
+                }
+            } else if (action === "slett") {
+                try {
+                    response = await deleteContract(contractToBeEdited._id)
+                } catch (error) {
+                    saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                     isProcessing = false
                 }
             }
@@ -437,10 +450,10 @@
                     <!-- Table -->
                     {#if searchValue.length > 0}
                         <!-- Table that shows the searchresults -->
-                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={searchResults} loading={false} actions={{enabled: deliveryHeaders, actions:['Rediger']}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={true} bind:isFilterApplied={isFilterApplied}/>
+                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={searchResults} loading={false} actions={{enabled: enabledActions, actions:['Rediger', 'Slett']}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={true} bind:isFilterApplied={isFilterApplied}/>
                     {:else}
                         <!-- Table that shows all contracts -->
-                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={contractData} loading={false} actions={{enabled: deliveryHeaders, actions:['Rediger']}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied}/>
+                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={contractData} loading={false} actions={{enabled: enabledActions, actions:['Rediger', 'Slett']}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied}/>
                     {/if}
                     <!-- Edit modal -->
                     {#key showModal}
@@ -519,6 +532,28 @@
                                     </div>
                                 </Modal>
                             {/if}
+                        {/if}
+                        {#if actionClicked === 'Slett'}
+                            <Modal bind:showModal={showModal} disableClickOutSide={true} disableStandardButton={true}>
+                                <div slot="header">
+                                    <h2>Slett avtale</h2>
+                                </div>
+                                <div slot="mainContent">
+                                    <p>Er du sikker på at du vil slette avtalen for: <strong>{contractToBeEdited.elevInfo.navn}</strong>?</p>
+                                    <p>Dette kan ikke angres(joda :P)!</p>
+                                    {#if saveErrorMessage.length > 0}
+                                        <p style="color: red;"> <strong>{saveErrorMessage}❗</strong></p>
+                                    {/if}
+                                    {#if isProcessing === true}
+                                        <IconSpinner width="50px" />
+                                        <p>Lagrer endring...</p>
+                                    {/if}
+                                </div>
+                                <div slot="saveButton">
+                                    <button disabled={isProcessing} on:click={() => handleModalButtonClicks('Lagre', 'slett')}>Slett</button>
+                                    <button disabled={isProcessing} on:click={() => handleModalButtonClicks('Avbryt')}>Avbryt</button>
+                                </div>
+                            </Modal>
                         {/if}
                     {/key}
                 </div>
