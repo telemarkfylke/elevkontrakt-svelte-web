@@ -376,6 +376,27 @@
         link.click();
         document.body.removeChild(link);
     }
+
+    const countContracts = () => {
+        let count = {}
+
+        // Count the number of contracts if type leieavtale and låneavtale
+        response.result.forEach(contract => {
+            if (contract.unSignedskjemaInfo.kontraktType === 'leieavtale' || contract.unSignedskjemaInfo.kontraktType === 'låneavtale') {
+                if (count[contract.unSignedskjemaInfo.kontraktType]) {
+                    count[contract.unSignedskjemaInfo.kontraktType] += 1;
+                } else {
+                    count[contract.unSignedskjemaInfo.kontraktType] = 1;
+                }
+            }
+        });
+        // If there is no contracts of type leieavtale or låneavtale, return 0
+        if (Object.keys(count).length === 0) {
+            return 0;
+        }
+
+        return count
+    }
 </script>
 
 <main>
@@ -556,6 +577,10 @@
                             </Modal>
                         {/if}
                     {/key}
+                </div>
+                <div>
+                    <p>Antall leieavtaler: {countContracts().leieavtale || 0}</p>
+                    <p>Antall låneavtaler: {countContracts().låneavtale || 0}</p>
                 </div>
             </div>
         {:catch error}
