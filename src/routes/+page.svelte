@@ -464,7 +464,7 @@
                                 <button on:click={ () => deliveryMode() }>Tilbake til normalmodus</button>
                             </div>
                         {/if}
-                        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite'].includes(r))}
                             <div class="delivery-button">
                                 <button on:click={() => exportData()}>Eksporter data</button>
                             </div>
