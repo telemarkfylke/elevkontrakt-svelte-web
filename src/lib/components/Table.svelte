@@ -21,6 +21,7 @@
     export let highLightCells = true
     export let isFilterApplied = false
     export let isSearchActive = false
+    export let deliveryModeActive = false
 
     $: isLaanOnlyChecked = false
     $: isLeieOnlyChecked = false
@@ -172,6 +173,18 @@
         return canvas.toDataURL("image/png");
     }
 
+    const isNewStudent = (row) => {
+        // Get the todays year
+        const today = new Date();
+        const currentYear = today.getFullYear().toString().slice(-2); // 2025 === 25
+        // Check if the student is new by checking the elevInfo object
+        if(row.signedSkjemaInfo.archiveDocumentNumber.split('/')[0] === currentYear) {
+            return true
+        } else {
+            return false
+        }
+    }
+
 </script>
 
 <div class="table-container">
@@ -253,7 +266,7 @@
                 </div>
             {:else}
                 {#each data as row}
-                    <div class="table-row">
+                    <div class="table-row" style="background-color: {deliveryModeActive ? (isNewStudent(row) ? 'var(--gress-20)' : 'var(--nype-10)') : 'white'};">
                         {#each columns as column, colIndex}
                             <div class="table-cell">
                                 <div class="cell-content">

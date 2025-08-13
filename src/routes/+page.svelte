@@ -189,6 +189,10 @@
         deliveryModeActive = !deliveryModeActive
         if(deliveryModeActive === true) {
             deliveryHeaders = headers.filter(header => header.label === 'QrKode' || header.label === 'Navn' || header.label === 'Skole' || header.label === 'Status signering')
+            deliveryHeaders.push({
+                label: 'Dokumentnummer',
+                key: 'signedSkjemaInfo.archiveDocumentNumber'
+            })
         }
     }
 
@@ -471,10 +475,10 @@
                     <!-- Table -->
                     {#if searchValue.length > 0}
                         <!-- Table that shows the searchresults -->
-                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={searchResults} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions:['Rediger', 'Slett']}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={true} bind:isFilterApplied={isFilterApplied}/>
+                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={searchResults} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions:['Rediger', 'Slett']}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={true} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive}/>
                     {:else}
                         <!-- Table that shows all contracts -->
-                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={contractData} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions:['Rediger', 'Slett']}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied}/>
+                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={contractData} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions:['Rediger', 'Slett']}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive}/>
                     {/if}
                     <!-- Edit modal -->
                     {#key showModal}
