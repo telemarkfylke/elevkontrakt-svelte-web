@@ -50,6 +50,7 @@
                 <ul style="list-style-type: none; padding: 0;">
                     <li><a href="https://telemarkfylke.no/globalassets/tfk/dokumenter/opplaring-og-folkehelse/elev-pc/leieavtale/avtale-leie-elev-pc-og-utlansmidler---revisjon250625.pdf" target="_blank">Lenke til leieavtale for utskrift</a></li>
                     <li><a href="https://telemarkfylke.no/globalassets/tfk/dokumenter/opplaring-og-folkehelse/elev-pc/laneavtale/avtale-utlan-elev-pc-og-gratis-laremidler---revisjon250625.pdf" target="_blank">Lenke til låneavtale for utskrift</a></li>
+                    <li><a href="https://telemarkfylke.no/no/meny/tjenester/opplaring-og-folkehelse/opplaring-i-skole/praktisk-informasjon/laneavtale-pc-og-lan-av-lareboker/Loan-PC-and-textbooks/">Leie- og utlånsavtale på andre språk</a></li>
                 </ul>
                 <br>
                 <div class="getStudent">
@@ -80,7 +81,7 @@
                     <p>Vennligst sjekk at fødselsnummeret er korrekt, at eleven er opprettet i <strong>VIS</strong> og at eleven har et gyldig skoleforhold.</p>
                 </div>
             {:else if data?.studentData}
-                <Form data={data} onSubmit={(data) => submittedData = data} />
+                <Form data={data} onSubmit={(data) => submittedData = data} token={token} />
                 {#if submittedData}
                     {#if isLoading}
                         <div class="loading">
