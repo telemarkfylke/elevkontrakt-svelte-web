@@ -7,6 +7,7 @@
 	export let onSubmit = () => {}
     export let needAnsvarlig = false
     export let isLoading = false
+    export let token = null
 
     let name = data.studentData.student.fulltnavn ?? ''
 	let type = data.type ?? ''
@@ -21,7 +22,8 @@
 	let errors = {}
 	let touchedFields = {}
     let dataSubmitted = false
-	
+    
+    $: unlockForesattFieldsBool = false
 	$: result = {
 		name:data?.studentData?.student?.fulltnavn, 
         type, 
@@ -31,7 +33,7 @@
         fnr, 
         foresatt, 
         foresattValg: result?.foresatt?.fulltnavn, 
-        foresattNavn: result?.foresatt?.fulltnavn || foresattNavn, 
+        foresattNavn: result?.foresatt?.fulltnavn || foresattNavn,
         foresattFnr: result?.foresatt?.foedselsEllerDNummer || foresattFnr
 	}
 	
@@ -96,8 +98,8 @@
             schoolOrgNumber: true, 
             schoolName: true, 
             fnr: true, 
-            foresattValg: data?.studentData?.isUnder18 === true ? true : false, 
-            foresatt: data?.studentData?.isUnder18 === true ? true : false,
+            foresattValg: unlockForesattFieldsBool === true ? false : data?.studentData?.isUnder18 === true ? true : false, 
+            foresatt: unlockForesattFieldsBool === true ? false : data?.studentData?.isUnder18 === true ? true : false,
             foresattFnr: data?.studentData?.isUnder18 === true ? true : false,
             foresattNavn: data?.studentData?.isUnder18 === true ? true : false 
         }
@@ -131,13 +133,44 @@
             }
             
 		}
-	};
+	}
 
+    const unlockForesattFields = () => {
+        // Toggle the unlockForesattFieldsBool variable to unlock or lock the foresatt fields
+        unlockForesattFieldsBool = !unlockForesattFieldsBool
+        // Clear result.foresatt
+        if(unlockForesattFieldsBool === true) {
+            data.foresatt = ''
+            data.foresattNavn = ''
+            data.foresattFnr = ''
+            result.foresatt = ''
+            result.foresattNavn = ''
+            result.foresattFnr = ''
+        } else {
+            // If the fields are locked, we set the foresatt to the selected value
+            if(foresattValg !== '') {
+                result.foresatt = foresattValg
+                result.foresattNavn = foresattValg.fulltnavn
+                result.foresattFnr = foresattValg.foedselsEllerDNummer
+            }
+        }
+    }
     
 </script>
 {#if data.studentData && !dataSubmitted}
     <!-- <h2>Student Data</h2>
     <pre>{JSON.stringify(data.studentData, null, 2)}</pre> -->
+    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+        {#if !unlockForesattFieldsBool}
+            <button style="margin-bottom: 1rem;" on:click={() => unlockForesattFields()}>
+                Lås opp foresatt felt 🔓
+            </button>
+        {:else}
+            <button style="margin-bottom: 1rem;" on:click={() => unlockForesattFields()}>
+                Lås foresatt felt 🔒
+            </button>
+        {/if}
+    {/if}
     <div class="form">
         <fieldset class="fieldset">
             <Input
@@ -175,7 +208,7 @@
                         <Select 
                             label="Velg foresatt"
                             bind:value={foresatt}
-                            on:blur={() => touchedFields.foresattValg = true}
+                            on:blur={() => unlockForesattFieldsBool === true ? touchedFields.foresattValg = false : touchedFields.foresattValg = true}
                             error={errors.foresattValg}
                             >
                             {#each data?.studentData?.ansvarligSomIkkeKanVarsles as foresatt}
@@ -205,23 +238,52 @@
                         on:blur={() => touchedFields.foresattFnr = true}
                         error={errors.foresattFnr}
                     />
+                {:else if unlockForesattFieldsBool === true}
+                    <div class="foresatt-info">
+                        <div class="foresatt-info-fields">
+                            <Input
+                            type="text"
+                            label="Navn på foresatt"
+                            disabled={unlockForesattFieldsBool === true ? false : (data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0))}
+                            bind:value={foresattNavn}
+                            on:blur={() => touchedFields.foresattNavn = true}
+                            error={errors.foresattNavn}
+                        /> 
+                        </div>
+                        <div class="foresatt-info-fields">
+                            <Input
+                            type="text"
+                            label="Fødselsnummer/D-nummer til foresatt" 
+                            disabled={unlockForesattFieldsBool === true ? false : (data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0))}
+                            bind:value={foresattFnr}
+                            on:blur={() => touchedFields.foresattFnr = true}
+                            error={errors.foresattFnr}
+                        /> 
+                        </div>
+                    </div>
                 {:else}
-                    <Input
-                        type="text"
-                        label="Navn på foresatt"
-                        disabled={data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0)}
-                        value={result?.foresatt?.fulltnavn ?? ''}
-                        on:blur={() => touchedFields.foresattNavn = true}
-                        error={errors.foresattNavn}
-                    />
-                    <Input
-                        type="text"
-                        label="Fødselsnummer/D-nummer til foresatt" 
-                        disabled={data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0)}
-                        value={result?.foresatt?.foedselsEllerDNummer ?? ''}
-                        on:blur={() => touchedFields.foresattFnr = true}
-                        error={errors.foresattFnr}
-                    />
+                    <div class="foresatt-info">
+                        <div class="foresatt-info-fields">
+                            <Input
+                            type="text"
+                            label="Navn på foresatt"
+                            disabled={data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0)}
+                            value={result?.foresatt?.fulltnavn ?? ''}
+                            on:blur={() => touchedFields.foresattNavn = true}
+                            error={errors.foresattNavn}
+                        /> 
+                        </div>
+                        <div class="foresatt-info-fields">
+                            <Input
+                            type="text"
+                            label="Fødselsnummer/D-nummer til foresatt" 
+                            disabled={data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0)}
+                            value={result?.foresatt?.foedselsEllerDNummer ?? ''}
+                            on:blur={() => touchedFields.foresattFnr = true}
+                            error={errors.foresattFnr}
+                        /> 
+                        </div>
+                    </div>
                 {/if}
             {/if}
             <Input
@@ -263,6 +325,11 @@
             <!-- <div>
                 <pre>
                     {JSON.stringify(result, null, 2)}
+                    {JSON.stringify(unlockForesattFieldsBool, null, 2)}
+                    {JSON.stringify(token, null, 2)}
+                    {JSON.stringify(!token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r)), null, 2)}
+                    {JSON.stringify(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r)) === true ? false : (data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0)), null, 2)}
+                    {JSON.stringify(data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0), null, 2)}
                 </pre>
             </div> -->
         </fieldset>
@@ -286,4 +353,9 @@
 		border-radius: 4px;
 		padding: 20px;
 	}
+    .foresatt-info-fields {
+        display: flex;
+        flex-direction: row;
+        gap: 10px;
+    }
 </style>
