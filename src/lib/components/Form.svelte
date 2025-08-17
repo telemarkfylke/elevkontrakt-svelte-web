@@ -160,7 +160,7 @@
 {#if data.studentData && !dataSubmitted}
     <!-- <h2>Student Data</h2>
     <pre>{JSON.stringify(data.studentData, null, 2)}</pre> -->
-    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r)) || (token.roles.some((r) => ['elevkontrakt.skoleadministrator-write'].includes(r)) && (data.studentData.isUnder18 === true && data.studentData.ansvarlig?.length === 0))}
         {#if !unlockForesattFieldsBool}
             <button style="margin-bottom: 1rem;" on:click={() => unlockForesattFields()}>
                 Lås opp foresatt felt 🔓
