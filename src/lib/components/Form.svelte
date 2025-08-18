@@ -189,102 +189,100 @@
                 on:blur={() => touchedFields.fnr = true}
                 error={errors.fnr}
             />
-            {#if data?.studentData?.isUnder18 === true || data?.needAnsvarlig === true}
-                {#if data?.studentData?.isUnder18 === true}
-                    <p>Eleven er under 18 år og må ha en ansvarlig</p>
-                    <strong><h3>❗Viktig at den foresatte har signert avtalen som lastes opp❗</h3></strong>
-                    {#if data?.studentData?.ansvarlig?.length > 0}
-                        <Select 
-                            label="Velg foresatt"
-                            bind:value={foresatt}
-                            on:blur={() => touchedFields.foresattValg = true}
-                            error={errors.foresattValg}
-                            >
-                            {#each data?.studentData?.ansvarlig as foresatt}
-                                <option value={foresatt}>{foresatt.fulltnavn}</option>
-                            {/each}
-                        </Select>
-                    {:else if data?.studentData?.ansvarligSomIkkeKanVarsles?.length > 0 && data?.studentData?.ansvarlig?.length === 0}
-                        <Select 
-                            label="Velg foresatt"
-                            bind:value={foresatt}
-                            on:blur={() => unlockForesattFieldsBool === true ? touchedFields.foresattValg = false : touchedFields.foresattValg = true}
-                            error={errors.foresattValg}
-                            >
-                            {#each data?.studentData?.ansvarligSomIkkeKanVarsles as foresatt}
-                                <option value={foresatt}>{foresatt.fulltnavn}</option>
-                            {/each}
-                        </Select>
-                    {:else if data?.studentData?.ansvarligSomIkkeKanVarsles?.length === 0 && data?.studentData?.ansvarlig?.length === 0}
-                        <strong> ❗ Ingen foresatte funnet for denne eleven. Vennligst legg til en foresatt. ❗</strong>
-                    {/if}             
-                {/if}
-                {#if data?.studentData?.ansvarligSomIkkeKanVarsles?.length === 0 && data?.studentData?.ansvarlig?.length === 0}
-                    <Input
+            {#if data?.studentData?.isUnder18 === true}
+                <p>Eleven er under 18 år og må ha en ansvarlig</p>
+                <strong><h3>❗Viktig at den foresatte har signert avtalen som lastes opp❗</h3></strong>
+                {#if data?.studentData?.ansvarlig?.length > 0}
+                    <Select 
+                        label="Velg foresatt"
+                        bind:value={foresatt}
+                        on:blur={() => touchedFields.foresattValg = true}
+                        error={errors.foresattValg}
+                        >
+                        {#each data?.studentData?.ansvarlig as foresatt}
+                            <option value={foresatt}>{foresatt.fulltnavn}</option>
+                        {/each}
+                    </Select>
+                {:else if data?.studentData?.ansvarligSomIkkeKanVarsles?.length > 0 && data?.studentData?.ansvarlig?.length === 0}
+                    <Select 
+                        label="Velg foresatt"
+                        bind:value={foresatt}
+                        on:blur={() => unlockForesattFieldsBool === true ? touchedFields.foresattValg = false : touchedFields.foresattValg = true}
+                        error={errors.foresattValg}
+                        >
+                        {#each data?.studentData?.ansvarligSomIkkeKanVarsles as foresatt}
+                            <option value={foresatt}>{foresatt.fulltnavn}</option>
+                        {/each}
+                    </Select>
+                {:else if data?.studentData?.ansvarligSomIkkeKanVarsles?.length === 0 && data?.studentData?.ansvarlig?.length === 0}
+                    <strong> ❗ Ingen foresatte funnet for denne eleven. Vennligst legg til en foresatt. ❗</strong>
+                {/if}             
+            {/if}
+            {#if data?.studentData?.ansvarligSomIkkeKanVarsles?.length === 0 && data?.studentData?.ansvarlig?.length === 0}
+                <Input
+                    type="text"
+                    label="Navn på foresatt"
+                    disabled={false}
+                    bind:value={foresattNavn}
+                    foresattNavn={foresattNavn}
+                    on:blur={() => touchedFields.foresattNavn = true}
+                    error={errors.foresattNavn}
+                />
+                <Input
+                    type="number"
+                    label="Fødselsnummer/D-nummer til foresatt" 
+                    disabled={false}
+                    bind:value={foresattFnr}
+                    foresattFnr={foresattFnr}
+                    on:blur={() => touchedFields.foresattFnr = true}
+                    error={errors.foresattFnr}
+                />
+            {:else if unlockForesattFieldsBool === true}
+                <div class="foresatt-info">
+                    <div class="foresatt-info-fields">
+                        <Input
                         type="text"
                         label="Navn på foresatt"
-                        disabled={false}
+                        disabled={unlockForesattFieldsBool === true ? false : (data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0))}
                         bind:value={foresattNavn}
-                        foresattNavn={foresattNavn}
                         on:blur={() => touchedFields.foresattNavn = true}
                         error={errors.foresattNavn}
-                    />
-                    <Input
-                        type="number"
+                    /> 
+                    </div>
+                    <div class="foresatt-info-fields">
+                        <Input
+                        type="text"
                         label="Fødselsnummer/D-nummer til foresatt" 
-                        disabled={false}
+                        disabled={unlockForesattFieldsBool === true ? false : (data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0))}
                         bind:value={foresattFnr}
-                        foresattFnr={foresattFnr}
                         on:blur={() => touchedFields.foresattFnr = true}
                         error={errors.foresattFnr}
-                    />
-                {:else if unlockForesattFieldsBool === true}
-                    <div class="foresatt-info">
-                        <div class="foresatt-info-fields">
-                            <Input
-                            type="text"
-                            label="Navn på foresatt"
-                            disabled={unlockForesattFieldsBool === true ? false : (data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0))}
-                            bind:value={foresattNavn}
-                            on:blur={() => touchedFields.foresattNavn = true}
-                            error={errors.foresattNavn}
-                        /> 
-                        </div>
-                        <div class="foresatt-info-fields">
-                            <Input
-                            type="text"
-                            label="Fødselsnummer/D-nummer til foresatt" 
-                            disabled={unlockForesattFieldsBool === true ? false : (data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0))}
-                            bind:value={foresattFnr}
-                            on:blur={() => touchedFields.foresattFnr = true}
-                            error={errors.foresattFnr}
-                        /> 
-                        </div>
+                    /> 
                     </div>
-                {:else}
-                    <div class="foresatt-info">
-                        <div class="foresatt-info-fields">
-                            <Input
-                            type="text"
-                            label="Navn på foresatt"
-                            disabled={data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0)}
-                            value={result?.foresatt?.fulltnavn ?? ''}
-                            on:blur={() => touchedFields.foresattNavn = true}
-                            error={errors.foresattNavn}
-                        /> 
-                        </div>
-                        <div class="foresatt-info-fields">
-                            <Input
-                            type="text"
-                            label="Fødselsnummer/D-nummer til foresatt" 
-                            disabled={data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0)}
-                            value={result?.foresatt?.foedselsEllerDNummer ?? ''}
-                            on:blur={() => touchedFields.foresattFnr = true}
-                            error={errors.foresattFnr}
-                        /> 
-                        </div>
+                </div>
+            {:else}
+                <div class="foresatt-info">
+                    <div class="foresatt-info-fields">
+                        <Input
+                        type="text"
+                        label="Navn på foresatt"
+                        disabled={data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0)}
+                        value={result?.foresatt?.fulltnavn ?? ''}
+                        on:blur={() => touchedFields.foresattNavn = true}
+                        error={errors.foresattNavn}
+                    /> 
                     </div>
-                {/if}
+                    <div class="foresatt-info-fields">
+                        <Input
+                        type="text"
+                        label="Fødselsnummer/D-nummer til foresatt" 
+                        disabled={data?.studentData?.isUnder18 === true && (data?.studentData?.ansvarligSomIkkeKanVarsles?.length !== 0 || data?.studentData?.ansvarlig?.length !== 0)}
+                        value={result?.foresatt?.foedselsEllerDNummer ?? ''}
+                        on:blur={() => touchedFields.foresattFnr = true}
+                        error={errors.foresattFnr}
+                    /> 
+                    </div>
+                </div>
             {/if}
             <Input
                 type="text"

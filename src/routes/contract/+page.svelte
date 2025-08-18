@@ -75,7 +75,7 @@
                 <div class="loading">
                     <IconSpinner width={"32px"} />
                 </div>
-            {:else if (data?.studentData?.isError || data?.studentData?.isNonFixAbleError) && (data?.studentData?.error !== "No foreldre/ansvarlig that can be contacted digitally")}
+            {:else if (data?.studentData?.isError || data?.studentData?.isNonFixAbleError) && (data?.studentData?.error !== "No foreldre/ansvarlig that can be contacted digitally") && data?.studentData?.gotSchoolOrgNr === false}
                 <div class="error">
                     <h2>Noe gikk galt, fant ikke elev eller annen viktig informasjon!</h2>
                     <p>Vennligst sjekk at fødselsnummeret er korrekt, at eleven er opprettet i <strong>VIS</strong> og at eleven har et gyldig skoleforhold.</p>
