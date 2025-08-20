@@ -122,7 +122,7 @@
                         extra: [
                             {
                                 label: "Utlevert av",
-                                key: "pcInfo.releasedBy",
+                                key: "pcInfo.releaseBy",
                             },
                             {
                                 label: "Utlevert dato",
