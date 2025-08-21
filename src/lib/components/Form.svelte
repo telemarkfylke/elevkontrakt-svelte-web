@@ -229,7 +229,7 @@
                     error={errors.foresattNavn}
                 />
                 <Input
-                    type="number"
+                    type="text"
                     label="Fødselsnummer/D-nummer til foresatt" 
                     disabled={false}
                     bind:value={foresattFnr}
