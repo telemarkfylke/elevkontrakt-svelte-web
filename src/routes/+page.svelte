@@ -333,7 +333,7 @@
             // { label: "Faktura 2", key: "fakturaInfo.rate2.status" },
             // { label: "Faktura 3", key: "fakturaInfo.rate3.status" },
             // { label: "Ansvarlig", key: "ansvarligInfo.navn" },
-            // { label: "Avtale type", key: "unSignedskjemaInfo.kontraktType" }
+            { label: "Avtale type", key: "unSignedskjemaInfo.kontraktType" }
         ];
         /**
          * Keep for later, maybe we want to let the user select which columns to export (maybe not)
