@@ -34,10 +34,12 @@
         let formattedValue = value
         if (value === "true") formattedValue = "Ja"
         if (value === "false") formattedValue = "Nei"
-        if (value === null || value === undefined) formattedValue = "Ingen data"
-        if (typeof value === 'object' && Object.keys(value).length === 0) formattedValue = "Ingen data"
-        if (typeof value === 'object' && Object.keys(value).length > 0) formattedValue = JSON.stringify(value)
-        if (typeof value === 'string' && value !== "true" && value !== "false") formattedValue = value.charAt(0).toUpperCase() + value.slice(1)
+        if (value === null || value === undefined || value.toLowerCase() === "ukjent") formattedValue = "Ingen data"
+        if (value === "") formattedValue = "Ingen data"
+        if (value === null) formattedValue = "Ingen data"
+        if (value !== null && typeof value === 'object' && Object.keys(value).length === 0) formattedValue = "Ingen data"
+        if (value !== null && typeof value === 'object' && Object.keys(value).length > 0) formattedValue = JSON.stringify(value)
+        if (value !== null && typeof value === 'string' && value !== "true" && value !== "false") formattedValue = value.charAt(0).toUpperCase() + value.slice(1)
         // 2025-03-29T08:48:46.485Z -> 29.03.2025 Kl: 8:48
         if (typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)) {
             const date = new Date(value)
@@ -71,7 +73,31 @@
                                         border-radius: 0.25rem;">
                                         ${formattedValue}
                             </div>`
-                }
+                } else if (formattedValue === "Utlån faktureres ikke") {
+                    return `<div style="border: 1px solid var(--himmel-50);;
+                                        padding: 0.25rem;
+                                        background-color: var(--himmel-30);;
+                                        font-weight: bold;
+                                        border-radius: 0.25rem;">
+                                        ${formattedValue}
+                            </div>`
+                } else if (formattedValue === "Overført inkasso") {
+                    return `<div style="border: 1px solid var(--nype);;
+                                        padding: 0.25rem;
+                                        background-color: var(--nype);;
+                                        font-weight: bold;
+                                        border-radius: 0.25rem;">
+                                        ${formattedValue}
+                            </div>`
+                } else if (formattedValue === "Skal ikke betale") {
+                    return `<div style="border: 1px solid var(--korn-50);;
+                                        padding: 0.25rem;
+                                        background-color: var(--korn-30);;
+                                        font-weight: bold;
+                                        border-radius: 0.25rem;">
+                                        ${formattedValue}
+                            </div>`
+                } 
             }
         }
         
