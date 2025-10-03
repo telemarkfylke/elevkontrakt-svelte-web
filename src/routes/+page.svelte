@@ -285,7 +285,7 @@
             isProcessing = true
             let response
             if(action === "utlever") {
-                const utleverpc = document.getElementById('utleverpc').checked
+                const utleverpc = document.getElementById('utleverpc')?.checked
                 if(utleverpc === true) {
                     try {
                         response = await updateContractInfo(contractToBeEdited._id, { releasePC: true } )
@@ -298,7 +298,7 @@
                     isProcessing = false
                 }
             } else if (action === "innlever") {
-                const innleverpc = document.getElementById('innleverpc').checked
+                const innleverpc = document.getElementById('innleverpc')?.checked
                 if(innleverpc === true) {
                     try {
                         response = await updateContractInfo(contractToBeEdited._id, { returnPC: true } )
@@ -792,10 +792,10 @@
                                         {/if}
                                     </div>
                                     <div slot="saveButton">
-                                        {#if unLockPCFields === true && contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false" || (contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false")}
-                                            {#if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false"}
+                                        {#if unLockPCFields !== true && contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false" || (unLockUpdateFields !== true && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false")}
+                                            {#if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false" && unLockUpdateFields !== true}
                                                 <button on:click={() => handleModalButtonClicks('Lagre', 'utlever')}>Lagre</button>
-                                            {:else if contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false"}
+                                            {:else if contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false" && unLockUpdateFields !== true}
                                                 <button on:click={() => handleModalButtonClicks('Lagre', 'innlever')}>Lagre</button>
                                             {/if}
                                         {:else if unLockUpdateFields === true}
