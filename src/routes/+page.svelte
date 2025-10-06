@@ -792,10 +792,10 @@
                                         {/if}
                                     </div>
                                     <div slot="saveButton">
-                                        {#if unLockPCFields !== true && contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false" || (unLockUpdateFields !== true && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false")}
-                                            {#if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false" && unLockUpdateFields !== true}
+                                        {#if unLockPCFields === true && contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false" || (unLockPCFields === true && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false")}
+                                            {#if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false"}
                                                 <button on:click={() => handleModalButtonClicks('Lagre', 'utlever')}>Lagre</button>
-                                            {:else if contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false" && unLockUpdateFields !== true}
+                                            {:else if contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false"}
                                                 <button on:click={() => handleModalButtonClicks('Lagre', 'innlever')}>Lagre</button>
                                             {/if}
                                         {:else if unLockUpdateFields === true}
