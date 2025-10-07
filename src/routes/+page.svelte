@@ -719,7 +719,7 @@
                                                                     <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
                                                                 </Select>
                                                             {/if}
-                                                            <Select label="Endre status" bind:value={updatedValues.rate1.status}>
+                                                            <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate1.status}" bind:value={updatedValues.rate1.status}>
                                                                 {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
                                                                     <option value="Ikke fakturert">Ikke fakturert</option>
                                                                     <option value="Fakturert">Fakturert</option>
@@ -744,7 +744,7 @@
                                                                     <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
                                                                 </Select>
                                                             {/if}
-                                                            <Select label="Endre status" bind:value={updatedValues.rate2.status}>
+                                                            <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate2.status}" bind:value={updatedValues.rate2.status}>
                                                                 {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
                                                                     <option value="Ikke fakturert">Ikke fakturert</option>
                                                                     <option value="Fakturert">Fakturert</option>
@@ -769,7 +769,7 @@
                                                                     <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
                                                                 </Select>
                                                             {/if}
-                                                            <Select label="Endre status" bind:value={updatedValues.rate3.status}>
+                                                            <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate3.status}" bind:value={updatedValues.rate3.status}>
                                                                 {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
                                                                     <option value="Ikke fakturert">Ikke fakturert</option>
                                                                     <option value="Fakturert">Fakturert</option>
