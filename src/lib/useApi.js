@@ -147,3 +147,27 @@ export const deleteContract = async (contractID) => {
     return error
   }
 }
+
+export const getSettings = async () => {
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/settings`;
+  try {
+    const response = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
+    return response
+  } catch (error) {
+    return error
+  }
+}
+
+export const updateSettings = async (settings) => {
+  // Check if the settings are provided, if not, return an error
+  if(!settings) return { error: 'No settings provided' }
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/settings`;
+  try {
+    const response = await axios.put(url, settings, { headers: { Authorization: `Bearer ${token}` } });
+    return response
+  } catch (error) {
+    return error
+  }
+}

@@ -368,8 +368,6 @@
                     updateData.updateData = true
 
                     response = await updateContractInfo(contractToBeEdited._id, updateData )
-
-                    console.log(updateData)
                 } else {
                     saveErrorMessage = "Ingen endringer å lagre"
                     isProcessing = false

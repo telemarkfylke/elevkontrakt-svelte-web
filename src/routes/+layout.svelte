@@ -80,6 +80,13 @@
         icon: 'assignment'
       })
     }
+    if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))) {
+      sideMenuItems.splice(2, 0, {
+        title: 'Instillinger',
+        href: '/config',
+        icon: 'settings'
+      })
+    }
   }
 </script>
 
