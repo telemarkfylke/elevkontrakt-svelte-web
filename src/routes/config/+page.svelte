@@ -136,8 +136,6 @@
                         <h2>Priser {#if editPrices} (redigeringsmodus){/if}</h2>
                         <div class="textBox">
                             <h3>Gjeldende priser:</h3>
-                            {console.log(settings)}
-                            {console.log(settings.data.result[0].prices)}
                             <p>Ordinær pris: <strong>{settings ? settings.data.result[0].prices.regularPrice : 'Henter...'} Kr</strong></p>
                             <p>Redusert pris: <strong>{settings ? settings.data.result[0].prices.reducedPrice : 'Henter...'} Kr</strong></p>
                         </div>

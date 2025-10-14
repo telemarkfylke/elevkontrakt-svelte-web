@@ -404,7 +404,7 @@
             { label: "Fornavn", key: "elevInfo.fornavn" },
             { label: "Etternavn", key: "elevInfo.etternavn" },
             // { label: "Elevnummer", key: "elevInfo.elevnr" },
-            // { label: "Epost", key: "elevInfo.upn" },
+            { label: "Epost", key: "elevInfo.upn" },
             { label: "Skole", key: "elevInfo.skole" },
             { label: "Trinn", key: "elevInfo.trinn" },
             { label: "Klasse", key: "elevInfo.klasse" },
@@ -418,9 +418,9 @@
             // { label: "PC - Innlevert", key: "pcInfo.returned" },
             // { label: "Motatt av", key: "pcInfo.returnedBy" },
             // { label: "Innlevert dato", key: "pcInfo.returnedDate" },
-            // { label: "Faktura 1", key: "fakturaInfo.rate1.status" },
-            // { label: "Faktura 2", key: "fakturaInfo.rate2.status" },
-            // { label: "Faktura 3", key: "fakturaInfo.rate3.status" },
+            { label: "Faktura 1", key: "fakturaInfo.rate1.status" },
+            { label: "Faktura 2", key: "fakturaInfo.rate2.status" },
+            { label: "Faktura 3", key: "fakturaInfo.rate3.status" },
             // { label: "Ansvarlig", key: "ansvarligInfo.navn" },
             { label: "Avtale type", key: "unSignedskjemaInfo.kontraktType" }
         ];
