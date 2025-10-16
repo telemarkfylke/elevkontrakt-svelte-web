@@ -719,7 +719,7 @@
                                                             {/if}
                                                             <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate1.status}" bind:value={updatedValues.rate1.status}>
                                                                 {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                    <option value="Ikke fakturert">Ikke fakturert</option>
+                                                                    <option value="Ikke Fakturert">Ikke Fakturert</option>
                                                                     <option value="Fakturert">Fakturert</option>
                                                                     <option value="Betalt">Betalt</option>
                                                                     <option value="Skal ikke betale">Skal ikke betale</option>
@@ -744,7 +744,7 @@
                                                             {/if}
                                                             <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate2.status}" bind:value={updatedValues.rate2.status}>
                                                                 {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                    <option value="Ikke fakturert">Ikke fakturert</option>
+                                                                    <option value="Ikke Fakturert">Ikke Fakturert</option>
                                                                     <option value="Fakturert">Fakturert</option>
                                                                     <option value="Betalt">Betalt</option>
                                                                     <option value="Skal ikke betale">Skal ikke betale</option>
@@ -769,7 +769,7 @@
                                                             {/if}
                                                             <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate3.status}" bind:value={updatedValues.rate3.status}>
                                                                 {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                    <option value="Ikke fakturert">Ikke fakturert</option>
+                                                                    <option value="Ikke Fakturert">Ikke Fakturert</option>
                                                                     <option value="Fakturert">Fakturert</option>
                                                                     <option value="Betalt">Betalt</option>
                                                                     <option value="Skal ikke betale">Skal ikke betale</option>
