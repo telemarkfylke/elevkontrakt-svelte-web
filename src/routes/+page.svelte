@@ -316,7 +316,7 @@
                     // Build the object to be sent to the API
                     const updateData = { data: {} }
                     for (const [key, value] of Object.entries(fieldsChanged.fieldsChanged)) {
-                        updateData.data[`fakturaInfo.${key}`] = value
+                        updateData.data[`fakturaInfo.${key}`] = value.toString()
                     }
                     // Return ID and the updateData and updateData = true to the API
                     /**
