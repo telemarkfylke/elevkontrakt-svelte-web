@@ -211,6 +211,14 @@
         }
     }
 
+    const isStudentNotFoundInFINT = (row) => {
+        if(row.notFoundInFINT?.message === "Student not found in FINT") {
+            return true
+        } else {
+            return false
+        }
+    }
+
 </script>
 
 <div class="table-container">
@@ -292,7 +300,7 @@
                 </div>
             {:else}
                 {#each data as row}
-                    <div class="table-row" style="background-color: {deliveryModeActive ? (isNewStudent(row) ? 'var(--gress-20)' : 'var(--nype-10)') : 'white'};">
+                    <div class="table-row" style="background-color: {deliveryModeActive ? (isNewStudent(row) ? 'var(--gress-20)' : 'var(--nype-10)') : (isStudentNotFoundInFINT(row) ? 'var(--korn-30)' : 'white')};">
                         {#each columns as column, colIndex}
                             <div class="table-cell">
                                 <div class="cell-content">

@@ -20,17 +20,20 @@
         rate1: {
             status: '',
             faktureringsår: '',
-            sum: ''
+            sum: '',
+            editReason: ''
         },
         rate2: {
             status: '',
             faktureringsår: '',
-            sum: ''
+            sum: '',
+            editReason: ''
         },
         rate3: {
             status: '',
             faktureringsår: '',
-            sum: ''
+            sum: '',
+            editReason: ''
         }
     }
 
@@ -311,7 +314,7 @@
                     isProcessing = false
                 }
             } else if (action === "oppdater") {
-                const fieldsChanged = fieldshaveChanged()
+                const fieldsChanged = fieldsHaveChanged()
                 if(fieldsChanged.hasChanged) {
                     // Build the object to be sent to the API
                     const updateData = { data: {} }
@@ -505,7 +508,7 @@
         }
     }
 
-    const fieldshaveChanged = () => {
+    const fieldsHaveChanged = () => {
         // Check if any of the fields in contractToBeEdited have changed compared to the original response data
 
         // Check if fakturaInfo.rateX.status, .fakturaInfo.rateX.faktureringsår, fakturaInfo.rateX.sum have changed
@@ -514,6 +517,7 @@
             if (updatedValues[`rate${i}`].status !== '' && updatedValues[`rate${i}`].status !== contractToBeEdited.fakturaInfo[`rate${i}`].status) fieldsChanged[`rate${i}.status`] = updatedValues[`rate${i}`].status
             if (updatedValues[`rate${i}`].faktureringsår !== '' && updatedValues[`rate${i}`].faktureringsår !== contractToBeEdited.fakturaInfo[`rate${i}`].faktureringsår) fieldsChanged[`rate${i}.faktureringsår`] = updatedValues[`rate${i}`].faktureringsår
             if (updatedValues[`rate${i}`].sum !== '' && updatedValues[`rate${i}`].sum !== contractToBeEdited.fakturaInfo[`rate${i}`].sum) fieldsChanged[`rate${i}.sum`] = updatedValues[`rate${i}`].sum
+            if (updatedValues[`rate${i}`].editReason !== '' ) fieldsChanged[`rate${i}.editReason`] = updatedValues[`rate${i}`].editReason;
         }
 
         return { hasChanged: Object.keys(fieldsChanged).length > 0, fieldsChanged }
@@ -619,7 +623,7 @@
                         <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={searchResults} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={true} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive}/>
                     {:else}
                         <!-- Table that shows all contracts -->
-                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={contractData} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive}/>
+                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={contractData.splice(0,20)} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive}/>
                     {/if}
                     <!-- Edit modal -->
                     {#key showModal}
@@ -710,7 +714,7 @@
                                                     <div>
                                                         {#if contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "skal ikke betale"}
                                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate1.sum}" bind:value={updatedValues.rate1.sum} placeholder={contractToBeEdited.fakturaInfo.rate1.sum} />
+                                                                <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate1.sum}" bind:value={updatedValues.rate1.sum} placeholder={contractToBeEdited.fakturaInfo.rate1.sum} /> -->
                                                                 <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate1.faktureringsår}" bind:value={updatedValues.rate1.faktureringsår}>
                                                                     <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
                                                                     <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
@@ -727,6 +731,14 @@
                                                                     <option value="Skal ikke betale">Skal ikke betale</option>
                                                                 {/if}
                                                             </Select>
+                                                            <Select label="Grunn til redigering" bind:value={updatedValues.rate1.editReason}>
+                                                                <option value="">Velg grunn</option>
+                                                                <option value="Feil faktureringsår">Feil faktureringsår</option>
+                                                                <option value="Feil status">Feil status</option>
+                                                                <option value="Elev slutter">Elev slutter</option>
+                                                                <option value="Utkjøp av PC">Utkjøp av PC</option>
+                                                                <option value="Privat PC">Privat PC</option>
+                                                            </Select>
                                                         {:else}
                                                             <p>Faktura 1 er allerede håndtert, kan ikke endre sum, status eller faktureringsår</p>
                                                         {/if}
@@ -735,7 +747,7 @@
                                                     <div>
                                                         {#if contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "skal ikke betale"}
                                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate2.sum}" bind:value={updatedValues.rate2.sum} placeholder={contractToBeEdited.fakturaInfo.rate2.sum} />
+                                                                <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate2.sum}" bind:value={updatedValues.rate2.sum} placeholder={contractToBeEdited.fakturaInfo.rate2.sum} /> -->
                                                                 <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate2.faktureringsår}" bind:value={updatedValues.rate2.faktureringsår}>
                                                                     <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
                                                                     <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
@@ -752,6 +764,14 @@
                                                                     <option value="Skal ikke betale">Skal ikke betale</option>
                                                                 {/if}
                                                             </Select>
+                                                            <Select label="Grunn til redigering" bind:value={updatedValues.rate2.editReason}>
+                                                                <option value="">Velg grunn</option>
+                                                                <option value="Feil faktureringsår">Feil faktureringsår</option>
+                                                                <option value="Feil status">Feil status</option>
+                                                                <option value="Elev slutter">Elev slutter</option>
+                                                                <option value="Utkjøp av PC">Utkjøp av PC</option>
+                                                                <option value="Privat PC">Privat PC</option>
+                                                            </Select>
                                                         {:else}
                                                             <p>Faktura 2 er allerede håndtert, kan ikke endre sum, status eller faktureringsår</p>
                                                         {/if}   
@@ -760,7 +780,7 @@
                                                     <div>
                                                         {#if contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "skal ikke betale"}
                                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate3.sum}" bind:value={updatedValues.rate3.sum} placeholder={contractToBeEdited.fakturaInfo.rate3.sum} />
+                                                                <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate3.sum}" bind:value={updatedValues.rate3.sum} placeholder={contractToBeEdited.fakturaInfo.rate3.sum} /> -->
                                                                 <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate3.faktureringsår}" bind:value={updatedValues.rate3.faktureringsår}>
                                                                     <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
                                                                     <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
@@ -776,6 +796,14 @@
                                                                 {:else}
                                                                     <option value="Skal ikke betale">Skal ikke betale</option>
                                                                 {/if}
+                                                            </Select>
+                                                            <Select label="Grunn til redigering" bind:value={updatedValues.rate3.editReason}>
+                                                                <option value="">Velg grunn</option>
+                                                                <option value="Feil faktureringsår">Feil faktureringsår</option>
+                                                                <option value="Feil status">Feil status</option>
+                                                                <option value="Elev slutter">Elev slutter</option>
+                                                                <option value="Utkjøp av PC">Utkjøp av PC</option>
+                                                                <option value="Privat PC">Privat PC</option>
                                                             </Select>
                                                         {:else}
                                                             <p>Faktura 3 er allerede håndtert, kan ikke endre sum, status eller faktureringsår</p>
