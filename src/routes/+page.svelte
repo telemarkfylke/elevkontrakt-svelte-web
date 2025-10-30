@@ -623,7 +623,7 @@
                         <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={searchResults} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={true} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive}/>
                     {:else}
                         <!-- Table that shows all contracts -->
-                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={contractData.splice(0,20)} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive}/>
+                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={contractData} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive}/>
                     {/if}
                     <!-- Edit modal -->
                     {#key showModal}
