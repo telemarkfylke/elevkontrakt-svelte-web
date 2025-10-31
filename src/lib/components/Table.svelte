@@ -136,11 +136,11 @@
         // Filter data based on selected filters
         if(laanOnly) {
             isFilterApplied = true
-            data = data.filter(item => item.unSignedskjemaInfo.kontraktType === "låneavtale")
+            data = data.filter(item => item.unSignedskjemaInfo.kontraktType.toLowerCase() === "låneavtale")
         }
         if(leieOnly) {
             isFilterApplied = true
-            data = data.filter(item => item.unSignedskjemaInfo.kontraktType === "leieavtale")
+            data = data.filter(item => item.unSignedskjemaInfo.kontraktType.toLowerCase() === "leieavtale")
         }
         if(schoolSelected) {
             isFilterApplied = true
