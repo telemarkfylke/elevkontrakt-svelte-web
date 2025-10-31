@@ -804,6 +804,7 @@
                                                                 <option value="Elev slutter">Elev slutter</option>
                                                                 <option value="Utkjøp av PC">Utkjøp av PC</option>
                                                                 <option value="Privat PC">Privat PC</option>
+                                                                <option value="Privat PC">Omvalg</option>
                                                             </Select>
                                                         {:else}
                                                             <p>Faktura 3 er allerede håndtert, kan ikke endre sum, status eller faktureringsår</p>
