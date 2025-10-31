@@ -620,10 +620,10 @@
                     <!-- Table -->
                     {#if searchValue.length > 0}
                         <!-- Table that shows the searchresults -->
-                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={searchResults} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={true} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive}/>
+                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={searchResults} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={true} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive} itemsPerPage={30}/>
                     {:else}
                         <!-- Table that shows all contracts -->
-                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={contractData} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive}/>
+                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={contractData} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive} itemsPerPage={30}/>
                     {/if}
                     <!-- Edit modal -->
                     {#key showModal}

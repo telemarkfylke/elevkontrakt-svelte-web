@@ -22,6 +22,10 @@
     export let isFilterApplied = false
     export let isSearchActive = false
     export let deliveryModeActive = false
+    export let itemsPerPage = 30
+
+    let currentPage = 1
+    let totalPages = 1
 
     $: isLaanOnlyChecked = false
     $: isLeieOnlyChecked = false
@@ -107,6 +111,37 @@
     const getNestedValue = (obj, key, overrideHighlightCells) => {
         return formatValue(obj, key.split('.').reduce((o, i) => (o ? o[i] : null), obj), overrideHighlightCells || false);
     }
+
+    // Calculate pagination
+    $: {
+        totalPages = Math.ceil(data.length / itemsPerPage)
+        const startIndex = (currentPage - 1) * itemsPerPage
+        const endIndex = startIndex + itemsPerPage
+    }
+    
+    const goToPage = (page) => {
+        if (page >= 1 && page <= totalPages) {
+            currentPage = page
+        }
+    }
+    
+    const previousPage = () => {
+        if (currentPage > 1) {
+            currentPage--
+        }
+    }
+    
+    const nextPage = () => {
+        if (currentPage < totalPages) {
+            currentPage++
+        }
+    }
+    
+    // Reset to first page when data changes
+    $: if (data) {
+        currentPage = 1
+    }
+
 
     if(actions.enabled === true) {
         // Check if columns already has an actions column
@@ -219,9 +254,20 @@
         }
     }
 
+    const handlePagination = (data) => {
+        totalPages = Math.ceil(data.length / itemsPerPage)
+        if(currentPage > totalPages) {
+            currentPage = totalPages
+        }
+        const updateDisplayedData = (data) => {
+            return data.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+        }
+        return updateDisplayedData(data)
+    }
+
 </script>
 
-<div class="table-container">
+<main>
     {#if loading === true}
         <IconSpinner width="50px" />
     {:else if error}
@@ -229,129 +275,170 @@
     {:else if data.length === 0 && columns.length === 0}
         <p><strong>{noDataMessage}</strong></p>
     {:else}
-        <!-- Filters. You're only able to use filters when search filed is empty (not in use) -->
-        {#if !isSearchActive}
-            <div class="filters">
-                <div class="checkBoxFilter">
-                    <input type="checkbox" id="signed" name="signed" value="signed" bind:checked={isLaanOnlyChecked} disabled={false}>
-                    <label for="signed">Kun låneavtaler</label>
-                </div>
-                <div class="checkBoxFilter">
-                    <input type="checkbox" id="unSigned" name="unSigned" value="unSigned" bind:checked={isLeieOnlyChecked} disabled={false}>
-                    <label for="unSigned">Kun leieavtaler</label>
-                </div>
-                <div class="schoolFilter">
-                    <label for="school">Velg Skole: </label>
-                    <select bind:value={schoolSelected} on:change={() => { schoolSelected = schoolSelected }}>
-                        <option value="">Alle skoler</option>
-                        {#each getSchools(data) as school}
-                            <option value={school}>{school}</option>
-                        {/each}
-                    </select>
-                </div>
-                <!-- Show disabled if school is not selected -->
-                <div class="classFilter">
-                    <label for="class">Velg Klasse: </label>
-                    <select bind:value={classSelected} on:change={() => { classSelected = classSelected }} disabled={!schoolSelected ? true : false}>
-                        <option value="">Alle klasser</option>
-                        {#each getClasses(data) as classes}
-                            <option value={classes}>{classes}</option>
-                        {/each}
-                    </select>
-                </div>
-                <button class="buttonFilter" on:click={() => { resetFilterButton() }}>
-                    <span class="material-symbols-outlined">
-                        refresh
-                    </span> 
-                    <div class="resetFilterText">
-                        Nullstill
+        <div class="table-container">
+            <!-- Filters. You're only able to use filters when search filed is empty (not in use) -->
+            {#if !isSearchActive}
+                <div class="filters">
+                    <div class="checkBoxFilter">
+                        <input type="checkbox" id="signed" name="signed" value="signed" bind:checked={isLaanOnlyChecked} disabled={false}>
+                        <label for="signed">Kun låneavtaler</label>
                     </div>
-                </button>
-            </div>
-        {:else if isSearchActive}
-            <div class="filters">
-                <p>Du kan ikke bruke filter når søkefeltet er aktivt</p>
-            </div>
-        {/if}
-        {#if isLaanOnlyChecked || isLeieOnlyChecked || schoolSelected || classSelected}
-            {applyFilter(isLaanOnlyChecked, isLeieOnlyChecked, schoolSelected, classSelected)}
-        {:else if !isLaanOnlyChecked || !isLeieOnlyChecked || !schoolSelected || !classSelected}
-            {applyFilter(isLaanOnlyChecked, isLeieOnlyChecked, schoolSelected, classSelected)}
-        {/if}
-        <div class="table">
-            <div class="table-header">
-            {#each columns as column}
-               <div class="table-header-cell">
-                {#if column.label === 'QrKode'}
-                    {column.label}
-                    <div class="tooltip">
-                        <span class="material-symbols-outlined">help</span>
-                        <span class="tooltiptext">Klikk på strekkoden for å kopiere verdien</span>
+                    <div class="checkBoxFilter">
+                        <input type="checkbox" id="unSigned" name="unSigned" value="unSigned" bind:checked={isLeieOnlyChecked} disabled={false}>
+                        <label for="unSigned">Kun leieavtaler</label>
+                    </div>
+                    <div class="schoolFilter">
+                        <label for="school">Velg Skole: </label>
+                        <select bind:value={schoolSelected} on:change={() => { schoolSelected = schoolSelected }}>
+                            <option value="">Alle skoler</option>
+                            {#each getSchools(data) as school}
+                                <option value={school}>{school}</option>
+                            {/each}
+                        </select>
+                    </div>
+                    <!-- Show disabled if school is not selected -->
+                    <div class="classFilter">
+                        <label for="class">Velg Klasse: </label>
+                        <select bind:value={classSelected} on:change={() => { classSelected = classSelected }} disabled={!schoolSelected ? true : false}>
+                            <option value="">Alle klasser</option>
+                            {#each getClasses(data) as classes}
+                                <option value={classes}>{classes}</option>
+                            {/each}
+                        </select>
+                    </div>
+                    <button class="buttonFilter" on:click={() => { resetFilterButton() }}>
+                        <span class="material-symbols-outlined">
+                            refresh
+                        </span> 
+                        <div class="resetFilterText">
+                            Nullstill
+                        </div>
+                    </button>
+                </div>
+            {:else if isSearchActive}
+                <div class="filters">
+                    <p>Du kan ikke bruke filter når søkefeltet er aktivt</p>
+                </div>
+            {/if}
+            {#if isLaanOnlyChecked || isLeieOnlyChecked || schoolSelected || classSelected}
+                {applyFilter(isLaanOnlyChecked, isLeieOnlyChecked, schoolSelected, classSelected)}
+            {:else if !isLaanOnlyChecked || !isLeieOnlyChecked || !schoolSelected || !classSelected}
+                {applyFilter(isLaanOnlyChecked, isLeieOnlyChecked, schoolSelected, classSelected)}
+            {/if}
+            <!-- Table -->
+            <div class="table">
+                <div class="table-header">
+                {#each columns as column}
+                <div class="table-header-cell">
+                    {#if column.label === 'QrKode'}
+                        {column.label}
+                        <div class="tooltip">
+                            <span class="material-symbols-outlined">help</span>
+                            <span class="tooltiptext">Klikk på strekkoden for å kopiere verdien</span>
+                        </div>
+                    {:else}
+                        {column.label} 
+                    {/if}
+                </div> 
+                {/each}
+                </div>
+                {#if data.length === 0}
+                    <div class="no-data-message">
+                        <p><strong>{noDataMessage}</strong></p>
                     </div>
                 {:else}
-                    {column.label} 
-                {/if}
-               </div> 
-            {/each}
-            </div>
-            {#if data.length === 0}
-                <div class="no-data-message">
-                    <p><strong>{noDataMessage}</strong></p>
-                </div>
-            {:else}
-                {#each data as row}
-                    <div class="table-row" style="background-color: {deliveryModeActive ? (isNewStudent(row) ? 'var(--gress-20)' : 'var(--nype-10)') : (isStudentNotFoundInFINT(row) ? 'var(--korn-30)' : 'white')};">
-                        {#each columns as column, colIndex}
-                            <div class="table-cell">
-                                <div class="cell-content">
-                                    <div class="cell-text-value">
-                                        {#if column.label === 'QrKode'}
-                                            <div class="qr-code">
-                                                <img use:clickToCopy={'img'} alt={`barcode ${row.elevInfo.upn}`} src={createBarCode(row.elevInfo.upn)} width="100%" height="80%" />
-                                            </div>
-                                        {/if}
-                                        {#if column.key !== 'actions' && column.label !== 'QrKode'}
-                                            {@html getNestedValue(row, column.key)}
+                    {#each handlePagination(data) as row}
+                        <div class="table-row" style="background-color: {deliveryModeActive ? (isNewStudent(row) ? 'var(--gress-20)' : 'var(--nype-10)') : (isStudentNotFoundInFINT(row) ? 'var(--korn-30)' : 'white')};">
+                            {#each columns as column, colIndex}
+                                <div class="table-cell">
+                                    <div class="cell-content">
+                                        <div class="cell-text-value">
+                                            {#if column.label === 'QrKode'}
+                                                <div class="qr-code">
+                                                    <img use:clickToCopy={'img'} alt={`barcode ${row.elevInfo.upn}`} src={createBarCode(row.elevInfo.upn)} width="100%" height="80%" />
+                                                </div>
+                                            {/if}
+                                            {#if column.key !== 'actions' && column.label !== 'QrKode'}
+                                                {@html getNestedValue(row, column.key)}
+                                            {/if}
+                                        </div>
+                                        {#if column.extra?.length > 0 && getNestedValue(row, column.key, true) !== "Nei" && getNestedValue(row, column.key, true) !== "Ingen data" && getNestedValue(row, column.key, true) !== "Ukjent"}
+                                            <button class="cell-expand" on:click="{() => row.expandedIndex = row.expandedIndex === colIndex ? null : colIndex}">
+                                                {#if (row.expandedIndex === colIndex)} 
+                                                    <span class="material-symbols-outlined">keyboard_arrow_up</span>
+                                                {:else} 
+                                                    <span class="material-symbols-outlined">keyboard_arrow_down</span>
+                                                {/if}
+                                            </button>
                                         {/if}
                                     </div>
-                                    {#if column.extra?.length > 0 && getNestedValue(row, column.key, true) !== "Nei" && getNestedValue(row, column.key, true) !== "Ingen data" && getNestedValue(row, column.key, true) !== "Ukjent"}
-                                        <button class="cell-expand" on:click="{() => row.expandedIndex = row.expandedIndex === colIndex ? null : colIndex}">
-                                            {#if (row.expandedIndex === colIndex)} 
-                                                <span class="material-symbols-outlined">keyboard_arrow_up</span>
-                                            {:else} 
-                                                <span class="material-symbols-outlined">keyboard_arrow_down</span>
-                                            {/if}
-                                        </button>
+                                    {#if row.expandedIndex === colIndex}
+                                        <div class="expanded-content">
+                                            {#each column.extra as extra}
+                                                <div class="expanded-content-value">
+                                                    <strong>{extra.label}:</strong>
+                                                    {getNestedValue(row, extra.key)}
+                                                </div>
+                                            {/each}
+                                        </div>
+                                    {/if}
+                                    <!-- Show the actions button only in the "Handlinger column" -->
+                                    {#if actions.enabled === true && colIndex === columns.length - 1}
+                                        <div class="cell-content">
+                                            {#each actions.actions as action}
+                                                <div class="action-button">
+                                                    <button on:click={() => handleButtonClick(action, row)}>{action}</button>
+                                                </div>
+                                            {/each}
+                                        </div>
                                     {/if}
                                 </div>
-                                {#if row.expandedIndex === colIndex}
-                                    <div class="expanded-content">
-                                        {#each column.extra as extra}
-                                            <div class="expanded-content-value">
-                                                <strong>{extra.label}:</strong>
-                                                {getNestedValue(row, extra.key)}
-                                            </div>
-                                        {/each}
-                                    </div>
-                                {/if}
-                                <!-- Show the actions button only in the "Handlinger column" -->
-                                {#if actions.enabled === true && colIndex === columns.length - 1}
-                                    <div class="cell-content">
-                                        {#each actions.actions as action}
-                                            <div class="action-button">
-                                                <button on:click={() => handleButtonClick(action, row)}>{action}</button>
-                                            </div>
-                                        {/each}
-                                    </div>
-                                {/if}
-                            </div>
-                        {/each}
-                    </div>
+                            {/each}
+                        </div>
+                    {/each}
+                {/if}
+            </div>
+        </div>
+        <!-- Pagination info -->
+        <div class="pagination-info">
+            <span>Viser {((currentPage - 1) * itemsPerPage) + 1} til {Math.min(currentPage * itemsPerPage, data.length)} av {data.length} rader</span>
+        </div>
+        <!-- Pagination controls -->
+        <div class="pagination-controls">
+            <button 
+                class="pagination-btn" 
+                on:click={previousPage} 
+                disabled={currentPage === 1}
+            >
+                Forrige
+            </button>
+            
+            <div class="pagination-numbers">
+                {#each Array(totalPages) as _, i}
+                    {@const pageNum = i + 1}
+                    {#if pageNum === 1 || pageNum === totalPages || (pageNum >= currentPage - 2 && pageNum <= currentPage + 2)}
+                        <button 
+                            class="pagination-btn {pageNum === currentPage ? 'active' : ''}" 
+                            on:click={() => goToPage(pageNum)}
+                        >
+                            {pageNum}
+                        </button>
+                    {:else if pageNum === currentPage - 3 || pageNum === currentPage + 3}
+                        <span class="pagination-ellipsis">...</span>
+                    {/if}
                 {/each}
-            {/if}
+            </div>
+            
+            <button 
+                class="pagination-btn" 
+                on:click={nextPage} 
+                disabled={currentPage === totalPages}
+            >
+                Neste
+            </button>
         </div>
     {/if}
-</div>
+</main>
 
 <style>
     .table-container {
@@ -558,5 +645,66 @@
     }
     .tooltip:hover .tooltiptext {
         visibility: visible;
+    }
+    .pagination-info {
+        display: flex;
+        justify-content: center;
+                align-items: center;
+        margin-top: 0.5rem;
+        font-size: 0.9rem;
+        color: var(--vann-50);
+    }
+    
+    .pagination-controls {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 0.5rem;
+        font-size: 0.9rem;
+        color: var(--vann-50);
+    }
+
+    .pagination-controls {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 0.5rem;
+        gap: 0.5rem;
+    }
+    
+    .pagination-numbers {
+        display: flex;
+        gap: 0.25rem;
+        align-items: center;
+    }
+    
+    .pagination-btn {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #ccc;
+        background-color: white;
+        cursor: pointer;
+        border-radius: 0.25rem;
+        font-size: 0.9rem;
+        transition: background-color 0.2s;
+    }
+    
+    .pagination-btn:hover:not(:disabled) {
+        background-color: var(--gress-10);
+    }
+    
+    .pagination-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .pagination-btn.active {
+        background-color: var(--gress-30);
+        border-color: var(--gress-50);
+        font-weight: bold;
+    }
+    
+    .pagination-ellipsis {
+        padding: 0.5rem 0.25rem;
+        color: var(--vann-50);
     }
 </style>
