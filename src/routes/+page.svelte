@@ -694,7 +694,14 @@
                                                     <p>PCen er alt innlevert</p>
                                                     <p>Mener du at dette er feil, kontakt en administrator.</p>
                                                 {:else}
-                                                    <p>Avtalen er ikke signert, kan ikke utlevere PC</p>
+                                                    <p>Du kan ikke redigere pc-status, dette kan være av ulike grunner: </p>
+                                                    <div class="info-list" style="background-color: white; border-color:white;">
+                                                        <ul>
+                                                            <li>Avtalen er ikke signert</li>
+                                                            <li>PCen er allerede innlevert</li>
+                                                            <li>En eller flere fakturaer har status "Ikke fakturert"</li>
+                                                        </ul>
+                                                    </div>
                                                 {/if}
                                             {/if}
                                         {/if}
