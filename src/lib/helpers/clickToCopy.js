@@ -23,7 +23,7 @@ export function clickToCopy(node, target) {
                 console.error('No alt attribute found on the image:', node)
                 return;
             }
-        } else {
+        } else if (target === 'self') {
             text = target ? document.querySelector(target).innerText : node.innerText
         }
 
