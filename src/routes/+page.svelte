@@ -479,10 +479,10 @@
         // Count the number of contracts if type leieavtale and låneavtale
         response.result.forEach(contract => {
             if (contract.unSignedskjemaInfo.kontraktType.toLowerCase() === 'leieavtale' || contract.unSignedskjemaInfo.kontraktType.toLowerCase() === 'låneavtale') {
-                if (count[contract.unSignedskjemaInfo.kontraktType]) {
-                    count[contract.unSignedskjemaInfo.kontraktType] += 1;
+                if (count[contract.unSignedskjemaInfo.kontraktType.toLowerCase()]) {
+                    count[contract.unSignedskjemaInfo.kontraktType.toLowerCase()] += 1;
                 } else {
-                    count[contract.unSignedskjemaInfo.kontraktType] = 1;
+                    count[contract.unSignedskjemaInfo.kontraktType.toLowerCase()] = 1;
                 }
             }
         });
