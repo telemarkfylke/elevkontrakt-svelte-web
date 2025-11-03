@@ -712,7 +712,7 @@
                                                 {#if unLockUpdateFields}
                                                     <h4>Faktura 1</h4>
                                                     <div>
-                                                        {#if contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "skal ikke betale"}
+                                                        {#if contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "skal ikke betale" || contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "fakturert"}
                                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
                                                                 <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate1.sum}" bind:value={updatedValues.rate1.sum} placeholder={contractToBeEdited.fakturaInfo.rate1.sum} /> -->
                                                                 <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate1.faktureringsår}" bind:value={updatedValues.rate1.faktureringsår}>
@@ -745,7 +745,7 @@
                                                     </div>
                                                     <h4>Faktura 2</h4>
                                                     <div>
-                                                        {#if contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "skal ikke betale"}
+                                                        {#if contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "skal ikke betale" || contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "fakturert"}
                                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
                                                                 <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate2.sum}" bind:value={updatedValues.rate2.sum} placeholder={contractToBeEdited.fakturaInfo.rate2.sum} /> -->
                                                                 <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate2.faktureringsår}" bind:value={updatedValues.rate2.faktureringsår}>
@@ -778,7 +778,7 @@
                                                     </div>
                                                     <h4>Faktura 3</h4>
                                                     <div>
-                                                        {#if contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "skal ikke betale"}
+                                                        {#if contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "skal ikke betale" || contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "fakturert"}
                                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
                                                                 <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate3.sum}" bind:value={updatedValues.rate3.sum} placeholder={contractToBeEdited.fakturaInfo.rate3.sum} /> -->
                                                                 <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate3.faktureringsår}" bind:value={updatedValues.rate3.faktureringsår}>
