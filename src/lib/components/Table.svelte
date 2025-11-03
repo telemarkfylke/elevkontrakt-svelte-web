@@ -4,6 +4,7 @@
     import JsBarcode from "jsbarcode";
     import { clickToCopy } from "$lib/helpers/clickToCopy";
     import { getStudentShortName } from "$lib/helpers/studentShortName";
+    import { schools, classesForEachSchool } from "$lib/store";
 
     export let columns = []
     export let data = []
@@ -204,27 +205,43 @@
         classSelected = ''
     }
 
-    const getUniqueValue = (value) => {
-        const uniqueValue = []
-
-        // Loop through the array and check if the value is already in the uniqueValue array
+    const getUniqueValue = (value, uniqueClassesForSchool) => {
         for(const item of value) {
-            if(!uniqueValue.includes(item)) {
-                uniqueValue.push(item)
+            const school = get(schools)
+            // console.log('hei')
+            if(uniqueClassesForSchool === true) {
+                // console.log('school includes item', school.includes(item.elevInfo?.skole))
+                const classesStore = get(classesForEachSchool)
+                if(school.includes(item?.skole)) {
+                    if(!classesStore[item.skole]) {
+                        classesStore[item.skole] = []
+                    }
+                    classesStore[item.skole].push(item.klasse)
+                }
+            } else {
+                if(!school.includes(item)) {
+                    school.push(item)
+                }
             }
         }
-        return uniqueValue
-        
+
+        // Sort the schools
+        const schoolStore = get(schools)
+        schoolStore.sort()
+        // Sort the classes for each school
+        const classesStore = get(classesForEachSchool)
+        for(const school in classesStore) {
+            classesStore[school] = [...new Set(classesStore[school])].sort()
+        }
     }
     
-    const getSchools = (data) => {
-        const uniqueSchools = getUniqueValue(data.map(item => item.elevInfo.skole))
-        return uniqueSchools
+    const getSchools = () => {
+        const uniqueClasses = getUniqueValue(data.map(item => item.elevInfo), true)
+        const uniqueSchools = getUniqueValue(data.map(item => item.elevInfo.skole), false)
     }
 
     const getClasses = () => {
-        const uniqueClasses = getUniqueValue(data.map(item => item.elevInfo.klasse))
-        return uniqueClasses
+        const uniqueClasses = getUniqueValue(data.map(item => item.elevInfo.klasse), true)
     }
     
     const createBarCode = (upn) => {
@@ -291,9 +308,15 @@
                         <label for="school">Velg Skole: </label>
                         <select bind:value={schoolSelected} on:change={() => { schoolSelected = schoolSelected }}>
                             <option value="">Alle skoler</option>
-                            {#each getSchools(data) as school}
-                                <option value={school}>{school}</option>
-                            {/each}
+                            {#await getSchools()}
+                                <option value="Henter skoler...">"Henter skoler..."</option>
+                            {:then}
+                                {#each $schools as school}
+                                    <option value={school}>{school}</option>
+                                {/each}
+                            {:catch error}
+                                <option value="">Feil ved henting av skoler</option>
+                            {/await}
                         </select>
                     </div>
                     <!-- Show disabled if school is not selected -->
@@ -301,7 +324,7 @@
                         <label for="class">Velg Klasse: </label>
                         <select bind:value={classSelected} on:change={() => { classSelected = classSelected }} disabled={!schoolSelected ? true : false}>
                             <option value="">Alle klasser</option>
-                            {#each getClasses(data) as classes}
+                            {#each $classesForEachSchool[schoolSelected] as classes}
                                 <option value={classes}>{classes}</option>
                             {/each}
                         </select>
