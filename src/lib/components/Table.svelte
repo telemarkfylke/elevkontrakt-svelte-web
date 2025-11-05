@@ -28,6 +28,11 @@
     let currentPage = 1
     let totalPages = 1
 
+    let sortColumn = null
+    let sortDirection = 'asc'
+    let sortedData = []
+    let paginatedData = []
+
     $: isLaanOnlyChecked = false
     $: isLeieOnlyChecked = false
     $: schoolSelected = ''
@@ -113,11 +118,35 @@
         return formatValue(obj, key.split('.').reduce((o, i) => (o ? o[i] : null), obj), overrideHighlightCells || false);
     }
 
+    // Sort data
+    $: {
+        if (sortColumn && data.length > 0) {
+            sortedData = [...data].sort((a, b) => {
+                const aValue = getNestedValue(a, sortColumn, true)
+                const bValue = getNestedValue(b, sortColumn, true)
+                
+                let comparison = 0
+                if (typeof aValue === 'string' && typeof bValue === 'string') {
+                    comparison = aValue.localeCompare(bValue)
+                } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+                    comparison = aValue - bValue
+                } else {
+                    comparison = String(aValue).localeCompare(String(bValue))
+                }
+                
+                return sortDirection === 'desc' ? -comparison : comparison
+            })
+        } else {
+            sortedData = data
+        }
+    }
+
     // Calculate pagination
     $: {
-        totalPages = Math.ceil(data.length / itemsPerPage)
+        totalPages = Math.ceil(sortedData.length / itemsPerPage)
         const startIndex = (currentPage - 1) * itemsPerPage
         const endIndex = startIndex + itemsPerPage
+        paginatedData = sortedData.slice(startIndex, endIndex)
     }
     
     const goToPage = (page) => {
@@ -191,7 +220,7 @@
             } else {
                 data = data.filter(item => item.elevInfo.klasse === classSelected)
             }
-        }
+        }       
     }
 
     const resetFilter = () => {
@@ -271,15 +300,14 @@
         }
     }
 
-    const handlePagination = (data) => {
-        totalPages = Math.ceil(data.length / itemsPerPage)
-        if(currentPage > totalPages) {
-            currentPage = totalPages
+    const sortData = (columnKey) => {
+        if (sortColumn === columnKey) {
+            sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'
+        } else {
+            sortColumn = columnKey
+            sortDirection = 'asc'
         }
-        const updateDisplayedData = (data) => {
-            return data.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-        }
-        return updateDisplayedData(data)
+        currentPage = 1 // Reset to first page when sorting
     }
 
 </script>
@@ -351,26 +379,41 @@
             <!-- Table -->
             <div class="table">
                 <div class="table-header">
-                {#each columns as column}
-                <div class="table-header-cell">
-                    {#if column.label === 'QrKode'}
-                        {column.label}
-                        <div class="tooltip">
-                            <span class="material-symbols-outlined">help</span>
-                            <span class="tooltiptext">Klikk på strekkoden for å kopiere verdien</span>
-                        </div>
-                    {:else}
-                        {column.label} 
-                    {/if}
-                </div> 
-                {/each}
+                    {#each columns as column}
+                        <div class="table-header-cell">
+                            {#if column.label === 'QrKode'}
+                                {column.label}
+                                <div class="tooltip">
+                                    <span class="material-symbols-outlined">help</span>
+                                    <span class="tooltiptext">Klikk på strekkoden for å kopiere verdien</span>
+                                </div>
+                            {:else}
+                                {#if column.label !== 'QrKode' && column.label !== 'Status signering' && column.label !== 'Handlinger'}
+                                    <!-- svelte-ignore a11y_click_events_have_key_events -->                               
+                                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                                    <div class="header-text-sortable" on:click={() => {sortData(column.key)}}>
+                                        {column.label}
+                                        {#if sortColumn === column.key}
+                                            <span class="sort-indicator">
+                                                {sortDirection === 'asc' ? '⬆' : '⬇'}
+                                            </span>
+                                        {/if}
+                                    </div>
+                                {:else}
+                                    <div class="header-text-non-sortable">
+                                        {column.label}
+                                    </div>
+                                {/if}
+                            {/if}
+                        </div> 
+                    {/each}
                 </div>
                 {#if data.length === 0}
                     <div class="no-data-message">
                         <p><strong>{noDataMessage}</strong></p>
                     </div>
                 {:else}
-                    {#each handlePagination(data) as row}
+                    {#each paginatedData as row}
                         <div class="table-row" style="background-color: {deliveryModeActive ? (isNewStudent(row) ? 'var(--gress-20)' : 'var(--nype-10)') : (isStudentNotFoundInFINT(row) ? 'var(--korn-30)' : 'white')};">
                             {#each columns as column, colIndex}
                                 <div class="table-cell">
@@ -730,4 +773,26 @@
         padding: 0.5rem 0.25rem;
         color: var(--vann-50);
     }
+
+    .header-text-sortable {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    .header-text-sortable:hover {
+        cursor: pointer;
+        text-decoration: underline;
+    }
+    .header-text-non-sortable {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    .sort-indicator {
+        margin-left: 0.5rem;
+        font-weight: bold;
+    }
+
 </style>
