@@ -172,6 +172,20 @@
                         ]
                     },
                     {
+                        label: "PC - Kjøpt ut",
+                        key: "pcInfo.boughtOut",
+                        extra: [
+                            {
+                                label: "Registrert kjøpt ut av",
+                                key: "pcInfo.buyOutBy"
+                            },
+                            {
+                                label: "Kjøpt ut dato",
+                                key: "pcInfo.buyOutDate"
+                            }
+                        ]
+                    },
+                    {
                         label: "Faktura 1",
                         key: "fakturaInfo.rate1.status",
                         extra: [
@@ -291,7 +305,7 @@
                 const utleverpc = document.getElementById('utleverpc')?.checked
                 if(utleverpc === true) {
                     try {
-                        response = await updateContractInfo(contractToBeEdited._id, { releasePC: true } )
+                        response = await updateContractInfo(contractToBeEdited._id, { releasePC: true, upn: token.upn } )
                     } catch (error) {
                         saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                         isProcessing = false
@@ -300,19 +314,41 @@
                     saveErrorMessage = "Du må krysse av for å utlevere PC"
                     isProcessing = false
                 }
-            } else if (action === "innlever") {
+            } else if (action === "innlever/utkjop") {
                 const innleverpc = document.getElementById('innleverpc')?.checked
-                if(innleverpc === true) {
+                const utkjoppc = document.getElementById('utkjoppc')?.checked
+                if(!innleverpc && !utkjoppc) {
+                    saveErrorMessage = "Du må krysse av for å registrere innlevering eller utkjøp av PC"
+                    isProcessing = false
+                    return
+                }
+                if(innleverpc === true && utkjoppc === true) {
+                    saveErrorMessage = "Du kan ikke registrere både innlevering og utkjøp av PC samtidig"
+                    isProcessing = false
+                    return
+                }
+                if(utkjoppc === true) {
                     try {
-                        response = await updateContractInfo(contractToBeEdited._id, { returnPC: true } )
+                        response = await updateContractInfo(contractToBeEdited._id, { buyOutPC: true, upn: token.upn } )
                     } catch (error) {
                         saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                         isProcessing = false
                     }
                 } else {
-                    saveErrorMessage = "Du må krysse av for å registrere inn PC"
+                    // saveErrorMessage = "Du må krysse av for å registrere utkjop av PC"
                     isProcessing = false
                 }
+                if(innleverpc === true) {
+                    try {
+                        response = await updateContractInfo(contractToBeEdited._id, { returnPC: true, upn: token.upn } )
+                    } catch (error) {
+                        saveErrorMessage = "Noe gikk galt, prøv igjen senere"
+                        isProcessing = false
+                    }
+                } else {
+                    // saveErrorMessage = "Du må krysse av for å registrere inn PC"
+                    isProcessing = false
+                }   
             } else if (action === "oppdater") {
                 const fieldsChanged = fieldsHaveChanged()
                 if(fieldsChanged.hasChanged) {
@@ -679,13 +715,24 @@
                                                     <p>PCen er alt utlevert, skal den leveres inn? Husk å endre status</p>
                                                     <br>
                                                     <div class="checkbox-container">
-                                                        <label for="innleverpc">Registrer inn PC?</label>
-                                                        <input type="checkbox" id="innleverpc" name="innleverpc" value="true" style="margin: 0.2rem;"/> 
-                                                        {#if saveErrorMessage.length > 0} 
-                                                            <p style="color: red;">*</p>
-                                                        {:else}
-                                                            <p>*</p>
-                                                        {/if}
+                                                        <div class="checkbox-item">
+                                                            <label for="innleverpc">Registrer inn PC?</label>
+                                                            <input type="checkbox" id="innleverpc" name="innleverpc" value="true" style="margin: 0.2rem;"/> 
+                                                            {#if saveErrorMessage.length > 0} 
+                                                                <p style="color: red;">*</p>
+                                                            {:else}
+                                                                <p>*</p>
+                                                            {/if}
+                                                        </div>
+                                                        <div class="checkbox-item">
+                                                            <label for="utkjoppc">Registrer PC som utkjøpt?</label>
+                                                            <input type="checkbox" id="utkjoppc" name="utkjoppc" value="true" style="margin: 0.2rem;"/> 
+                                                            {#if saveErrorMessage.length > 0} 
+                                                                <p style="color: red;">*</p>
+                                                            {:else}
+                                                                <p>*</p>
+                                                            {/if}
+                                                        </div>
                                                     </div>
                                                 {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false" && (contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "ikke fakturert" && contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "ikke fakturert")}
                                                     <p>PCen er alt utlevert, skal den leveres inn?</p>
@@ -693,12 +740,16 @@
                                                 {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "true"}
                                                     <p>PCen er alt innlevert</p>
                                                     <p>Mener du at dette er feil, kontakt en administrator.</p>
+                                                {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.boughtOut === "true"} 
+                                                    <p>PCen er alt kjøpt ut</p>
+                                                    <p>Mener du at dette er feil, kontakt en administrator.</p>
                                                 {:else}
                                                     <p>Du kan ikke redigere pc-status, dette kan være av ulike grunner: </p>
                                                     <div class="info-list" style="background-color: white; border-color:white;">
                                                         <ul>
                                                             <li>Avtalen er ikke signert</li>
                                                             <li>PCen er allerede innlevert</li>
+                                                            <li>PCen er allerede kjøpt ut</li>
                                                             <li>En eller flere fakturaer har status "Ikke fakturert"</li>
                                                         </ul>
                                                     </div>
@@ -826,11 +877,11 @@
                                         {/if}
                                     </div>
                                     <div slot="saveButton">
-                                        {#if unLockPCFields === true && contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false" || (unLockPCFields === true && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false")}
+                                        {#if unLockPCFields === true && contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false" || (unLockPCFields === true && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false" && contractToBeEdited.pcInfo.boughtOut === "false")}
                                             {#if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false"}
-                                                <button on:click={() => handleModalButtonClicks('Lagre', 'utlever')}>Lagre</button>
+                                                <button on:click={() => handleModalButtonClicks('Lagre', 'utlever', token)}>Lagre</button>
                                             {:else if contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false"}
-                                                <button on:click={() => handleModalButtonClicks('Lagre', 'innlever')}>Lagre</button>
+                                                <button on:click={() => handleModalButtonClicks('Lagre', 'innlever/utkjop', token)}>Lagre Innlevering</button>
                                             {/if}
                                         {:else if unLockUpdateFields === true}
                                             <button on:click={() => handleModalButtonClicks('Lagre', 'oppdater', token)}>Lagre</button>
@@ -971,9 +1022,14 @@
     }
     .checkbox-container {
         display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        margin: 0rem 0rem 1rem 0rem;
+    }
+    .checkbox-item {
+        display: flex;
         flex-direction: row;
         justify-content: flex-start;
-        align-items: center;
     }
     .delivery-button {
         display: flex;
