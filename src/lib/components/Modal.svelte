@@ -38,10 +38,10 @@
 
 <style>
 	dialog {
-		max-width: 45em;
+		max-width: 80em;
 		border-radius: 0.2em;
 		height: fit-content;
-        max-height: 41em;
+        max-height: 80em;
 		border: none;
 		padding: 0;
 		overflow-x: hidden;
@@ -82,7 +82,7 @@
 		overflow: auto;
 		-ms-overflow-style: none;  /* Internet Explorer 10+ */
     	scrollbar-width: none;  /* Firefox */
-		max-height:24em;
+		max-height:64em;
 		margin-bottom: 2em;
 	}
 

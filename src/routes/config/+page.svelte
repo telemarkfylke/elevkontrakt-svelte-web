@@ -22,7 +22,6 @@
         let response
         if(clickedButton === 'Lagre priser') {
             isProcessing = true
-            console.log('Saving prices:', { regularPrice, reducedPrice })  
             // Save prices
             if (regularPrice !== null && !validatePrice(regularPrice)) {
                 errorArray.push('Ugyldig normal pris')
@@ -55,7 +54,6 @@
             } else {
                 errorMsg = 'Noe gikk galt ved lagring av priser. Vennligst prøv igjen.'
             }   
-            console.log('Update object to be sent to API:', updateObject)
             isProcessing = false
             editPrices = false
         } else if (clickedButton === 'Lagre unntak') {

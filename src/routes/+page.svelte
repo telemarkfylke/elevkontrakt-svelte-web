@@ -45,6 +45,7 @@
     let enabledActions = false
     let unLockPCFields = false
     let unLockUpdateFields = false
+    let editAsAdmin = false
 
     let statusCode = 0
     let actionClicked
@@ -419,12 +420,71 @@
                     saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                     isProcessing = false
                 }
+            } else if (action === "adminEdit") {
+                const utleverpc = document.getElementById('utleverpc')?.checked
+                const reverserUtleverpc = document.getElementById('reverserUtleverpc')?.checked
+                const innleverpc = document.getElementById('innleverpc')?.checked
+                const reverserInnleverpc = document.getElementById('reverserInnleverpc')?.checked
+                const utkjoppc = document.getElementById('utkjoppc')?.checked
+                const reverserUtkjoppc = document.getElementById('reverserUtkjoppc')?.checked
+
+                // Check if more than 1 option is checked
+                let actionsToPerform = 0
+                let actionData = {
+                    upn: token.upn
+                }
+                if(utleverpc) {
+                    actionsToPerform++
+                    actionData.releasePC = "true"
+                }
+                if(reverserUtleverpc) {
+                    actionsToPerform++
+                    actionData.releasePC = "false"
+                }
+                if(innleverpc) {
+                    actionsToPerform++
+                    actionData.returnPC = "true"
+                }
+                if(reverserInnleverpc) {
+                    actionsToPerform++
+                    actionData.returnPC = "false"
+                }
+                if(utkjoppc) {
+                    actionsToPerform++
+                    actionData.buyOutPC = "true"
+                }
+                if(reverserUtkjoppc) {
+                    actionsToPerform++
+                    actionData.buyOutPC = "false"
+                }
+                if(actionsToPerform > 1) {
+                    saveErrorMessage = "Du kan kun utføre én handling av gangen"
+                    isProcessing = false
+                    return
+                } else if (actionsToPerform === 0) {
+                    saveErrorMessage = "Du må velge en handling for å kunne lagre"
+                    isProcessing = false
+                    return
+                } else {
+                    try {
+                        response = await updateContractInfo(contractToBeEdited._id, actionData )
+                    } catch (error) {
+                        saveErrorMessage = "Noe gikk galt, prøv igjen senere"
+                        isProcessing = false
+                    }
+                }
+            } else {
+                saveErrorMessage = "Noe gikk galt, prøv igjen senere"
+                isProcessing = false
             }
-            if(response.status === 200) {
+            if(response && response?.status === 200) {
                 showModal = false
                 saveErrorMessage = ""
                 reloadPage()
-            } else if (response.status !== 200) {
+            } else if (response && response?.status !== 200) {
+                saveErrorMessage = "Noe gikk galt, prøv igjen senere"
+                isProcessing = false
+            } else {
                 saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                 isProcessing = false
             }
@@ -566,6 +626,29 @@
         } else if (fieldToUnlock === "Update") {
             unLockUpdateFields = !unLockUpdateFields
             unLockPCFields = false
+        } else if (fieldToUnlock === "Admin") {
+            // Reset updatedValues when toggling editAsAdmin
+            updatedValues = {
+                rate1: {
+                    status: '',
+                    faktureringsår: '',
+                    sum: '',
+                    editReason: ''
+                },
+                rate2: {
+                    status: '',
+                    faktureringsår: '',
+                    sum: '',
+                    editReason: ''
+                },
+                rate3: {
+                    status: '',
+                    faktureringsår: '',
+                    sum: '',
+                    editReason: ''
+                }
+            }
+            editAsAdmin = !editAsAdmin
         }
     }
 
@@ -688,6 +771,20 @@
                                         <p>Avtale for: <strong>{contractToBeEdited.elevInfo.navn}</strong></p>
                                         <p>Avtale type: <strong>{contractToBeEdited.unSignedskjemaInfo.kontraktType}</strong></p>
                                         <br>
+                                        <div class="edit-admin-instructions">
+                                            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                                                <p>Du er admin og har mulighet til å redigere alt uten diverse sjekker, ha tunga rett i munn og vær forsiktig.</p>
+                                                {#if !editAsAdmin}
+                                                    <button style="background-color: var(--nype);" on:click={() => unLockFieldsHandler("Admin")}>
+                                                        Rediger som Admin
+                                                    </button>
+                                                {:else}
+                                                    <button style="background-color: var(--nype);" on:click={() => unLockFieldsHandler("Admin")}>
+                                                        Avbryt redigering som Admin
+                                                    </button>
+                                                {/if}
+                                            {/if}
+                                        </div>
                                         {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite'].includes(r))}
                                             {#if !unLockPCFields}
                                                 <button style="margin-bottom: 1rem;" on:click={() => unLockFieldsHandler("PC")}>
@@ -698,18 +795,20 @@
                                                     Avbryt redigering 🔒
                                                 </button>
                                             {/if}
-                                            {#if unLockPCFields}
+                                            {#if unLockPCFields && !editAsAdmin}
                                                 {#if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false"}
-                                                    <p>Du kan levere ut pcen. Husk å krysse av og lagre.</p>
-                                                    <br>
                                                     <div class="checkbox-container">
-                                                        <label for="utleverpc">Utlever PC?</label>
-                                                        <input type="checkbox" id="utleverpc" name="utleverpc" value="true" style="margin: 0.2rem;"/> 
-                                                        {#if saveErrorMessage.length > 0} 
-                                                            <p style="color: red;">*</p>
-                                                        {:else}
-                                                            <p>*</p>
-                                                        {/if}
+                                                        <p>Du kan levere ut pcen. Husk å krysse av og lagre.</p>
+                                                        <br>
+                                                        <div class="checkbox-item">
+                                                            <label for="utleverpc">Utlever PC?</label>
+                                                            <input type="checkbox" id="utleverpc" name="utleverpc" value="true" style="margin: 0.2rem;"/> 
+                                                            {#if saveErrorMessage.length > 0} 
+                                                                <p style="color: red;">*</p>
+                                                            {:else}
+                                                                <p>*</p>
+                                                            {/if}
+                                                        </div>
                                                     </div>
                                                 {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false" && contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() !== "ikke fakturert" && contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() !== "ikke fakturert" && contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() !== "ikke fakturert"}
                                                     <p>PCen er alt utlevert, skal den leveres inn? Husk å endre status</p>
@@ -744,16 +843,85 @@
                                                     <p>PCen er alt kjøpt ut</p>
                                                     <p>Mener du at dette er feil, kontakt en administrator.</p>
                                                 {:else}
-                                                    <p>Du kan ikke redigere pc-status, dette kan være av ulike grunner: </p>
-                                                    <div class="info-list" style="background-color: white; border-color:white;">
-                                                        <ul>
-                                                            <li>Avtalen er ikke signert</li>
-                                                            <li>PCen er allerede innlevert</li>
-                                                            <li>PCen er allerede kjøpt ut</li>
-                                                            <li>En eller flere fakturaer har status "Ikke fakturert"</li>
-                                                        </ul>
-                                                    </div>
+                                                <p>Du kan ikke redigere pc-status, dette kan være av ulike grunner: </p>
+                                                <div class="info-list" style="background-color: white; border-color:white;">
+                                                    <ul>
+                                                        <li>Avtalen er ikke signert</li>
+                                                        <li>PCen er allerede innlevert</li>
+                                                        <li>PCen er allerede kjøpt ut</li>
+                                                        <li>En eller flere fakturaer har status "Ikke fakturert"</li>
+                                                    </ul>
+                                                </div>
                                                 {/if}
+                                            {:else if unLockPCFields && editAsAdmin}
+                                                <div class="checkbox-container-admin">
+                                                    <p>Du redigerer som admin, du kan krysse av for hva du ønsker å registrere. (Kun 1 valg om gangen)</p>
+                                                    <br>
+                                                    <p>Velg en handling:</p>
+                                                    {#if contractToBeEdited.pcInfo.released === "false"} 
+                                                        <div class="checkbox-item">
+                                                            <label for="utleverpc">Utlever PC?</label>
+                                                            <input type="checkbox" id="utleverpc" name="utleverpc" value="true" style="margin: 0.2rem;"/> 
+                                                            {#if saveErrorMessage.length > 0} 
+                                                                <p style="color: red;">*</p>
+                                                            {:else}
+                                                                <p>*</p>
+                                                            {/if}
+                                                        </div>
+                                                    {:else if contractToBeEdited.pcInfo.released === "true"}
+                                                        <div class="checkbox-item">
+                                                            <label for="reverserUtleverpc">Angre utlevering av PC?</label>
+                                                            <input type="checkbox" id="reverserUtleverpc" name="reverserUtleverpc" value="true" style="margin: 0.2rem;"/> 
+                                                            {#if saveErrorMessage.length > 0} 
+                                                                <p style="color: red;">*</p>
+                                                            {:else}
+                                                                <p>*</p>
+                                                            {/if}
+                                                        </div>
+                                                    {/if}
+                                                    {#if contractToBeEdited.pcInfo.returned === "false"}
+                                                        <div class="checkbox-item">
+                                                            <label for="innleverpc">Registrer inn PC?</label>
+                                                            <input type="checkbox" id="innleverpc" name="innleverpc" value="true" style="margin: 0.2rem;"/> 
+                                                            {#if saveErrorMessage.length > 0} 
+                                                                <p style="color: red;">*</p>
+                                                            {:else}
+                                                                <p>*</p>
+                                                            {/if}
+                                                        </div>
+                                                    {:else if contractToBeEdited.pcInfo.returned === "true"}
+                                                        <div class="checkbox-item">
+                                                            <label for="reverserInnleverpc">Angre innregistrering av PC?</label>
+                                                            <input type="checkbox" id="reverserInnleverpc" name="reverserInnleverpc" value="true" style="margin: 0.2rem;"/> 
+                                                            {#if saveErrorMessage.length > 0} 
+                                                                <p style="color: red;">*</p>
+                                                            {:else}
+                                                                <p>*</p>
+                                                            {/if}
+                                                        </div>
+                                                    {/if}
+                                                    {#if contractToBeEdited.pcInfo.boughtOut === "true"}
+                                                        <div class="checkbox-item">
+                                                            <label for="reverserUtkjoppc">Angre utkjøpt av PC?</label>
+                                                            <input type="checkbox" id="reverserUtkjoppc" name="reverserUtkjoppc" value="true" style="margin: 0.2rem;"/> 
+                                                            {#if saveErrorMessage.length > 0} 
+                                                                <p style="color: red;">*</p>
+                                                            {:else}
+                                                                <p>*</p>
+                                                            {/if}
+                                                        </div>
+                                                    {:else if contractToBeEdited.pcInfo.boughtOut === "false"}
+                                                        <div class="checkbox-item">
+                                                            <label for="utkjoppc">Registrer PC som utkjøpt?</label>
+                                                            <input type="checkbox" id="utkjoppc" name="utkjoppc" value="true" style="margin: 0.2rem;"/> 
+                                                            {#if saveErrorMessage.length > 0} 
+                                                                <p style="color: red;">*</p>
+                                                            {:else}
+                                                                <p>*</p>
+                                                            {/if}
+                                                        </div>
+                                                    {/if}
+                                                </div>
                                             {/if}
                                         {/if}
                                         {#if contractToBeEdited.isSigned === "true" && contractToBeEdited.unSignedskjemaInfo.kontraktType.toLowerCase() === "leieavtale" && contractToBeEdited.pcInfo.returned === "false"}
@@ -768,102 +936,218 @@
                                                     </button>
                                                 {/if}
                                                 {#if unLockUpdateFields}
-                                                    <h4>Faktura 1</h4>
-                                                    <div>
-                                                        {#if contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "skal ikke betale" || contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "fakturert"}
+                                                    <div class={editAsAdmin ? "faktura-edit-section-admin" : "faktura-edit-section"}>
+                                                        <h4>Faktura 1</h4>
+                                                        {#if contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "skal ikke betale"}
                                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate1.sum}" bind:value={updatedValues.rate1.sum} placeholder={contractToBeEdited.fakturaInfo.rate1.sum} /> -->
-                                                                <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate1.faktureringsår}" bind:value={updatedValues.rate1.faktureringsår}>
-                                                                    <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
-                                                                    <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
-                                                                    <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
-                                                                </Select>
+                                                                <div class="faktura-edit-section-input">
+                                                                    <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate1.sum}" bind:value={updatedValues.rate1.sum} placeholder={contractToBeEdited.fakturaInfo.rate1.sum} /> -->
+                                                                    <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate1.faktureringsår}" bind:value={updatedValues.rate1.faktureringsår}>
+                                                                        <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
+                                                                        <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
+                                                                        <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
+                                                                    </Select>
+                                                                </div>
                                                             {/if}
-                                                            <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate1.status}" bind:value={updatedValues.rate1.status}>
-                                                                {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                    <option value="Ikke Fakturert">Ikke Fakturert</option>
-                                                                    <option value="Fakturert">Fakturert</option>
-                                                                    <option value="Betalt">Betalt</option>
-                                                                    <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                {:else}
-                                                                    <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                {/if}
-                                                            </Select>
-                                                            <Select label="Grunn til redigering" bind:value={updatedValues.rate1.editReason}>
-                                                                <option value="">Velg grunn</option>
-                                                                <option value="Feil faktureringsår">Feil faktureringsår</option>
-                                                                <option value="Feil status">Feil status</option>
-                                                                <option value="Elev slutter">Elev slutter</option>
-                                                                <option value="Utkjøp av PC">Utkjøp av PC</option>
-                                                                <option value="Privat PC">Privat PC</option>
-                                                            </Select>
+                                                            <div>
+                                                                <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate1.status}" bind:value={updatedValues.rate1.status}>
+                                                                    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                                                                        <option value="Ikke Fakturert">Ikke Fakturert</option>
+                                                                        <option value="Fakturert">Fakturert</option>
+                                                                        <option value="Betalt">Betalt</option>
+                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                    {:else}
+                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                    {/if}
+                                                                </Select>
+                                                            </div>
+                                                            <div>
+                                                                <Select label="Grunn til redigering" bind:value={updatedValues.rate1.editReason}>
+                                                                    <option value="">Velg grunn</option>
+                                                                    <option value="Feil faktureringsår">Feil faktureringsår</option>
+                                                                    <option value="Feil status">Feil status</option>
+                                                                    <option value="Elev slutter">Elev slutter</option>
+                                                                    <option value="Utkjøp av PC">Utkjøp av PC</option>
+                                                                    <option value="Privat PC">Privat PC</option>
+                                                                </Select>
+                                                            </div>
+                                                        {:else if editAsAdmin}
+                                                            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                                                                <div class="faktura-edit-section-input">
+                                                                    <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate1.sum}" bind:value={updatedValues.rate1.sum} placeholder={contractToBeEdited.fakturaInfo.rate1.sum} /> -->
+                                                                    <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate1.faktureringsår}" bind:value={updatedValues.rate1.faktureringsår}>
+                                                                        <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
+                                                                        <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
+                                                                        <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
+                                                                    </Select>
+                                                                </div>
+                                                            {/if}
+                                                            <div>
+                                                                <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate1.status}" bind:value={updatedValues.rate1.status}>
+                                                                    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                                                                        <option value="Ikke Fakturert">Ikke Fakturert</option>
+                                                                        <option value="Fakturert">Fakturert</option>
+                                                                        <option value="Betalt">Betalt</option>
+                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                    {:else}
+                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                    {/if}
+                                                                </Select>
+                                                            </div>
+                                                            <div>
+                                                                <Select label="Grunn til redigering" bind:value={updatedValues.rate1.editReason}>
+                                                                    <option value="">Velg grunn</option>
+                                                                    <option value="Feil faktureringsår">Feil faktureringsår</option>
+                                                                    <option value="Feil status">Feil status</option>
+                                                                    <option value="Elev slutter">Elev slutter</option>
+                                                                    <option value="Utkjøp av PC">Utkjøp av PC</option>
+                                                                    <option value="Privat PC">Privat PC</option>
+                                                                </Select>
+                                                            </div>
                                                         {:else}
                                                             <p>Faktura 1 er allerede håndtert, kan ikke endre sum, status eller faktureringsår</p>
                                                         {/if}
                                                     </div>
-                                                    <h4>Faktura 2</h4>
-                                                    <div>
-                                                        {#if contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "skal ikke betale" || contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "fakturert"}
+                                                    <div class={editAsAdmin ? "faktura-edit-section-admin" : "faktura-edit-section"}>
+                                                        <h4>Faktura 2</h4>
+                                                        {#if contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "skal ikke betale"}
                                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate2.sum}" bind:value={updatedValues.rate2.sum} placeholder={contractToBeEdited.fakturaInfo.rate2.sum} /> -->
-                                                                <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate2.faktureringsår}" bind:value={updatedValues.rate2.faktureringsår}>
-                                                                    <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
-                                                                    <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
-                                                                    <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
-                                                                </Select>
+                                                                <div class="faktura-edit-section-input">
+                                                                    <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate2.sum}" bind:value={updatedValues.rate2.sum} placeholder={contractToBeEdited.fakturaInfo.rate2.sum} /> -->
+                                                                    <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate2.faktureringsår}" bind:value={updatedValues.rate2.faktureringsår}>
+                                                                        <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
+                                                                        <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
+                                                                        <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
+                                                                    </Select>
+                                                                </div>
                                                             {/if}
-                                                            <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate2.status}" bind:value={updatedValues.rate2.status}>
-                                                                {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                    <option value="Ikke Fakturert">Ikke Fakturert</option>
-                                                                    <option value="Fakturert">Fakturert</option>
-                                                                    <option value="Betalt">Betalt</option>
-                                                                    <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                {:else}
-                                                                    <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                {/if}
-                                                            </Select>
-                                                            <Select label="Grunn til redigering" bind:value={updatedValues.rate2.editReason}>
-                                                                <option value="">Velg grunn</option>
-                                                                <option value="Feil faktureringsår">Feil faktureringsår</option>
-                                                                <option value="Feil status">Feil status</option>
-                                                                <option value="Elev slutter">Elev slutter</option>
-                                                                <option value="Utkjøp av PC">Utkjøp av PC</option>
-                                                                <option value="Privat PC">Privat PC</option>
-                                                            </Select>
+                                                            <div class="faktura-edit-section-input">
+                                                                <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate2.status}" bind:value={updatedValues.rate2.status}>
+                                                                    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                                                                        <option value="Ikke Fakturert">Ikke Fakturert</option>
+                                                                        <option value="Fakturert">Fakturert</option>
+                                                                        <option value="Betalt">Betalt</option>
+                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                    {:else}
+                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                    {/if}
+                                                                </Select>
+                                                            </div>
+                                                            <div class="faktura-edit-section-input">
+                                                                <Select label="Grunn til redigering" bind:value={updatedValues.rate2.editReason}>
+                                                                    <option value="">Velg grunn</option>
+                                                                    <option value="Feil faktureringsår">Feil faktureringsår</option>
+                                                                    <option value="Feil status">Feil status</option>
+                                                                    <option value="Elev slutter">Elev slutter</option>
+                                                                    <option value="Utkjøp av PC">Utkjøp av PC</option>
+                                                                    <option value="Privat PC">Privat PC</option>
+                                                                </Select>
+                                                            </div>
+                                                        {:else if editAsAdmin}
+                                                            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                                                                <div class="faktura-edit-section-input">
+                                                                    <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate2.sum}" bind:value={updatedValues.rate2.sum} placeholder={contractToBeEdited.fakturaInfo.rate2.sum} /> -->
+                                                                    <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate2.faktureringsår}" bind:value={updatedValues.rate2.faktureringsår}>
+                                                                        <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
+                                                                        <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
+                                                                        <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
+                                                                    </Select>
+                                                                </div>
+                                                            {/if}
+                                                            <div class="faktura-edit-section-input">
+                                                                <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate2.status}" bind:value={updatedValues.rate2.status}>
+                                                                    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                                                                        <option value="Ikke Fakturert">Ikke Fakturert</option>
+                                                                        <option value="Fakturert">Fakturert</option>
+                                                                        <option value="Betalt">Betalt</option>
+                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                    {:else}
+                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                    {/if}
+                                                                </Select>
+                                                            </div>
+                                                            <div class="faktura-edit-section-input">
+                                                                <Select label="Grunn til redigering" bind:value={updatedValues.rate2.editReason}>
+                                                                    <option value="">Velg grunn</option>
+                                                                    <option value="Feil faktureringsår">Feil faktureringsår</option>
+                                                                    <option value="Feil status">Feil status</option>
+                                                                    <option value="Elev slutter">Elev slutter</option>
+                                                                    <option value="Utkjøp av PC">Utkjøp av PC</option>
+                                                                    <option value="Privat PC">Privat PC</option>
+                                                                </Select>
+                                                            </div>
                                                         {:else}
                                                             <p>Faktura 2 er allerede håndtert, kan ikke endre sum, status eller faktureringsår</p>
                                                         {/if}   
                                                     </div>
-                                                    <h4>Faktura 3</h4>
-                                                    <div>
-                                                        {#if contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "skal ikke betale" || contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "fakturert"}
+                                                    <div class={editAsAdmin ? "faktura-edit-section-admin" : "faktura-edit-section"}>
+                                                        <h4>Faktura 3</h4>
+                                                        {#if contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "skal ikke betale"}
                                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate3.sum}" bind:value={updatedValues.rate3.sum} placeholder={contractToBeEdited.fakturaInfo.rate3.sum} /> -->
-                                                                <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate3.faktureringsår}" bind:value={updatedValues.rate3.faktureringsår}>
-                                                                    <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
-                                                                    <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
-                                                                    <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
-                                                                </Select>
+                                                                <div class="faktura-edit-section-input">
+                                                                    <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate3.sum}" bind:value={updatedValues.rate3.sum} placeholder={contractToBeEdited.fakturaInfo.rate3.sum} /> -->
+                                                                    <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate3.faktureringsår}" bind:value={updatedValues.rate3.faktureringsår}>
+                                                                        <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
+                                                                        <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
+                                                                        <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
+                                                                    </Select>
+                                                                </div>
                                                             {/if}
-                                                            <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate3.status}" bind:value={updatedValues.rate3.status}>
-                                                                {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                    <option value="Ikke Fakturert">Ikke Fakturert</option>
-                                                                    <option value="Fakturert">Fakturert</option>
-                                                                    <option value="Betalt">Betalt</option>
-                                                                    <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                {:else}
-                                                                    <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                {/if}
-                                                            </Select>
-                                                            <Select label="Grunn til redigering" bind:value={updatedValues.rate3.editReason}>
-                                                                <option value="">Velg grunn</option>
-                                                                <option value="Feil faktureringsår">Feil faktureringsår</option>
-                                                                <option value="Feil status">Feil status</option>
-                                                                <option value="Elev slutter">Elev slutter</option>
-                                                                <option value="Utkjøp av PC">Utkjøp av PC</option>
-                                                                <option value="Privat PC">Privat PC</option>
-                                                                <option value="Privat PC">Omvalg</option>
-                                                            </Select>
+                                                            <div class="faktura-edit-section-input">
+                                                                <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate3.status}" bind:value={updatedValues.rate3.status}>
+                                                                    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                                                                        <option value="Ikke Fakturert">Ikke Fakturert</option>
+                                                                        <option value="Fakturert">Fakturert</option>
+                                                                        <option value="Betalt">Betalt</option>
+                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                    {:else}
+                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                    {/if}
+                                                                </Select>
+                                                            </div>
+                                                            <div class="faktura-edit-section-input">
+                                                                <Select label="Grunn til redigering" bind:value={updatedValues.rate3.editReason}>
+                                                                    <option value="">Velg grunn</option>
+                                                                    <option value="Feil faktureringsår">Feil faktureringsår</option>
+                                                                    <option value="Feil status">Feil status</option>
+                                                                    <option value="Elev slutter">Elev slutter</option>
+                                                                    <option value="Utkjøp av PC">Utkjøp av PC</option>
+                                                                    <option value="Privat PC">Privat PC</option>
+                                                                </Select>
+                                                            </div>
+                                                        {:else if editAsAdmin}
+                                                            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                                                                <div class="faktura-edit-section-input">
+                                                                    <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate3.sum}" bind:value={updatedValues.rate3.sum} placeholder={contractToBeEdited.fakturaInfo.rate3.sum} /> -->
+                                                                    <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate3.faktureringsår}" bind:value={updatedValues.rate3.faktureringsår}>
+                                                                        <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
+                                                                        <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
+                                                                        <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
+                                                                    </Select>
+                                                                </div>
+                                                            {/if}
+                                                            <div class="faktura-edit-section-input">
+                                                                <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate3.status}" bind:value={updatedValues.rate3.status}>
+                                                                    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                                                                        <option value="Ikke Fakturert">Ikke Fakturert</option>
+                                                                        <option value="Fakturert">Fakturert</option>
+                                                                        <option value="Betalt">Betalt</option>
+                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                    {:else}
+                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                    {/if}
+                                                                </Select>
+                                                            </div>
+                                                            <div class="faktura-edit-section-input">
+                                                                <Select label="Grunn til redigering" bind:value={updatedValues.rate3.editReason}>
+                                                                    <option value="">Velg grunn</option>
+                                                                    <option value="Feil faktureringsår">Feil faktureringsår</option>
+                                                                    <option value="Feil status">Feil status</option>
+                                                                    <option value="Elev slutter">Elev slutter</option>
+                                                                    <option value="Utkjøp av PC">Utkjøp av PC</option>
+                                                                    <option value="Privat PC">Privat PC</option>
+                                                                </Select>
+                                                            </div>
                                                         {:else}
                                                             <p>Faktura 3 er allerede håndtert, kan ikke endre sum, status eller faktureringsår</p>
                                                         {/if}   
@@ -878,13 +1162,15 @@
                                     </div>
                                     <div slot="saveButton">
                                         {#if unLockPCFields === true && contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false" || (unLockPCFields === true && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false" && contractToBeEdited.pcInfo.boughtOut === "false")}
-                                            {#if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false"}
-                                                <button on:click={() => handleModalButtonClicks('Lagre', 'utlever', token)}>Lagre</button>
+                                            {#if editAsAdmin}
+                                                <button on:click={() => handleModalButtonClicks('Lagre', 'adminEdit', token)}>Lagre som admin</button>
+                                            {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false"}
+                                                <button on:click={() => handleModalButtonClicks('Lagre', 'utlever', token)}>Lagre Utlevering</button>
                                             {:else if contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false"}
                                                 <button on:click={() => handleModalButtonClicks('Lagre', 'innlever/utkjop', token)}>Lagre Innlevering</button>
                                             {/if}
                                         {:else if unLockUpdateFields === true}
-                                            <button on:click={() => handleModalButtonClicks('Lagre', 'oppdater', token)}>Lagre</button>
+                                            <button on:click={() => handleModalButtonClicks('Lagre', 'oppdater', token)}>Lagre Oppdatering</button>
                                         {:else}
                                             <button disabled on:click={() => handleModalButtonClicks('Lagre')}>Lagre</button>
                                         {/if}
@@ -1024,12 +1310,33 @@
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        margin: 0rem 0rem 1rem 0rem;
+        border: 2px solid var(--vann-50);
+        margin: 1rem 0rem 1rem 0rem;
+        padding: 1rem;
     }
+
+    .checkbox-container p {
+        font-size: large;
+    }
+
+    .checkbox-container-admin {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        border: 2px solid var(--nype-50);
+        margin: 1rem 0rem 1rem 0rem;
+        padding: 1rem;
+    }
+
+    .checkbox-container-admin p {
+        font-size: large;
+    }
+
     .checkbox-item {
         display: flex;
         flex-direction: row;
         justify-content: flex-start;
+        align-items: center;
     }
     .delivery-button {
         display: flex;
@@ -1043,5 +1350,56 @@
         justify-content: space-around;
         width: 100%;
         max-width: 50rem;
+    }
+    .edit-admin-instructions {
+        border: 1px solid var(--nype-50);
+        background-color: var(--nype-30);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .edit-admin-instructions p {
+        font-size: large;
+        margin: 0rem 0rem 1rem 0rem;
+    }
+
+    .faktura-edit-section {
+        border: 2px solid var(--vann-50);
+        /* background-color: var(--himmel-30); */
+        padding: 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
+    .faktura-edit-section h4 {
+        margin-bottom: 1rem;
+    }
+    .faktura-edit-section p {
+        font-size: larger;
+    }
+
+    .faktura-edit-section-input {
+        margin-bottom: 1rem;
+    }
+
+    .faktura-edit-section-admin {
+        border: 2px solid var(--nype-50);
+        /* background-color: var(--himmel-30); */
+        padding: 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .faktura-edit-section-admin h4 {
+        margin-bottom: 1rem;
+    }
+
+    .faktura-edit-section-admin p {
+        font-size: large;
     }
 </style>

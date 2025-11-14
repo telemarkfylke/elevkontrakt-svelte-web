@@ -237,9 +237,7 @@
     const getUniqueValue = (value, uniqueClassesForSchool) => {
         for(const item of value) {
             const school = get(schools)
-            // console.log('hei')
             if(uniqueClassesForSchool === true) {
-                // console.log('school includes item', school.includes(item.elevInfo?.skole))
                 const classesStore = get(classesForEachSchool)
                 if(school.includes(item?.skole)) {
                     if(!classesStore[item.skole]) {
