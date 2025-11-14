@@ -1170,7 +1170,11 @@
                                                 <button on:click={() => handleModalButtonClicks('Lagre', 'innlever/utkjop', token)}>Lagre Innlevering</button>
                                             {/if}
                                         {:else if unLockUpdateFields === true}
-                                            <button on:click={() => handleModalButtonClicks('Lagre', 'oppdater', token)}>Lagre Oppdatering</button>
+                                            {#if editAsAdmin}
+                                                <button on:click={() => handleModalButtonClicks('Lagre', 'oppdater', token)}>Lagre Oppdatering som Admin</button>
+                                            {:else}
+                                                <button on:click={() => handleModalButtonClicks('Lagre', 'oppdater', token)}>Lagre Oppdatering</button>
+                                            {/if}
                                         {:else}
                                             <button disabled on:click={() => handleModalButtonClicks('Lagre')}>Lagre</button>
                                         {/if}
