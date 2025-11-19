@@ -969,6 +969,7 @@
                                                                     <option value="Elev slutter">Elev slutter</option>
                                                                     <option value="Utkjøp av PC">Utkjøp av PC</option>
                                                                     <option value="Privat PC">Privat PC</option>
+                                                                    <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
                                                                 </Select>
                                                             </div>
                                                         {:else if editAsAdmin}
@@ -1002,6 +1003,7 @@
                                                                     <option value="Elev slutter">Elev slutter</option>
                                                                     <option value="Utkjøp av PC">Utkjøp av PC</option>
                                                                     <option value="Privat PC">Privat PC</option>
+                                                                    <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
                                                                 </Select>
                                                             </div>
                                                         {:else}
@@ -1041,6 +1043,7 @@
                                                                     <option value="Elev slutter">Elev slutter</option>
                                                                     <option value="Utkjøp av PC">Utkjøp av PC</option>
                                                                     <option value="Privat PC">Privat PC</option>
+                                                                    <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
                                                                 </Select>
                                                             </div>
                                                         {:else if editAsAdmin}
@@ -1074,6 +1077,7 @@
                                                                     <option value="Elev slutter">Elev slutter</option>
                                                                     <option value="Utkjøp av PC">Utkjøp av PC</option>
                                                                     <option value="Privat PC">Privat PC</option>
+                                                                    <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
                                                                 </Select>
                                                             </div>
                                                         {:else}
@@ -1113,6 +1117,7 @@
                                                                     <option value="Elev slutter">Elev slutter</option>
                                                                     <option value="Utkjøp av PC">Utkjøp av PC</option>
                                                                     <option value="Privat PC">Privat PC</option>
+                                                                    <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
                                                                 </Select>
                                                             </div>
                                                         {:else if editAsAdmin}
@@ -1146,6 +1151,7 @@
                                                                     <option value="Elev slutter">Elev slutter</option>
                                                                     <option value="Utkjøp av PC">Utkjøp av PC</option>
                                                                     <option value="Privat PC">Privat PC</option>
+                                                                    <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
                                                                 </Select>
                                                             </div>
                                                         {:else}
