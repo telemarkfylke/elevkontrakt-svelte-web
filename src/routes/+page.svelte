@@ -1161,7 +1161,7 @@
                                         {/if}
                                     </div>
                                     <div slot="saveButton">
-                                        {#if unLockPCFields === true && contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false" || (unLockPCFields === true && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false" && contractToBeEdited.pcInfo.boughtOut === "false")}
+                                        {#if (unLockPCFields === true)}
                                             {#if editAsAdmin}
                                                 <button on:click={() => handleModalButtonClicks('Lagre', 'adminEdit', token)}>Lagre som admin</button>
                                             {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false"}
