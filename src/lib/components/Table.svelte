@@ -107,7 +107,15 @@
                                         border-radius: 0.25rem;">
                                         ${formattedValue}
                             </div>`
-                } 
+                } else if (formattedValue === "Kreditert") {
+                    return `<div style="border: 1px solid var(--plomme-50);;
+                                        padding: 0.25rem;
+                                        background-color: var(--plomme-30);;
+                                        font-weight: bold;
+                                        border-radius: 0.25rem;">
+                                        ${formattedValue}
+                            </div>`
+                }
             }
         }
         
