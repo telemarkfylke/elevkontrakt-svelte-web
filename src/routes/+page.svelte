@@ -190,21 +190,54 @@
                         label: "Faktura 1",
                         key: "fakturaInfo.rate1.status",
                         extra: [
-                            // Fyllinn faktura data når vi har datastruktur
+                            {
+                                label: "Faktureringsår",
+                                key: "fakturaInfo.rate1.faktureringsår"
+                            },
+                            {
+                                label: "Sum",
+                                key: "fakturaInfo.rate1.sum"
+                            },
+                            {
+                                label: "Betalt dato",
+                                key: "fakturaInfo.rate1.betaltDato"
+                            }
                         ]
                     },
                     {
                         label: "Faktura 2",
                         key: "fakturaInfo.rate2.status",
                         extra: [
-                            // Fyllinn faktura data når vi har datastruktur
+                            {
+                                label: "Faktureringsår",
+                                key: "fakturaInfo.rate2.faktureringsår"
+                            },
+                            {
+                                label: "Sum",
+                                key: "fakturaInfo.rate2.sum"
+                            },
+                            {
+                                label: "Betalt dato",
+                                key: "fakturaInfo.rate2.betaltDato"
+                            }
                         ]
                     },
                     {
                         label: "Faktura 3",
                         key: "fakturaInfo.rate3.status",
                         extra: [
-                            // Fyllinn faktura data når vi har datastruktur
+                            {
+                                label: "Faktureringsår",
+                                key: "fakturaInfo.rate3.faktureringsår"
+                            },
+                            {
+                                label: "Sum",
+                                key: "fakturaInfo.rate3.sum"
+                            },
+                            {
+                                label: "Betalt dato",
+                                key: "fakturaInfo.rate3.betaltDato"
+                            }
                         ]
                     },
                     {

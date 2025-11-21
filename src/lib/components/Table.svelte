@@ -434,7 +434,7 @@
                                                 {@html getNestedValue(row, column.key)}
                                             {/if}
                                         </div>
-                                        {#if column.extra?.length > 0 && getNestedValue(row, column.key, true) !== "Nei" && getNestedValue(row, column.key, true) !== "Ingen data" && getNestedValue(row, column.key, true) !== "Ukjent"}
+                                        {#if column.extra?.length > 0 && getNestedValue(row, column.key, true) !== "Nei" && getNestedValue(row, column.key, true) !== "Ingen data" && getNestedValue(row, column.key, true) !== "Ukjent" && getNestedValue(row, column.key, true) !== "Utlån faktureres ikke"} 
                                             <button class="cell-expand" on:click="{() => row.expandedIndex = row.expandedIndex === colIndex ? null : colIndex}">
                                                 {#if (row.expandedIndex === colIndex)} 
                                                     <span class="material-symbols-outlined">keyboard_arrow_up</span>
