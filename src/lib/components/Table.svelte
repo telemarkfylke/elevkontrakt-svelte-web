@@ -568,8 +568,10 @@
     .cell-content {
         display: flex;
         flex-direction: row;
-        justify-content: space-around;
+        justify-content: flex-start;
+        align-items: center;
         position: relative;
+        width: 100%;
     }
     .table-row {
         display: flex; 
@@ -580,7 +582,8 @@
     }
     .table-cell {
         display: flex;
-        align-items: center;
+        flex-direction: column;
+        align-items: flex-start;
         min-width: 150px;
         padding: 1rem 1.5rem;
         border-bottom: 1px solid #ccc;
@@ -591,7 +594,8 @@
 
     .table-cell:last-child {
         display: flex;
-        align-items: center;
+        flex-direction: column;
+        align-items: flex-start;
         min-width: 250px;
         padding: 1rem 3rem 1rem 1.5rem;
         background-color: white;
@@ -604,18 +608,14 @@
         display: flex;
         flex-direction: column;
         padding: 1rem 1rem;
-        margin-top: 0rem;
+        margin-top: 1rem;
         background-color: white;
         border: 1px solid var(--gress-50);
         border-radius: 8px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        z-index: 100;
+        position: relative;
+        z-index: 1;
         width: 20vw;
-        overflow: auto;
         animation: slideDown 0.2s ease-out;
     }
     
