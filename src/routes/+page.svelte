@@ -5,7 +5,7 @@
     import Modal from '$lib/components/Modal.svelte';
     import Select from '$lib/components/Select.svelte';
     import Table from '$lib/components/Table.svelte';
-    import { getContracts, getElevkontraktToken, getExtendedUserInfo, updateContractInfo, deleteContract } from '$lib/useApi';
+    import { getContracts, getElevkontraktToken, getExtendedUserInfo, updateContractInfo, deleteContract, moveContract } from '$lib/useApi';
     import { error } from '@sveltejs/kit';
     import { onMount } from 'svelte';
     import { get } from 'svelte/store';
@@ -448,7 +448,7 @@
                 }
             } else if (action === "slett") {
                 try {
-                    response = await deleteContract(contractToBeEdited._id)
+                    response = await moveContract(contractToBeEdited._id, 'deleted')
                 } catch (error) {
                     saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                     isProcessing = false
@@ -501,6 +501,21 @@
                 } else {
                     try {
                         response = await updateContractInfo(contractToBeEdited._id, actionData )
+                    } catch (error) {
+                        saveErrorMessage = "Noe gikk galt, prøv igjen senere"
+                        isProcessing = false
+                    }
+                }
+            } else if (action === 'flytt') {
+                const nyPlassering = document.getElementById('nyPlassering')?.value
+                if(nyPlassering === '') {
+                    saveErrorMessage = "Du må velge en ny plassering for avtalen"
+                    isProcessing = false
+                    return
+                } else if (nyPlassering === 'historisk') {
+                    // Handle flytt to historisk
+                    try {
+                        response = await moveContract(contractToBeEdited._id, 'historic') 
                     } catch (error) {
                         saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                         isProcessing = false
@@ -627,7 +642,7 @@
         // If the user is an administrator or IT service desk, enable actions
         // NB! Assign actions based on roles, not on enabledActions variable
         if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))) {
-            return ['Rediger', 'Slett']
+            return ['Rediger', 'Slett', 'Flytt']
         } 
         if (token.roles.some((r) => ['elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))) {
             return ['Rediger']
@@ -1240,6 +1255,32 @@
                                 </div>
                                 <div slot="saveButton">
                                     <button disabled={isProcessing} on:click={() => handleModalButtonClicks('Lagre', 'slett')}>Slett</button>
+                                    <button disabled={isProcessing} on:click={() => handleModalButtonClicks('Avbryt')}>Avbryt</button>
+                                </div>
+                            </Modal>
+                        {/if}
+                        {#if actionClicked === 'Flytt'}
+                            <Modal bind:showModal={showModal} disableClickOutSide={true} disableStandardButton={true}>
+                                <div slot="header">
+                                    <h2>Flytt avtale</h2>
+                                </div>
+                                <div slot="mainContent">
+                                    <p>Velg hvor du ønsker å flytte avtalen til: <strong>{contractToBeEdited.elevInfo.navn}</strong>?</p>
+                                    <label for="nyPlassering">Velg ny plassering:</label>
+                                    <select id="nyPlassering">
+                                        <option value="">Velg ny plassering</option>
+                                        <option value="historisk">Historisk</option>
+                                    </select>
+                                    {#if saveErrorMessage.length > 0}
+                                        <p style="color: red;"> <strong>{saveErrorMessage}❗</strong></p>
+                                    {/if}
+                                    {#if isProcessing === true}
+                                        <IconSpinner width="50px" />
+                                        <p>Lagrer endring...</p>
+                                    {/if}
+                                </div>
+                                <div slot="saveButton">
+                                    <button disabled={isProcessing} on:click={() => handleModalButtonClicks('Lagre', 'flytt')}>Flytt</button>
                                     <button disabled={isProcessing} on:click={() => handleModalButtonClicks('Avbryt')}>Avbryt</button>
                                 </div>
                             </Modal>
