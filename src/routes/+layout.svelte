@@ -80,8 +80,15 @@
         icon: 'assignment'
       })
     }
-    if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))) {
+    if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))) {
       sideMenuItems.splice(2, 0, {
+        title: 'Historikk',
+        href: '/history',
+        icon: 'archive'
+      })
+    }
+    if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))) {
+      sideMenuItems.splice(3, 0, {
         title: 'Instillinger',
         href: '/config',
         icon: 'settings'

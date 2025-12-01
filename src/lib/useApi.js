@@ -62,6 +62,79 @@ export const getContracts = async (school) => {
     return data;
 }
 
+export const searchContracts = async (searchName, targetCollection) => {
+
+  // Validate input
+  if(!searchName) return { error: 'No searchName provided' }
+  if(!targetCollection) return { error: 'No targetCollection provided' }
+  
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/handleDbRequest${import.meta.env.VITE_MOCK_DATA === "true" ? '?isMock=true' : '?isMock=false'}&navn=${encodeURIComponent(searchName)}`;
+  const headers = { 
+    Authorization: `Bearer ${token}`,
+    'target-collection': targetCollection
+  }
+  try {
+    const { data } = await axios.get(url, { headers })
+
+    if(data.status === 404) {
+      return { error: 'Fant ingen kontrakter for det oppgitte navnet - ' + searchName }
+    }
+    const dataToReturn = data.result.map(contract => {
+      const contracts = []
+
+      // Find all contracts for the same student
+      data.result.forEach(c => {
+        if(c.elevInfo.fnr === contract.elevInfo.fnr) {
+          contracts.push(c._id)
+        }
+      })    
+
+      // Simplify contract structure
+      return {
+        id: contracts,
+        numberOfContracts: contracts.length,
+        name: contract.elevInfo.navn,
+        fnr: contract.elevInfo.fnr,
+      }
+    })
+
+    // Remove duplicate entries
+    const uniqueData = {}
+    dataToReturn.forEach(item => {
+      uniqueData[item.fnr] = item
+    })
+
+    return Object.values(uniqueData)
+  } catch (error) {
+    return { error: 'Oi! Noe gikk veldig galt' };
+  }
+}
+
+export const getContractsWithId = async (contractsToFind, targetCollection) => {
+    // Validate input
+  if(!contractsToFind) return { error: 'No contractsToFind provided' }
+  if(!targetCollection) return { error: 'No targetCollection provided' }
+  
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/handleDbRequest${import.meta.env.VITE_MOCK_DATA === "true" ? '?isMock=true' : '?isMock=false'}&contractID=${(contractsToFind)}`;
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    'target-collection': targetCollection
+  }
+  try {
+    const { data } = await axios.get(url, { headers })
+
+    if(data.status === 404) {
+      return { error: 'Fant ingen kontrakter for det oppgitte navnet - ' + contractsToFind }
+    }
+   
+    return data.result
+  } catch (error) {
+    return { error: 'Oi! Noe gikk veldig galt' };
+  }
+}
+
 /**
  * Fetches contract information based on the provided contract ID.
  * @param {string} contractID - The ID of the contract to fetch information for.
@@ -114,7 +187,6 @@ export const checkStudent = async (ssn) => {
   const { data } = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
   return data;
 }
-
 
 
 export const postManualContract = async (contractData) => {
