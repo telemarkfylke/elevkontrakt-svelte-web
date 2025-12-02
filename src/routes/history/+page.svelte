@@ -31,7 +31,7 @@
             }
             isLoadingSearchData = false;
         } catch (error) {
-            errorMessage = 'Noe gikk veldig galt'
+            errorMessage = 'Noe gikk veldig galt' + JSON.stringify(error)
             isLoadingSearchData = false;
         }
     }
@@ -87,6 +87,7 @@
                 {/if}
                 {#if !errorMessage}
                     {#each userData as contract, i}
+                        <!-- {console.log(contract)} -->
                         <div class="contract-overview">
                             <h2>
                                 <div class="header-with-buttons">
@@ -107,12 +108,29 @@
                                 </div>
                             </h2>
                             {#if contractOverviewVisible === i}
+                                {console.log(contract)}
                                 {#each contract.id as id}
                                     <div class="info-section">
                                         <div class="info-grid">
                                             <div class="info-item">
-                                                <label>Avtale ID:</label>
+                                                <label>Database ID:</label>
                                                 <span class="value">{id}</span>
+                                            </div>
+                                            <div class="info-item">
+                                                <label>Avtaletype:</label>
+                                                <span class="value">{contract.contractType}</span>
+                                            </div>
+                                            <div class="info-item">
+                                                <label>Opprettet:</label>
+                                                <span class="value">{contract.createdTimeStamp}</span>
+                                            </div>
+                                            <div class="info-item">
+                                                <label>Gå til denne avtalen:</label>
+                                                <div class="button-group">
+                                                    <button class="button" on:click={() => goto(`/history/${contract.id}`)}>
+                                                        <span class="material-symbols-outlined">contract</span>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

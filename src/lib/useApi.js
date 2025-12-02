@@ -1,6 +1,8 @@
 import axios from 'axios'
 import { getMsalClient, login } from '../lib/auth/msal-auth'
 import { jwtDecode } from 'jwt-decode';
+import { returnLatestKnownContractInfo } from './helpers/latestKnownContractInfo';
+import { formatDate } from './helpers/formatDate';
 
 /**
  * 
@@ -96,6 +98,8 @@ export const searchContracts = async (searchName, targetCollection) => {
         numberOfContracts: contracts.length,
         name: contract.elevInfo.navn,
         fnr: contract.elevInfo.fnr,
+        contractType: returnLatestKnownContractInfo(contract)?.kontraktType,
+        createdTimeStamp: formatDate(returnLatestKnownContractInfo(contract).createdTimeStamp, true),
       }
     })
 

@@ -3,6 +3,8 @@
     import IconSpinner from '$lib/components/IconSpinner.svelte';
     import { formatDate } from '$lib/helpers/formatDate.js';
     import { formatFnr } from '$lib/helpers/formatFnr.js';
+    import { returnLatestKnownContractInfo } from '$lib/helpers/latestKnownContractInfo';
+    import { returnLatestKnownStudentInfo } from '$lib/helpers/latestKnownStudentInfo';
     import { getContractsWithId, getElevkontraktToken } from '$lib/useApi';
     import { get } from 'svelte/store';
     
@@ -24,63 +26,22 @@
             }
             return contracts;
         } catch (error) {
-            console.error('Error fetching contracts by slug:', error);
+            errorMessage = 'Error fetching contracts by slug:' + JSON.stringify(error)
         }
     }
 
     const getStatusColor = (value) => {
-        if (value === "true" || value === "Ja" || value === "Betalt") return "success";
-        if (value === "false" || value === "Nei") return "danger";
+        if (value === "true" || value === true || value === "Ja" || value === "Betalt") return "success";
+        if (value === "false" || value === false || value === "Nei") return "danger";
         if (value === "Utlån faktureres ikke") return "info";
         if (value === "Ukjent") return "warning";
         return "default";
     }
 
     const getStatusLabel = (value) => {
-        if (value === "true") return "Ja";
-        if (value === "false") return "Nei";
+        if (value === "true" || value === true) return "Ja";
+        if (value === "false" || value === false) return "Nei";
         return value || "Ukjent";
-    }
-
-    const returnLatestKnownStudentInfo = (contractData) => {
-        if(contractData.elevInfo.skole !== "Ukjent" && contractData.elevInfo.klasse !== "Ukjent") {
-            return { skole: contractData.elevInfo.skole, klasse: contractData.elevInfo.klasse };
-        }
-        const digiTrollContracts = contractData?.digiTrollData?.contracts;
-        if (!digiTrollContracts || Object.keys(digiTrollContracts).length === 0) {
-            return { skole: "Ukjent", klasse: "Ukjent" };
-        }
-        const latestContractKey = Object.keys(digiTrollContracts).sort().pop();
-        const latestContract = digiTrollContracts[latestContractKey][0];
-        return {
-            skole: latestContract.Skole || "Ukjent",
-            klasse: latestContract.Klasse || "Ukjent"
-        };
-    }
-
-    const returnLatestKnownContractInfo = (contractData) => {
-        if(contractData.signedSkjemaInfo.refId !== "Ukjent" || contractData.signedSkjemaInfo.acosName !== "Ukjent") {
-            return { 
-                refId: contractData.signedSkjemaInfo.refId, 
-                acosName: contractData.signedSkjemaInfo.acosName, 
-                kontraktType: contractData.signedSkjemaInfo.kontraktType || "Ukjent", 
-                archiveDocumentNumber: contractData.signedSkjemaInfo.archiveDocumentNumber, 
-                createdTimeStamp: contractData.signedSkjemaInfo.createdTimeStamp 
-            }
-        } else if(contractData?.digiTrollData) {
-            const digiTrollContracts = contractData?.digiTrollData?.contracts;
-            const latestContractKey = Object.keys(digiTrollContracts).sort().pop();
-            const latestContract = digiTrollContracts[latestContractKey][0];
-            return {
-                refId: latestContract["Avtale ID"] || "Ukjent",
-                acosName: contractData.unSignedskjemaInfo.acosName,
-                kontraktType: contractData.unSignedskjemaInfo.kontraktType || "Ukjent",
-                archiveDocumentNumber: "Ukjent",
-                createdTimeStamp: latestContract["Laget dato"] || "Ukjent"
-            }
-        } else {
-            errorMessage = "Noe gikk veldig galt";
-        }
     }
 
     const handleVisibility = (section, i) => {
@@ -372,7 +333,7 @@
                                                     </div>
                                                     <div class="info-item">
                                                         <label>Antall avtaler:</label>
-                                                        <span class="value">{contractData.digiTrollData["Antall kontrakter"]["$numberInt"]}</span>
+                                                        <span class="value">{contractData.digiTrollData["Antall kontrakter"]}</span>
                                                     </div>
                                                 </div>
                                             </div>
