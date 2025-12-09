@@ -64,7 +64,7 @@
             </div>
 
             <div class="searchField">
-                <Input disabled="{isLoadingSearchData}" type="text" bind:value={personSearchValue} placeholder="Eleven sitt navn" />
+                <Input disabled="{isLoadingSearchData}" type="text" bind:value={personSearchValue} placeholder="Eleven sitt navn" keypressEvent={(e) => e.key === 'Enter' && getHistoryData(personSearchValue)}/>
                 <button disabled="{personSearchValue.length === 0 || isLoadingSearchData}" on:click={() => getHistoryData(personSearchValue)}>
                     {#if isLoadingSearchData}
                         <span class="spinner"></span>
@@ -87,7 +87,6 @@
                 {/if}
                 {#if !errorMessage}
                     {#each userData as contract, i}
-                        <!-- {console.log(contract)} -->
                         <div class="contract-overview">
                             <h2>
                                 <div class="header-with-buttons">
@@ -108,7 +107,6 @@
                                 </div>
                             </h2>
                             {#if contractOverviewVisible === i}
-                                {console.log(contract)}
                                 {#each contract.id as id}
                                     <div class="info-section">
                                         <div class="info-grid">

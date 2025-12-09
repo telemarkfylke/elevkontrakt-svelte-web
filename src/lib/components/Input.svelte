@@ -6,6 +6,7 @@
     export let label = '';
     export let placeholder = '';
     export let attachment = null;
+    export let keypressEvent = null
   
     function handleInput({ target: t }) {
       if (type === 'number') {
@@ -23,8 +24,7 @@
         reader.readAsDataURL(file);
       })
     }
-
-
+    
     const handleFileUpload = async (event) => {
         const file = event?.target?.files[0]
         if (file) {
@@ -37,6 +37,7 @@
           };
         }
     };
+    
   </script>
   
   
@@ -52,6 +53,7 @@
           {type}
           {placeholder}
           value="{type === 'file' ? '' : value}"
+          on:keypress={keypressEvent}
           on:input={handleInput}
           on:input
           on:blur
