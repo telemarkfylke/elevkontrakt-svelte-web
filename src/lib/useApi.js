@@ -98,6 +98,7 @@ export const searchContracts = async (searchName, targetCollection) => {
         numberOfContracts: contracts.length,
         name: contract.elevInfo.navn,
         fnr: contract.elevInfo.fnr,
+        upn: contract.elevInfo.upn,
         contractType: returnLatestKnownContractInfo(contract)?.kontraktType,
         createdTimeStamp: formatDate(returnLatestKnownContractInfo(contract).createdTimeStamp, true),
       }

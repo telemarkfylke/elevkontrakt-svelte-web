@@ -23,8 +23,7 @@
         try {
             userData = await searchContracts(searchValue, 'history');
             if (userData && userData.contracts && userData.contracts.length > 0) {
-                // For simplicity, we take the first contract's data
-                contractData = userData.contracts[0]; // In real scenario, fetch based on userData.contracts
+                contractData = userData.contracts[0]
             } else if (userData.error && userData.error.length > 0) {
                 contractData = null;
                 errorMessage = userData.error
