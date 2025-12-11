@@ -305,7 +305,8 @@
                             </div>
                         {/if}
                     </div>
-                    
+
+                    <br>
 
                     <!-- Current students with price exceptions -->
                     <div class="overview">
@@ -468,7 +469,6 @@
                                                 Resultat
                                             </div>
                                         </h3>
-                                        <!-- TODO: Implement scrolling -->
                                         <div class="search-result">
                                             {#each userData as contract}
                                                 <div class="info-section">
@@ -715,5 +715,21 @@
         display: flex;
         justify-content: center;
         margin: 1rem;
+    }
+
+    .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+    }
+
+    /* Material Icons */
+    .material-symbols-outlined {
+        font-variation-settings:
+        'FILL' 0,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 24;
     }
 </style>

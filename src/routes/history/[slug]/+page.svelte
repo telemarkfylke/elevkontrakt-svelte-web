@@ -863,6 +863,13 @@
         border-radius: 6px;
     }
 
+    .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+    }
+
     /* Responsive design */
     @media (max-width: 768px) {
         main {
