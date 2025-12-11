@@ -7,6 +7,7 @@
     export let placeholder = '';
     export let attachment = null;
     export let keypressEvent = null
+    export let maxlength
   
     function handleInput({ target: t }) {
       if (type === 'number') {
@@ -53,6 +54,7 @@
           {type}
           {placeholder}
           value="{type === 'file' ? '' : value}"
+          {maxlength}
           on:keypress={keypressEvent}
           on:input={handleInput}
           on:input

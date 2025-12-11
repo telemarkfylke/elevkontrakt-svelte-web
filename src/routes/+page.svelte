@@ -21,19 +21,22 @@
             status: '',
             faktureringsår: '',
             sum: '',
-            editReason: ''
+            editReason: '',
+            editReasonCustom: ''
         },
         rate2: {
             status: '',
             faktureringsår: '',
             sum: '',
-            editReason: ''
+            editReason: '',
+            editReasonCustom: ''
         },
         rate3: {
             status: '',
             faktureringsår: '',
             sum: '',
-            editReason: ''
+            editReason: '',
+            editReasonCustom: ''
         }
     }
 
@@ -201,6 +204,18 @@
                             {
                                 label: "Betalt dato",
                                 key: "fakturaInfo.rate1.betaltDato"
+                            },
+                            {
+                                label: "Løpenummer",
+                                key: "fakturaInfo.rate1.løpenummer"
+                            },
+                            {
+                                label: "Grunn til oppdatering",
+                                key: "fakturaInfo.rate1.editReason"
+                            },
+                            {
+                                label: "Oppdatering fritekst",
+                                key: "fakturaInfo.rate1.editReasonCustom"
                             }
                         ]
                     },
@@ -219,6 +234,18 @@
                             {
                                 label: "Betalt dato",
                                 key: "fakturaInfo.rate2.betaltDato"
+                            },
+                            {
+                                label: "Løpenummer",
+                                key: "fakturaInfo.rate2.løpenummer"
+                            },
+                            {
+                                label: "Grunn til oppdatering",
+                                key: "fakturaInfo.rate2.editReason"
+                            },
+                            {
+                                label: "Oppdatering fritekst",
+                                key: "fakturaInfo.rate2.editReasonCustom"
                             }
                         ]
                     },
@@ -237,6 +264,18 @@
                             {
                                 label: "Betalt dato",
                                 key: "fakturaInfo.rate3.betaltDato"
+                            },
+                            {
+                                label: "Løpenummer",
+                                key: "fakturaInfo.rate3.løpenummer"
+                            },
+                            {
+                                label: "Grunn til oppdatering",
+                                key: "fakturaInfo.rate3.editReason"
+                            },
+                            {
+                                label: "Oppdatering fritekst",
+                                key: "fakturaInfo.rate3.editReasonCustom"
                             }
                         ]
                     },
@@ -662,6 +701,7 @@
             if (updatedValues[`rate${i}`].faktureringsår !== '' && updatedValues[`rate${i}`].faktureringsår !== contractToBeEdited.fakturaInfo[`rate${i}`].faktureringsår) fieldsChanged[`rate${i}.faktureringsår`] = updatedValues[`rate${i}`].faktureringsår
             if (updatedValues[`rate${i}`].sum !== '' && updatedValues[`rate${i}`].sum !== contractToBeEdited.fakturaInfo[`rate${i}`].sum) fieldsChanged[`rate${i}.sum`] = updatedValues[`rate${i}`].sum
             if (updatedValues[`rate${i}`].editReason !== '' ) fieldsChanged[`rate${i}.editReason`] = updatedValues[`rate${i}`].editReason;
+            if (updatedValues[`rate${i}`].editReasonCustom !== '' ) fieldsChanged[`rate${i}.editReasonCustom`] = updatedValues[`rate${i}`].editReasonCustom;
         }
 
         return { hasChanged: Object.keys(fieldsChanged).length > 0, fieldsChanged }
@@ -681,19 +721,22 @@
                     status: '',
                     faktureringsår: '',
                     sum: '',
-                    editReason: ''
+                    editReason: '',
+                    editReasonCustom: ''
                 },
                 rate2: {
                     status: '',
                     faktureringsår: '',
                     sum: '',
-                    editReason: ''
+                    editReason: '',
+                    editReasonCustom: ''
                 },
                 rate3: {
                     status: '',
                     faktureringsår: '',
                     sum: '',
-                    editReason: ''
+                    editReason: '',
+                    editReasonCustom: ''
                 }
             }
             editAsAdmin = !editAsAdmin
@@ -997,7 +1040,7 @@
                                                                     </Select>
                                                                 </div>
                                                             {/if}
-                                                            <div>
+                                                            <div class="faktura-edit-section-input">
                                                                 <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate1.status}" bind:value={updatedValues.rate1.status}>
                                                                     {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
                                                                         <option value="Ikke Fakturert">Ikke Fakturert</option>
@@ -1009,7 +1052,7 @@
                                                                     {/if}
                                                                 </Select>
                                                             </div>
-                                                            <div>
+                                                            <div class="faktura-edit-section-input">
                                                                 <Select label="Grunn til redigering" bind:value={updatedValues.rate1.editReason}>
                                                                     <option value="">Velg grunn</option>
                                                                     <option value="Feil faktureringsår">Feil faktureringsår</option>
@@ -1019,6 +1062,9 @@
                                                                     <option value="Privat PC">Privat PC</option>
                                                                     <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
                                                                 </Select>
+                                                            </div>
+                                                            <div class="faktura-edit-section-input">
+                                                                <Input type="text" label={`Grunn til redigering fritekst (${updatedValues.rate1.editReasonCustom.length}/128)`} maxlength={128} bind:value={updatedValues.rate1.editReasonCustom} placeholder="Fritekst"/>
                                                             </div>
                                                         {:else if editAsAdmin}
                                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
@@ -1031,7 +1077,7 @@
                                                                     </Select>
                                                                 </div>
                                                             {/if}
-                                                            <div>
+                                                            <div class="faktura-edit-section-input">
                                                                 <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate1.status}" bind:value={updatedValues.rate1.status}>
                                                                     {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
                                                                         <option value="Ikke Fakturert">Ikke Fakturert</option>
@@ -1043,7 +1089,7 @@
                                                                     {/if}
                                                                 </Select>
                                                             </div>
-                                                            <div>
+                                                            <div class="faktura-edit-section-input">
                                                                 <Select label="Grunn til redigering" bind:value={updatedValues.rate1.editReason}>
                                                                     <option value="">Velg grunn</option>
                                                                     <option value="Feil faktureringsår">Feil faktureringsår</option>
@@ -1053,6 +1099,9 @@
                                                                     <option value="Privat PC">Privat PC</option>
                                                                     <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
                                                                 </Select>
+                                                            </div>
+                                                            <div class="faktura-edit-section-input">
+                                                                <Input type="text" label={`Grunn til redigering fritekst (${updatedValues.rate1.editReasonCustom.length}/128)`} maxlength={128} bind:value={updatedValues.rate1.editReasonCustom} placeholder="Fritekst"/>
                                                             </div>
                                                         {:else}
                                                             <p>Faktura 1 er allerede håndtert, kan ikke endre sum, status eller faktureringsår</p>
@@ -1094,6 +1143,9 @@
                                                                     <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
                                                                 </Select>
                                                             </div>
+                                                            <div class="faktura-edit-section-input">
+                                                                <Input type="text" label={`Grunn til redigering fritekst (${updatedValues.rate2.editReasonCustom.length}/128)`} maxlength={128} bind:value={updatedValues.rate2.editReasonCustom} placeholder="Fritekst"/>
+                                                            </div>
                                                         {:else if editAsAdmin}
                                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
                                                                 <div class="faktura-edit-section-input">
@@ -1127,6 +1179,9 @@
                                                                     <option value="Privat PC">Privat PC</option>
                                                                     <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
                                                                 </Select>
+                                                            </div>
+                                                            <div class="faktura-edit-section-input">
+                                                                <Input type="text" label={`Grunn til redigering fritekst (${updatedValues.rate2.editReasonCustom.length}/128)`} maxlength={128} bind:value={updatedValues.rate2.editReasonCustom} placeholder="Fritekst"/>
                                                             </div>
                                                         {:else}
                                                             <p>Faktura 2 er allerede håndtert, kan ikke endre sum, status eller faktureringsår</p>
@@ -1168,6 +1223,9 @@
                                                                     <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
                                                                 </Select>
                                                             </div>
+                                                            <div class="faktura-edit-section-input">
+                                                                <Input type="text" label={`Grunn til redigering fritekst (${updatedValues.rate3.editReasonCustom.length}/128)`} maxlength={128} bind:value={updatedValues.rate3.editReasonCustom} placeholder="Fritekst"/>
+                                                            </div>
                                                         {:else if editAsAdmin}
                                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
                                                                 <div class="faktura-edit-section-input">
@@ -1201,6 +1259,9 @@
                                                                     <option value="Privat PC">Privat PC</option>
                                                                     <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
                                                                 </Select>
+                                                            </div>
+                                                            <div class="faktura-edit-section-input">
+                                                                <Input type="text" label={`Grunn til redigering, fritekst (${updatedValues.rate3.editReasonCustom.length}/128)`} maxlength={128} bind:value={updatedValues.rate3.editReasonCustom} placeholder="Fritekst"/>
                                                             </div>
                                                         {:else}
                                                             <p>Faktura 3 er allerede håndtert, kan ikke endre sum, status eller faktureringsår</p>

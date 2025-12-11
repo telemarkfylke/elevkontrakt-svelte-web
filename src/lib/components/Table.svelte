@@ -446,12 +446,34 @@
                                     </div>
                                     {#if row.expandedIndex === colIndex}
                                         <div class="expanded-content">
-                                            {#each column.extra as extra}
-                                                <div class="expanded-content-value">
-                                                    <strong>{extra.label}:</strong>
-                                                    {getNestedValue(row, extra.key)}
+                                            <!-- If column.extra.length >= 3 split into two columns -->
+                                            {#if column.extra.length >= 3}
+                                                <div class="expanded-content-columns">
+                                                    <div class="expanded-content-column">
+                                                        {#each column.extra.slice(0, Math.ceil(column.extra.length / 2)) as extra}
+                                                            <div class="expanded-content-value">
+                                                                <strong>{extra.label}:</strong>
+                                                                {getNestedValue(row, extra.key)}
+                                                            </div>
+                                                        {/each}
+                                                    </div>
+                                                    <div class="expanded-content-column">
+                                                        {#each column.extra.slice(Math.ceil(column.extra.length / 2)) as extra}
+                                                            <div class="expanded-content-value">
+                                                                <strong>{extra.label}:</strong>
+                                                                {getNestedValue(row, extra.key)}
+                                                            </div>
+                                                        {/each}
+                                                    </div>
                                                 </div>
-                                            {/each}
+                                            {:else}
+                                                {#each column.extra as extra}
+                                                    <div class="expanded-content-value">
+                                                        <strong>{extra.label}:</strong>
+                                                        {getNestedValue(row, extra.key)}
+                                                    </div>
+                                                {/each}
+                                            {/if}
                                         </div>
                                     {/if}
                                     <!-- Show the actions button only in the "Handlinger column" -->
@@ -637,7 +659,16 @@
         text-transform: uppercase;
         letter-spacing: 0.025em;
     }
+
+    .expanded-content-column {
+        flex: 1;
+        padding: 0.5rem 0.5rem 0rem 0rem;
+    }
     
+    .expanded-content-columns {
+        display: flex;
+        flex-direction: row;
+    }
     .expanded-content-value {
         display: flex;
         flex-direction: column;
