@@ -5,8 +5,10 @@
 
 	let dialog; // HTMLDialogElement
 
-	$: if (dialog && showModal) dialog.showModal();
-	
+	$: if (dialog && showModal) {
+		dialog.showModal()
+	}
+
 	const closeModal = () => {
 		// Endable scrolling when modal is closed
 		document.body.style.height = "auto";
@@ -41,7 +43,7 @@
 		max-width: 80em;
 		border-radius: 0.2em;
 		height: fit-content;
-        max-height: 80em;
+        max-height: 50em;
 		border: none;
 		padding: 0;
 		overflow-x: hidden;

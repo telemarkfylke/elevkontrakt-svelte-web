@@ -724,6 +724,18 @@
         height: 100%;
     }
 
+    /* Responsive design */
+    @media (max-width: 768px) {
+        main {
+            padding: 1rem;
+        }
+
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+
+    }
+
     /* Material Icons */
     .material-symbols-outlined {
         font-variation-settings:
