@@ -1,7 +1,7 @@
 import { PublicClientApplication } from '@azure/msal-browser'
 
 /**
- * @type {import('@azure/msal-browser').Configuration} 
+ * @type {import('@azure/msal-browser').Configuration}
  */
 const msalConfig = {
   auth: {
@@ -19,7 +19,7 @@ const msalConfig = {
 let msalClient = null // Vi prøver å beholde den i minne for moro skyld, slik at getMsalClient bruker den om den finnes
 
 /**
- * 
+ *
  * @returns {import('@azure/msal-browser').PublicClientApplication} msalClient
  */
 export const getMsalClient = async () => {
@@ -53,7 +53,7 @@ export const login = async (forceLogin = false, loginRequestUrl = '/') => {
   const msalClient = await getMsalClient()
 
   const loginResponse = await msalClient.handleRedirectPromise()
-  
+
   if (loginResponse && !forceLogin) {
     msalClient.setActiveAccount(loginResponse.account)
     return { account: loginResponse.account, loginRequestUrl: loginResponse.state }
