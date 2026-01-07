@@ -215,6 +215,7 @@
                             <div class="textBox">
                                 <p>Her kan du endre priser for leieavtaler.</p>
                                 <p>Prisen som settes her vil gjelde for alle leieavtaler på det tidspunktet de blir fakturert.</p>
+                                <p>Husk at endringer i prisene må lagres for å tre i kraft.</p>
                             </div>
                         </div>
                         <h3>
@@ -311,6 +312,8 @@
                             <div class="textBox">
                                 <p>Her kan du legge til elever som skal få unntak fra ordinær pris. Disse vil bli fakturert til redusert pris.</p>
                                 <p>Søk opp eleven ved navn, velg eleven fra listen og trykk "Legg til".</p>
+                                <p>Du kan også fjerne unntak ved å klikke på "Fjern" knappen ved siden av elevens navn.</p>
+                                <p>Husk at endringer i unntakene må lagres for å tre i kraft.</p>
                             </div>
                         </div>
 
@@ -353,6 +356,8 @@
                             <div class="textBox">
                                 <p>Her kan du legge til elever som skal få unntak fra ordinær fakturaflyt. Disse vil ikke bli fakturert via den ordinære flyten og må faktureres manuelt.</p>
                                 <p>Søk opp eleven ved navn, velg eleven fra listen og trykk "Legg til".</p>
+                                <p>Du kan også fjerne unntak ved å klikke på "Fjern" knappen ved siden av elevens navn.</p>
+                                <p>Husk at endringer i unntakene må lagres for å tre i kraft.</p>
                             </div>
                         </div>
 
