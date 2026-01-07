@@ -11,7 +11,6 @@
     let editPriceException = false
     let editInvoiceFlowBlock = false
     let isProcessing = false
-    let isLoadingSearchData = false
 
     let errorMessage = ''
     let errorArray = []
@@ -150,24 +149,6 @@
         goto('/').then(
             () => goto(thisPage)
         )
-    }
-
-    const getStudentData = async (searchValue) => {
-        errorMessage = ''
-        isLoadingSearchData = true;
-        try {
-            userData = await searchContracts(searchValue, 'regular');
-            if (userData && userData.contracts && userData.contracts.length > 0) {
-                contractData = userData.contracts[0]; 
-            } else if (userData.error && userData.error.length > 0) {
-                contractData = null;
-                errorMessage = userData.error
-            }
-            isLoadingSearchData = false;
-        } catch (error) {
-            errorMessage = 'Noe gikk veldig galt' + JSON.stringify(error)
-            isLoadingSearchData = false;
-        }
     }
 
     const getSettingsData = async () => {
@@ -466,22 +447,6 @@
         box-shadow: none;
     }
 
-    .spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid #ffffff;
-        border-top: 2px solid transparent;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-
-    .searchField {
-        display: flex;
-        gap: 1rem;
-        margin: 2rem 0;
-        align-items: center;
-    }
-
     .button-group {
         display: flex;
         gap: 1rem;
@@ -530,13 +495,6 @@
         border-left: 3px solid var(--gress-30);
         font-size: 1rem;
         min-height: 1.2rem;
-    }
-     .error-message {
-        background-color: var(--nype-10, #ffe5e5);
-        border-left: 4px solid var(--nype-60, #ff4d4d);
-        padding: 1rem 1.5rem;
-        border-radius: 6px;
-        margin-bottom: 1.5rem;
     }
 
     .overview {
