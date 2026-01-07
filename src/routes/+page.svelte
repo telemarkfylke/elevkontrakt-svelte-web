@@ -216,6 +216,10 @@
                             {
                                 label: "Oppdatering fritekst",
                                 key: "fakturaInfo.rate1.editReasonCustom"
+                            },
+                            {
+                                label: "Faktureringsdato",
+                                key: "fakturaInfo.rate1.faktureringsDato",
                             }
                         ]
                     },
@@ -246,6 +250,10 @@
                             {
                                 label: "Oppdatering fritekst",
                                 key: "fakturaInfo.rate2.editReasonCustom"
+                            },
+                            {
+                                label: "Faktureringsdato",
+                                key: "fakturaInfo.rate2.faktureringsDato",
                             }
                         ]
                     },
@@ -276,6 +284,10 @@
                             {
                                 label: "Oppdatering fritekst",
                                 key: "fakturaInfo.rate3.editReasonCustom"
+                            },
+                            {
+                                label: "Faktureringsdato",
+                                key: "fakturaInfo.rate3.faktureringsDato",
                             }
                         ]
                     },
