@@ -2,28 +2,40 @@
     import { goto } from "$app/navigation";
     import IconSpinner from "$lib/components/IconSpinner.svelte";
     import Input from "$lib/components/Input.svelte"
+    import SearchStudentData from "$lib/components/searchStudentData.svelte";
+    import SelectionList from "$lib/components/selectionList.svelte";
     import { formatFnr } from "$lib/helpers/formatFnr.js";
     import { getElevkontraktToken, getSettings, searchContracts, updateSettings } from '../../lib/useApi.js';
     
     let editPrices = false
     let editPriceException = false
+    let editInvoiceFlowBlock = false
     let isProcessing = false
     let isLoadingSearchData = false
 
     let errorMessage = ''
-    let personSearchValue = ''
     let errorArray = []
 
-    let studentDataFromSettings = []
-    let exceptionsToAdd = []
-    let exceptionsToRemove = []
-    $:currentRegularPrice = ''
-    $:currentReducedPrice = ''
+    // Exceptions array
+    let priceExceptionsDataFromSettings = []
+    let invoiceExceptionsDataFromSettings = []
+
+    // Price exceptions to add/remove
+    let priceExceptionsToAdd = []
+    let priceExceptionsToRemove = []
+
+    // Invoice exceptions to add/remove
+    let invoiceExceptionsToAdd = []
+    let invoiceExceptionsToRemove = []
     
+    // Prices
     let regularPrice = null
     let reducedPrice = null
+
+    // Student data
     let userData = null
 
+    // This functions will handle all the button clicks, 'Lagre' and 'Avbryt'
     const handleButtonClicks = async (clickedButton, action, token) => {
         errorMessage = '' // Reset error message
         let response
@@ -64,14 +76,33 @@
             }   
             isProcessing = false
             editPrices = false
-        } else if (clickedButton === 'Lagre unntak') {
+        } else if (clickedButton === 'Lagre unntak' && action === 'editPriceException') {
             const updateObject = { data: { } }
 
-            if(exceptionsToAdd.length > 0) {
-                updateObject.data['exceptionsFromRegularPrices.students'] = [...exceptionsToAdd, ...studentDataFromSettings]
+            if(priceExceptionsToAdd.length > 0) {
+                updateObject.data['exceptionsFromRegularPrices.students'] = [...priceExceptionsToAdd, ...priceExceptionsDataFromSettings]
             }
-            if(exceptionsToRemove.length > 0) {
-                updateObject.data['exceptionsFromRegularPrices.students'] = [...studentDataFromSettings.filter(s => !exceptionsToRemove.includes(s)), ...exceptionsToAdd]
+            if(priceExceptionsToRemove.length > 0) {
+                updateObject.data['exceptionsFromRegularPrices.students'] = [...priceExceptionsDataFromSettings.filter(s => !priceExceptionsToRemove.includes(s)), ...priceExceptionsToAdd]
+            }
+            response = await updateSettings(updateObject)
+
+            if (response && response.status === 200) {
+                // Successfully updated settings
+                reloadPage() // Reload the page to reflect changes
+            } else {
+                errorMessage = 'Noe gikk galt ved lagring av nye unntak. Vennligst prøv igjen.'
+            }
+            isProcessing = false   
+            editPriceException = false
+        } else if (clickedButton === 'Lagre unntak' && action === 'editInvoiceFlowBlock') {
+            const updateObject = { data: { } }
+
+            if(invoiceExceptionsToAdd.length > 0) {
+                updateObject.data['exceptionsFromInvoiceFlow.students'] = [...invoiceExceptionsToAdd, ...invoiceExceptionsDataFromSettings]
+            }
+            if(invoiceExceptionsToRemove.length > 0) {
+                updateObject.data['exceptionsFromInvoiceFlow.students'] = [...invoiceExceptionsDataFromSettings.filter(s => !invoiceExceptionsToRemove.includes(s)), ...invoiceExceptionsToAdd]
             }
             response = await updateSettings(updateObject)
 
@@ -89,6 +120,8 @@
                 editPrices = false
             } else if (action === 'editPriceException') {
                 editPriceException = false
+            } else if (action === 'editInvoiceException') {
+                editInvoiceFlowBlock = false
             }
         }
     }
@@ -119,41 +152,6 @@
         )
     }
 
-    const removeException = (student, action) => {
-        if(action === 'add') {
-            // Add the students to the array of students to be removed from the exception
-            exceptionsToRemove = [...exceptionsToRemove, student]
-            // Remove the student from the original data array
-            studentDataFromSettings = studentDataFromSettings.filter(s => s !== student)
-        } else if (action === 'remove') {
-            // Find the student object in the array and remove it from the array.
-            const index = exceptionsToRemove.indexOf(student)
-            if (index > -1) {
-                exceptionsToRemove = exceptionsToRemove.filter((_, i) => i !== index)
-            }
-            // Add the student back to the original data array
-            studentDataFromSettings = [...studentDataFromSettings, student]
-        }
-    }
-
-    const addException = (contract, action) => {
-        // Add to exceptionsToAdd array if needed
-        if(action === 'add') {
-            // Add the students to the array of students to be removed from the exception
-            exceptionsToAdd = [...exceptionsToAdd, contract]
-            // Remove the student from the original data array
-            userData = userData.filter(s => s !== contract)
-        } else if (action === 'remove') {
-            // Find the student object in the array and remove it from the array.
-            const index = exceptionsToAdd.indexOf(contract)
-            if (index > -1) {
-                exceptionsToAdd = exceptionsToAdd.filter((_, i) => i !== index)
-            }
-            // Add the student back to the original data array
-            userData = [...userData, contract]
-        }
-    }
-
     const getStudentData = async (searchValue) => {
         errorMessage = ''
         isLoadingSearchData = true;
@@ -174,7 +172,8 @@
 
     const getSettingsData = async () => {
         const settings = await getSettings()
-        studentDataFromSettings.push(...settings.data.result[0].exceptionsFromRegularPrices.students)
+        priceExceptionsDataFromSettings.push(...settings.data.result[0].exceptionsFromRegularPrices.students)
+        invoiceExceptionsDataFromSettings.push(...settings.data.result[0].exceptionsFromInvoiceFlow.students)
         return settings
     }
 </script>
@@ -231,6 +230,12 @@
                                 </div>
                             </div>
                         </h2>
+                        <div class="info-section">
+                            <div class="textBox">
+                                <p>Her kan du endre priser for leieavtaler.</p>
+                                <p>Prisen som settes her vil gjelde for alle leieavtaler på det tidspunktet de blir fakturert.</p>
+                            </div>
+                        </div>
                         <h3>
                             <div class="header-title">
                                 <span class="material-symbols-outlined">payments</span>
@@ -253,10 +258,6 @@
                         <!-- Edit Prices Section -->
                         {#if editPrices}
                             <div class="info-section">
-                                <div class="textBox">
-                                    <p>Her kan du endre priser for leieavtaler.</p>
-                                    <p>Prisen som settes her vil gjelde for alle leieavtaler på det tidspunktet de blir fakturert.</p>
-                                </div>
                                 <div class="input-group">
                                     <div class="input">
                                         <label>Normal pris: </label>
@@ -325,183 +326,64 @@
                                 </div>
                             </div>
                         </h2>
-                        {#if studentDataFromSettings.length > 0}
-                            <h3>
-                                <div class="header-title">
-                                    <span class="material-symbols-outlined">person</span>
-                                    Unntak som er aktive
-                                </div>
-                            </h3>
-                            <div class="search-result">
-                                {#each studentDataFromSettings as student}
-                                    <div class="info-section">
-                                        <div class="info-grid">
-                                            <div class="info-item">
-                                                <label>Elevnavn:</label>
-                                                <span class="value">{student.name}</span>
-                                            </div>
-                                            <div class="info-item">
-                                                {#if editPriceException}
-                                                    <label>Fjern unntak:</label>
-                                                    <div class="button-group">
-                                                        <button class="button-remove" on:click={() => removeException(student, 'add')}>
-                                                            <span class="material-symbols-outlined">remove_circle</span>
-                                                        </button>
-                                                    </div>
-                                                {/if}
-                                            </div>
-                                        </div>
-                                    </div>
-                                {/each}
+                        <div class="info-section">
+                            <div class="textBox">
+                                <p>Her kan du legge til elever som skal få unntak fra ordinær pris. Disse vil bli fakturert til redusert pris.</p>
+                                <p>Søk opp eleven ved navn, velg eleven fra listen og trykk "Legg til".</p>
                             </div>
-                        {:else}
-                            <div class="info-section">
-                                    <div class="info-grid">
-                                        <div class="info-item">
-                                            <p>Ingen aktive unntak</p>
-                                        </div>
-                                    </div>
-                            </div>
-                        {/if}
-                        {#if exceptionsToRemove.length > 0}
-                            <h3>
-                                <div class="header-title">
-                                    <span class="material-symbols-outlined">person</span>
-                                    Unntak som skal fjernes
-                                </div>
-                            </h3>
-                            <div class="search-result">
-                                {#each exceptionsToRemove as student}
-                                    <div class="info-section">
-                                        <div class="info-grid">
-                                            <div class="info-item">
-                                                <label>Elevnavn:</label>
-                                                <span class="value">{student.name}</span>
-                                            </div>
-                                            <div class="info-item">
-                                                {#if editPriceException}
-                                                    <label>Angre fjerning fra unntak:</label>
-                                                    <div class="button-group">
-                                                        <button on:click={() => removeException(student, 'remove')}>
-                                                            <span class="material-symbols-outlined">add_circle</span>
-                                                        </button>
-                                                    </div>
-                                                {/if}
-                                            </div>
-                                        </div>
-                                    </div>
-                                {/each}
-                            </div>
-                        {/if}
+                        </div>
 
-                        <!-- Price exceptions, add new students-->
+                        <!-- SelectionList, only shown if editPriceException === true -->
+                        <SelectionList addExceptionFlag={true} removeExceptionFlag={true} editException={editPriceException} userData={userData} studentDataFromSettings={priceExceptionsDataFromSettings} bind:exceptionsToRemove={priceExceptionsToRemove} bind:exceptionsToAdd={priceExceptionsToAdd} />
+                        
+                        <!-- Buttons -->
                         {#if editPriceException}
-                            <div class="info-section">
-                                <div class="textBox">
-                                    <p>Her kan du legge til elever som skal få unntak fra ordinær pris. Disse vil bli fakturert til redusert pris.</p>
-                                    <p>Søk opp eleven ved navn, velg eleven fra listen og trykk "Legg til".</p>
-                                </div>
-                                <div class="info-grid">
-                                    <div class="info-item">
-                                        <div class="searchField">
-                                            <Input disabled="{isLoadingSearchData}" type="text" bind:value={personSearchValue} placeholder="Eleven sitt navn" keypressEvent={(e) => e.key === 'Enter' && getStudentData(personSearchValue)}/>
-                                            <button disabled="{personSearchValue.length === 0 || isLoadingSearchData}" on:click={() => getStudentData(personSearchValue)}>
-                                                {#if isLoadingSearchData}
-                                                    <span class="spinner"></span>
-                                                    Henter elev...
-                                                {:else}
-                                                    Hent elev
-                                                {/if}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            {#if isLoadingSearchData}
-                                <div class="loading">
-                                    <IconSpinner width={"32px"} />
-                                </div>
-                            {:else if userData}
-                                {#if errorMessage}
-                                    <div class="error-message">
-                                        <p>{errorMessage}</p>
-                                    </div>
-                                {/if}
-                                {#if !errorMessage}
-                                    {#if exceptionsToAdd.length > 0}
-                                        <h3>
-                                            <div class="header-title">
-                                                <span class="material-symbols-outlined">add_2</span>
-                                                Elever som vil bli lagt til unntak
-                                            </div>
-                                        </h3>
-                                        <div class="search-result">
-                                            {#each exceptionsToAdd as exception}
-                                                <div class="info-section">
-                                                    <div class="info-grid">
-                                                        <div class="info-item">
-                                                            <label>Elevnavn:</label>
-                                                            <span class="value">{exception.name}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Elev fødselsnummer:</label>
-                                                            <span class="value">{formatFnr(exception.fnr)}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            {#if editPriceException}
-                                                                <label>Angre unntak:</label>
-                                                                <div class="button-group">
-                                                                    <button class="button-remove" on:click={() => addException(exception, 'remove')}>
-                                                                        <span class="material-symbols-outlined">remove_circle</span>
-                                                                    </button>
-                                                                </div>
-                                                            {/if}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            {/each}
-                                        </div>
-                                    {/if}
-                                    {#if userData.length > 0}
-                                        <h3>
-                                            <div class="header-title">
-                                                <span class="material-symbols-outlined">search</span>
-                                                Resultat
-                                            </div>
-                                        </h3>
-                                        <div class="search-result">
-                                            {#each userData as contract}
-                                                <div class="info-section">
-                                                    <div class="info-grid">
-                                                        <div class="info-item">
-                                                            <label>Elevnavn:</label>
-                                                            <span class="value">{contract.name}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Elev fødselsnummer:</label>
-                                                            <span class="value">{formatFnr(contract.fnr)}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            {#if editPriceException}
-                                                                <label>Legg til unntak:</label>
-                                                                <div class="button-group">
-                                                                    <button on:click={() => addException(contract, 'add')}>
-                                                                        <span class="material-symbols-outlined">add_circle</span>
-                                                                    </button>
-                                                                </div>
-                                                            {/if}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            {/each}
-                                        </div>
-                                    {/if}
-                                {/if}
-                            {/if}
                             <div class="center">
                                 <div class="button-group">
-                                    <button disabled={(exceptionsToRemove.length === 0 && exceptionsToAdd.length === 0) ? true : false} on:click={() => handleButtonClicks('Lagre unntak', 'editPriceException', token)}>Lagre unntak</button>
+                                    <button disabled={(priceExceptionsToAdd.length === 0 && priceExceptionsToRemove.length === 0) ? true : false} on:click={() => handleButtonClicks('Lagre unntak', 'editPriceException', token)}>Lagre unntak</button>
                                     <button class="button-remove" on:click={() => handleButtonClicks('Avbryt', 'editPriceException', token)}>Avbryt</button>
+                                </div>
+                            </div>
+                        {/if}
+                    </div>
+
+                    <br>
+
+                    <!-- Students blocked from normal invoice flow -->
+                    <div class="overview">
+                        <h2>
+                            <div class="header-with-buttons">
+                                <div class="header-title">
+                                    <span class="material-symbols-outlined">person</span>
+                                    Unntak fra ordinær fakturaflyt {#if editInvoiceFlowBlock} (redigeringsmodus){/if}
+                                </div>
+                                <div class="button-group">
+                                    <button class="toggle-button" on:click={() => editInvoiceFlowBlock = !editInvoiceFlowBlock}>
+                                        <span class="material-symbols-outlined">
+                                            {editInvoiceFlowBlock ? 'edit_off' : 'edit'}
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </h2>
+
+
+                       <div class="info-section">
+                            <div class="textBox">
+                                <p>Her kan du legge til elever som skal få unntak fra ordinær fakturaflyt. Disse vil ikke bli fakturert via den ordinære flyten og må faktureres manuelt.</p>
+                                <p>Søk opp eleven ved navn, velg eleven fra listen og trykk "Legg til".</p>
+                            </div>
+                        </div>
+
+                        <!-- SelectionList, only shown if editInvoiceFlowBlock === true -->
+                        <SelectionList addExceptionFlag={true} removeExceptionFlag={true} editException={editInvoiceFlowBlock} userData={userData} studentDataFromSettings={invoiceExceptionsDataFromSettings} bind:exceptionsToRemove={invoiceExceptionsToRemove} bind:exceptionsToAdd={invoiceExceptionsToAdd} />
+
+                        <!-- Buttons -->
+                        {#if editInvoiceFlowBlock}
+                            <div class="center">
+                                <div class="button-group">
+                                    <button disabled={(invoiceExceptionsToRemove.length === 0 && invoiceExceptionsToAdd.length === 0) ? true : false} on:click={() => handleButtonClicks('Lagre unntak', 'editInvoiceFlowBlock', token)}>Lagre unntak</button>
+                                    <button class="button-remove" on:click={() => handleButtonClicks('Avbryt', 'editInvoiceFlowBlock', token)}>Avbryt</button>
                                 </div>
                             </div>
                         {/if}
