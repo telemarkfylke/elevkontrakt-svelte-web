@@ -15,8 +15,6 @@
         try {
             const userData = await searchContracts(searchValue, 'regular');
             if (Array.isArray(userData) && userData.length > 0) {
-                // Simulate loading data
-                await new Promise(resolve => setTimeout(resolve, 2000));
                 data = userData
             } else if (userData.error && userData.error.length > 0) {
                 data = null;
