@@ -140,88 +140,85 @@
         <div class="loading">
             <IconSpinner width={"32px"} />
         </div>
+        {:else if errorMessage}
+            <div class="error">
+                <p>{errorMessage}</p>
+            </div>
         {:else if userData}
-            {#if errorMessage}
-                <div class="error-message">
-                    <p>{errorMessage}</p>
+            {#if exceptionsToAdd.length > 0}
+                <h3>
+                    <div class="header-title">
+                        <span class="material-symbols-outlined">add_2</span>
+                        Elever som vil bli lagt til unntak
+                    </div>
+                </h3>
+                <div class="search-result">
+                    {#each exceptionsToAdd as exception}
+                        <div class="info-section">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <label>Elevnavn:</label>
+                                    <span class="value">{exception.name}</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Elev fødselsnummer:</label>
+                                    <span class="value">{formatFnr(exception.fnr)}</span>
+                                </div>
+                                <div class="info-item">
+                                    {#if editException}
+                                        <label>Angre unntak:</label>
+                                        <div class="button-group">
+                                            <button class="button-remove" on:click={() => addException(exception, 'remove')}>
+                                                <span class="material-symbols-outlined">remove_circle</span>
+                                            </button>
+                                        </div>
+                                    {/if}
+                                </div>
+                            </div>
+                        </div>
+                    {/each}
                 </div>
             {/if}
-            {#if !errorMessage}
-                {#if exceptionsToAdd.length > 0}
-                    <h3>
-                        <div class="header-title">
-                            <span class="material-symbols-outlined">add_2</span>
-                            Elever som vil bli lagt til unntak
-                        </div>
-                    </h3>
-                    <div class="search-result">
-                        {#each exceptionsToAdd as exception}
-                            <div class="info-section">
-                                <div class="info-grid">
-                                    <div class="info-item">
-                                        <label>Elevnavn:</label>
-                                        <span class="value">{exception.name}</span>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Elev fødselsnummer:</label>
-                                        <span class="value">{formatFnr(exception.fnr)}</span>
-                                    </div>
-                                    <div class="info-item">
-                                        {#if editException}
-                                            <label>Angre unntak:</label>
-                                            <div class="button-group">
-                                                <button class="button-remove" on:click={() => addException(exception, 'remove')}>
-                                                    <span class="material-symbols-outlined">remove_circle</span>
-                                                </button>
-                                            </div>
-                                        {/if}
-                                    </div>
+            {#if userData.length > 0}
+                <h3>
+                    <div class="header-title">
+                        <span class="material-symbols-outlined">search</span>
+                        Resultat
+                    </div>
+                </h3>
+                <div class="search-result">
+                    {#each userData as contract}
+                        <div class="info-section">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <label>Elevnavn:</label>
+                                    <span class="value">{contract.name}</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Elev fødselsnummer:</label>
+                                    <span class="value">{formatFnr(contract.fnr)}</span>
+                                </div>
+                                <div class="info-item">
+                                    {#if editException}
+                                        <label>Legg til unntak:</label>
+                                        <div class="button-group">
+                                            <button on:click={() => addException(contract, 'add')}>
+                                                <span class="material-symbols-outlined">add_circle</span>
+                                            </button>
+                                        </div>
+                                    {/if}
                                 </div>
                             </div>
-                        {/each}
-                    </div>
-                {/if}
-                {#if userData.length > 0}
-                    <h3>
-                        <div class="header-title">
-                            <span class="material-symbols-outlined">search</span>
-                            Resultat
                         </div>
-                    </h3>
-                    <div class="search-result">
-                        {#each userData as contract}
-                            <div class="info-section">
-                                <div class="info-grid">
-                                    <div class="info-item">
-                                        <label>Elevnavn:</label>
-                                        <span class="value">{contract.name}</span>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Elev fødselsnummer:</label>
-                                        <span class="value">{formatFnr(contract.fnr)}</span>
-                                    </div>
-                                    <div class="info-item">
-                                        {#if editException}
-                                            <label>Legg til unntak:</label>
-                                            <div class="button-group">
-                                                <button on:click={() => addException(contract, 'add')}>
-                                                    <span class="material-symbols-outlined">add_circle</span>
-                                                </button>
-                                            </div>
-                                        {/if}
-                                    </div>
-                                </div>
-                            </div>
-                        {/each}
-                    </div>
-                {/if}
+                    {/each}
+                </div>
             {/if}
         {/if}
     {/if}
 </main>
 
 <style>
-     h3 {
+    h3 {
         padding: 1.5rem;
         margin: 0;
         font-size: 1.25rem;
@@ -338,6 +335,16 @@
         align-items: center;
         justify-content: center;
         height: 100%;
+    }
+
+    .error {
+        border: 1px solid var(--nype);
+        background-color: var(--nype-10);
+        padding: 1rem;
+        border-radius: 8px;
+        max-width: 600px;
+        margin: 1rem;
+        font-size: large;
     }
 
 
