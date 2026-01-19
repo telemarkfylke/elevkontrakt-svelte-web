@@ -300,7 +300,11 @@
 
     const isStudentNotFoundInFINT = (row) => {
         if(row.notFoundInFINT?.message === "Student not found in FINT") {
-            return true
+            if (row.notFoundInFINT?.date) {
+                const date = new Date(row.notFoundInFINT.date)
+                const daysDiff = Math.floor((Date.now() - date) / (1000 * 60 * 60 * 24))
+                return daysDiff > 5
+            }
         } else {
             return false
         }
