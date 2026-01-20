@@ -422,7 +422,7 @@
                 }
                 if(utkjoppc === true) {
                     try {
-                        response = await updateContractInfo(contractToBeEdited._id, { buyOutPC: true, upn: token.upn } )
+                        response = await updateContractInfo(contractToBeEdited._id, { buyOutPC: true, upn: token.upn }, preHistoryActive ? 'pcIkkeInnlevert' : 'regular' )
                     } catch (error) {
                         saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                         isProcessing = false
@@ -433,7 +433,7 @@
                 }
                 if(innleverpc === true) {
                     try {
-                        response = await updateContractInfo(contractToBeEdited._id, { returnPC: true, upn: token.upn } )
+                        response = await updateContractInfo(contractToBeEdited._id, { returnPC: true, upn: token.upn }, preHistoryActive ? 'pcIkkeInnlevert' : 'regular' )
                     } catch (error) {
                         saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                         isProcessing = false
@@ -499,7 +499,7 @@
                     updateData.contractID = contractToBeEdited._id
                     updateData.updateData = true
 
-                    response = await updateContractInfo(contractToBeEdited._id, updateData )
+                    response = await updateContractInfo(contractToBeEdited._id, updateData, preHistoryActive ? 'pcIkkeInnlevert' : 'regular')
                 } else {
                     saveErrorMessage = "Ingen endringer å lagre"
                     isProcessing = false
@@ -701,7 +701,11 @@
         // If the user is an administrator or IT service desk, enable actions
         // NB! Assign actions based on roles, not on enabledActions variable
         if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))) {
-            return ['Rediger', 'Slett', 'Flytt']
+            if(preHistoryActive) {
+                return ['Rediger', 'Flytt']
+            } else {
+                return ['Rediger', 'Slett', 'Flytt']
+            }
         } 
         if (token.roles.some((r) => ['elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))) {
             return ['Rediger']

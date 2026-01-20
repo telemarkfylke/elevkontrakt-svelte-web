@@ -150,11 +150,15 @@ export const getContractsWithId = async (contractsToFind, targetCollection) => {
  * @param {string} pcInfo - The PC information to include in the request.
  * @returns {Promise<Object>} - A promise that resolves to the contract information or an error object.
  */
-export const updateContractInfo = async (contractID, pcInfo) => {
+export const updateContractInfo = async (contractID, pcInfo, targetCollection) => {
   const token = await getElevkontraktToken()
   const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/handleDbRequest${import.meta.env.VITE_MOCK_DATA === 'true' ? '?isMock=true' : '?isMock=false'}`
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    'target-collection': targetCollection
+  }
   try {
-    const data = await axios.put(url, { contractID, ...pcInfo }, { headers: { Authorization: `Bearer ${token}` } })
+    const data = await axios.put(url, { contractID, ...pcInfo }, { headers })
     return data
   } catch (error) {
     console.error('Error in updateContractInfo:', error)
