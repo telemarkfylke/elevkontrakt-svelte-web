@@ -49,6 +49,8 @@
     let unLockPCFields = false
     let unLockUpdateFields = false
     let editAsAdmin = false
+    let preHistoryActive = false
+
 
     let statusCode = 0
     let actionClicked
@@ -72,7 +74,8 @@
         )
     }
 
-    const contracts = async (token) => {
+    const contracts = async (token, targetCollection) => {
+        isProcessing = true
         // Enable actions for administrators
         if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))) {
             enabledActions = true
@@ -80,14 +83,14 @@
         if(!token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite'].includes(r))) {
             try {
                 const { data } = await getExtendedUserInfo(token.upn)
-                response = await getContracts(data.companyName)
+                response = await getContracts(data.companyName, targetCollection)
             } catch (error) {
                 throw error(500, 'Noe gikk galt med å hente avtaler')
             }           
 
         } else {
             try {
-                response = await getContracts()
+                response = await getContracts(false, targetCollection)
             } catch (error) {
                 throw error(500, 'Noe gikk galt med å hente avtaler')
             }
@@ -307,9 +310,14 @@
             headers = headers.filter(header => header.label !== 'QrKode') 
         }
         
-        
-        responseCopy = JSON.parse(JSON.stringify(response.result))                        
+        responseCopy = JSON.parse(JSON.stringify(response.result))  
+        isProcessing = false                  
         return response.result
+    }
+
+    const preHistoryMode = async (token, targetCollection) => {
+        preHistoryActive = !preHistoryActive
+        contracts(token, targetCollection) 
     }
 
     const deliveryMode = () => {
@@ -779,6 +787,11 @@
         {#await contracts(token)}
             <Table columns={[]} data={[]} loading={true} />
         {:then contractData}
+        {#if isProcessing}
+            <div class="loading">
+                <IconSpinner width={"32px"} />
+            </div>
+        {:else}
             <div class="page-container">
                 <div class="info-container">
                     {#if showSearchInfo === false}
@@ -836,6 +849,17 @@
                                 <button on:click={() => exportData()}>Eksporter data</button>
                             </div>
                         {/if}
+                        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                            {#if preHistoryActive}
+                                <div class="delivery-button">
+                                    <button on:click={() => preHistoryMode(token, 'regular')}>Vis elever</button>
+                                </div>
+                            {:else}
+                                <div class="delivery-button">
+                                    <button on:click={() => preHistoryMode(token, 'pcIkkeInnlevert')}>Vis elever som har sluttet</button>
+                                </div>
+                            {/if}
+                        {/if}
                     </div>
                 {/if}
                 <div class="table-container">
@@ -843,6 +867,9 @@
                     {#if searchValue.length > 0}
                         <!-- Table that shows the searchresults -->
                         <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={searchResults} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={true} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive} itemsPerPage={30}/>
+                    {:else if preHistoryActive === true}
+                        <!-- Table that shows all contracts in historic -->
+                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={response.result} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive} itemsPerPage={30}/>
                     {:else}
                         <!-- Table that shows all contracts -->
                         <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={contractData} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive} itemsPerPage={30}/>
@@ -1365,6 +1392,7 @@
                     <p>Antall låneavtaler: {countContracts().låneavtale || 0}</p>
                 </div>
             </div>
+        {/if}
         {:catch error}
             <p>{error.message}</p>
         {/await}

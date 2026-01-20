@@ -57,10 +57,15 @@ export const getElevkontraktToken = async (decoded) => {
  * @returns | A promise that resolves to the contracts data or an error object.
  * @description Fetches contracts from the Elevkontrakt API. If a school is provided, it fetches contracts for that specific school.
  */
-export const getContracts = async (school) => {
+export const getContracts = async (school, targetCollection) => {
   const token = await getElevkontraktToken()
   const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/handleDbRequest${import.meta.env.VITE_MOCK_DATA === 'true' ? '?isMock=true' : '?isMock=false'}${school ? `&school=${school}` : ''}`
-  const { data } = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    'target-collection': targetCollection
+  }
+
+  const { data } = await axios.get(url, { headers })
   return data
 }
 
