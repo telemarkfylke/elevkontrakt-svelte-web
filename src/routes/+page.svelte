@@ -398,7 +398,7 @@
                 const utleverpc = document.getElementById('utleverpc')?.checked
                 if(utleverpc === true) {
                     try {
-                        response = await updateContractInfo(contractToBeEdited._id, { releasePC: true, upn: token.upn } )
+                        response = await updateContractInfo(contractToBeEdited._id, { releasePC: "true", upn: token.upn } )
                     } catch (error) {
                         saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                         isProcessing = false
@@ -422,7 +422,7 @@
                 }
                 if(utkjoppc === true) {
                     try {
-                        response = await updateContractInfo(contractToBeEdited._id, { buyOutPC: true, upn: token.upn }, preHistoryActive ? 'pcIkkeInnlevert' : 'regular' )
+                        response = await updateContractInfo(contractToBeEdited._id, { buyOutPC: "true", upn: token.upn }, preHistoryActive ? 'pcIkkeInnlevert' : 'regular' )
                     } catch (error) {
                         saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                         isProcessing = false
@@ -433,7 +433,7 @@
                 }
                 if(innleverpc === true) {
                     try {
-                        response = await updateContractInfo(contractToBeEdited._id, { returnPC: true, upn: token.upn }, preHistoryActive ? 'pcIkkeInnlevert' : 'regular' )
+                        response = await updateContractInfo(contractToBeEdited._id, { returnPC: "true", upn: token.upn }, preHistoryActive ? 'pcIkkeInnlevert' : 'regular' )
                     } catch (error) {
                         saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                         isProcessing = false
