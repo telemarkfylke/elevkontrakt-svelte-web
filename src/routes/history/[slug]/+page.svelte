@@ -155,7 +155,7 @@
                                                 </div>
                                                 <div class="status-item {getStatusColor(contractData.isImportedFromDigiTroll)}">
                                                     <label>Importert fra DigiTroll:</label>
-                                                    <span class="status-badge">{getStatusLabel(contractData.isImportedFromDigiTroll)}</span>
+                                                    <span class="status-badge">{getStatusLabel(contractData.isImportedFromDigiTroll ? 'true' : 'false')}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -190,6 +190,10 @@
                                                 <div class="info-item">
                                                     <label>Arkiv dokumentnummer:</label>
                                                     <span class="value">{returnLatestKnownContractInfo(contractData).archiveDocumentNumber}</span>
+                                                </div>
+                                                <div class="info-item">
+                                                    <label>Ansvarlig:</label>
+                                                    <span class="value">{returnLatestKnownContractInfo(contractData).ansvarligNavn}</span>
                                                 </div>
                                             </div>
                                         </div>

@@ -5,7 +5,8 @@ export const returnLatestKnownContractInfo = (contractData) => {
       acosName: contractData.signedSkjemaInfo.acosName,
       kontraktType: contractData.signedSkjemaInfo.kontraktType || 'Ukjent',
       archiveDocumentNumber: contractData.signedSkjemaInfo.archiveDocumentNumber,
-      createdTimeStamp: contractData.signedSkjemaInfo.createdTimeStamp
+      createdTimeStamp: contractData.signedSkjemaInfo.createdTimeStamp,
+      ansvarligNavn: contractData.ansvarligInfo.navn
     }
   } else if (contractData?.digiTrollData) {
     const digiTrollContracts = contractData?.digiTrollData?.contracts
