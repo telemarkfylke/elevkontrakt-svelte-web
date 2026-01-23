@@ -238,13 +238,13 @@ export const deleteContract = async (contractID) => {
  * @param {string} targetCollection | The target collection to move the contract to (e.g., 'historic' | 'deleted')
  * @returns
  */
-export const moveContract = async (contractID, targetCollection) => {
+export const moveContract = async (contractID, targetCollection, sourceCollection) => {
   // Check if the contractID is provided, if not, return an error
   if (!contractID) return { error: 'No contractID provided' }
   const token = await getElevkontraktToken()
   const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/handleDbRequest${import.meta.env.VITE_MOCK_DATA === 'true' ? '?isMock=true' : '?isMock=false'}`
   try {
-    const response = await axios.delete(url, { data: { contractID, targetCollection }, headers: { Authorization: `Bearer ${token}` } })
+    const response = await axios.delete(url, { data: { contractID, targetCollection, sourceCollection }, headers: { Authorization: `Bearer ${token}` } })
     return response
   } catch (error) {
     return error

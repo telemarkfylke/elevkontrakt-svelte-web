@@ -398,7 +398,7 @@
                 const utleverpc = document.getElementById('utleverpc')?.checked
                 if(utleverpc === true) {
                     try {
-                        response = await updateContractInfo(contractToBeEdited._id, { releasePC: "true", upn: token.upn } )
+                        response = await updateContractInfo(contractToBeEdited._id, { releasePC: "true", upn: token.upn }, preHistoryActive ? 'pcIkkeInnlevert' : 'regular')
                     } catch (error) {
                         saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                         isProcessing = false
@@ -507,7 +507,7 @@
                 }
             } else if (action === "slett") {
                 try {
-                    response = await moveContract(contractToBeEdited._id, 'deleted')
+                    response = await moveContract(contractToBeEdited._id, 'deleted', preHistoryActive ? 'pcIkkeInnlevert' : 'regular')
                 } catch (error) {
                     saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                     isProcessing = false
@@ -559,7 +559,7 @@
                     return
                 } else {
                     try {
-                        response = await updateContractInfo(contractToBeEdited._id, actionData )
+                        response = await updateContractInfo(contractToBeEdited._id, actionData, preHistoryActive ? 'pcIkkeInnlevert' : 'regular')
                     } catch (error) {
                         saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                         isProcessing = false
@@ -574,7 +574,7 @@
                 } else if (nyPlassering === 'historisk') {
                     // Handle flytt to historisk
                     try {
-                        response = await moveContract(contractToBeEdited._id, 'historic') 
+                        response = await moveContract(contractToBeEdited._id, 'historic', preHistoryActive ? 'pcIkkeInnlevert' : 'regular') 
                     } catch (error) {
                         saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                         isProcessing = false
