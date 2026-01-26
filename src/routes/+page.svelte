@@ -305,7 +305,7 @@
             ]
         
         // Remove unwanted keys from the headers array
-        if(!token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite'].includes(r))) {
+        if(!token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-read'].includes(r))) {
             // Show QRcode only for administrator and IT service desk
             headers = headers.filter(header => header.label !== 'QrKode') 
         }
