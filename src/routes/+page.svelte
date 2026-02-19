@@ -1090,6 +1090,7 @@
                                                                         <option value="Fakturert">Fakturert</option>
                                                                         <option value="Betalt">Betalt</option>
                                                                         <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                        <option value="Kreditert">Kreditert</option>
                                                                     {:else}
                                                                         <option value="Skal ikke betale">Skal ikke betale</option>
                                                                     {/if}
@@ -1127,6 +1128,7 @@
                                                                         <option value="Fakturert">Fakturert</option>
                                                                         <option value="Betalt">Betalt</option>
                                                                         <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                        <option value="Kreditert">Kreditert</option>
                                                                     {:else}
                                                                         <option value="Skal ikke betale">Skal ikke betale</option>
                                                                     {/if}
@@ -1170,6 +1172,7 @@
                                                                         <option value="Fakturert">Fakturert</option>
                                                                         <option value="Betalt">Betalt</option>
                                                                         <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                        <option value="Kreditert">Kreditert</option>
                                                                     {:else}
                                                                         <option value="Skal ikke betale">Skal ikke betale</option>
                                                                     {/if}
@@ -1207,6 +1210,7 @@
                                                                         <option value="Fakturert">Fakturert</option>
                                                                         <option value="Betalt">Betalt</option>
                                                                         <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                        <option value="Kreditert">Kreditert</option>
                                                                     {:else}
                                                                         <option value="Skal ikke betale">Skal ikke betale</option>
                                                                     {/if}
@@ -1250,6 +1254,7 @@
                                                                         <option value="Fakturert">Fakturert</option>
                                                                         <option value="Betalt">Betalt</option>
                                                                         <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                        <option value="Kreditert">Kreditert</option>
                                                                     {:else}
                                                                         <option value="Skal ikke betale">Skal ikke betale</option>
                                                                     {/if}
@@ -1287,6 +1292,7 @@
                                                                         <option value="Fakturert">Fakturert</option>
                                                                         <option value="Betalt">Betalt</option>
                                                                         <option value="Skal ikke betale">Skal ikke betale</option>
+                                                                        <option value="Kreditert">Kreditert</option>
                                                                     {:else}
                                                                         <option value="Skal ikke betale">Skal ikke betale</option>
                                                                     {/if}
