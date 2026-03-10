@@ -69,22 +69,35 @@ export const getContracts = async (school, targetCollection) => {
   return data
 }
 
-export const searchContracts = async (searchName, targetCollection) => {
+export const searchContracts = async (searchName, targetCollection, userToken) => {
   // Validate input
   if (!searchName) return { error: 'No searchName provided' }
   if (!targetCollection) return { error: 'No targetCollection provided' }
 
+  let officeLocation
+  if(userToken.roles && !userToken.roles.includes('elevkontrakt.administrator-readwrite')) {
+    // If the user is not an administrator, get the school where the user is located and use that as a filter. 
+    const userInfo = await getExtendedUserInfo(userToken.upn)
+    if(userInfo.status !== 200) {
+      console.error('Failed to fetch extended user info, response status:', userInfo.status)
+      return { error: 'Failed to fetch extended user info' }
+    } else {
+      officeLocation = userInfo.data && userInfo.data.officeLocation ? userInfo.data.officeLocation : null
+    }
+  }
+
   const token = await getElevkontraktToken()
-  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/handleDbRequest${import.meta.env.VITE_MOCK_DATA === 'true' ? '?isMock=true' : '?isMock=false'}&navn=${encodeURIComponent(searchName)}`
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/handleDbRequest${import.meta.env.VITE_MOCK_DATA === 'true' ? '?isMock=true' : '?isMock=false'}&navn=${encodeURIComponent(searchName)}&school=${officeLocation ? encodeURIComponent(officeLocation) : ''}`
   const headers = {
     Authorization: `Bearer ${token}`,
     'target-collection': targetCollection
   }
+
   try {
     const { data } = await axios.get(url, { headers })
 
     if (data.status === 404) {
-      return { error: 'Fant ingen kontrakter for det oppgitte navnet - ' + searchName }
+      return { error: 'Fant ingen kontrakter for det oppgitte navnet - ' + searchName  + (officeLocation ? ' innenfor skolen din - ' + officeLocation : '') }
     }
     const dataToReturn = data.result.map(contract => {
       const contracts = []

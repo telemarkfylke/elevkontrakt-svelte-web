@@ -16,12 +16,12 @@
     let digitrollDataRawVisible = false
     let errorMessage = ''
 
-    const getHistoryData = async (searchValue) => {
+    const getHistoryData = async (searchValue, token) => {
         contractOverviewVisible = false
         errorMessage = ''
         isLoadingSearchData = true;
         try {
-            userData = await searchContracts(searchValue, 'history');
+            userData = await searchContracts(searchValue, 'history', token);
             if (userData && userData.contracts && userData.contracts.length > 0) {
                 contractData = userData.contracts[0]
             } else if (userData.error && userData.error.length > 0) {
@@ -63,8 +63,8 @@
             </div>
 
             <div class="searchField">
-                <Input disabled="{isLoadingSearchData}" type="text" bind:value={personSearchValue} placeholder="Eleven sitt navn" keypressEvent={(e) => e.key === 'Enter' && getHistoryData(personSearchValue)}/>
-                <button disabled="{personSearchValue.length === 0 || isLoadingSearchData}" on:click={() => getHistoryData(personSearchValue)}>
+                <Input disabled="{isLoadingSearchData}" type="text" bind:value={personSearchValue} placeholder="Eleven sitt navn" keypressEvent={(e) => e.key === 'Enter' && getHistoryData(personSearchValue, token)}/>
+                <button disabled="{personSearchValue.length === 0 || isLoadingSearchData}" on:click={() => getHistoryData(personSearchValue, token)}>
                     {#if isLoadingSearchData}
                         <span class="spinner"></span>
                         Henter elev...
