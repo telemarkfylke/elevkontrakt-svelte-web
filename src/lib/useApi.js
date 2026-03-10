@@ -274,3 +274,88 @@ export const updateSettings = async (settings) => {
     return error
   }
 }
+
+export const getProducts = async () => {
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/products`
+  try {
+    const response = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
+    return response
+  } catch (error) {
+    return error
+  }
+}
+
+export const postProduct = async (productData) => {
+  // Check if the productData is provided, if not, return an error
+  if (!productData) return { error: 'No productData provided' }
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/products`
+  try {
+    const response = await axios.post(url, productData, { headers: { Authorization: `Bearer ${token}` } })
+    return response
+  } catch (error) {
+    return error
+  }
+}
+
+export const deleteProduct = async (productId) => {
+  // Check if the productID is provided, if not, return an error
+  if (!productId) return { error: 'No productID provided' }
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/products`
+  try {
+    const response = await axios.delete(url, { data: { productId }, headers: { Authorization: `Bearer ${token}` } })
+    return response
+  } catch (error) {
+    return error
+  }
+}
+
+export const updateProduct = async (productId, productData) => {
+  // Check if the productID and productData are provided, if not, return an error
+  if (!productId) return { error: 'No productID provided' }
+  if (!productData) return { error: 'No productData provided' }
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/products`
+  try {    
+    const response = await axios.put(url, { productId, ...productData }, { headers: { Authorization: `Bearer ${token}` } })
+    return response
+  } catch (error) {
+    return error
+  }
+}
+
+export const sendInvoice = async (cart, customerId, userToken) => {
+  // Check if the cart is provided, if not, return an error
+  if (!cart) return { error: 'No cart provided' }
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/invoice/send`
+
+  // Suplement the userinfo with extended information about the user sending the invoice. 
+  let userInfo
+  try {
+    userInfo = await getExtendedUserInfo(userToken.upn)
+    if(userInfo.status !== 200) {
+      console.error('Failed to fetch extended user info, response status:', userInfo.status)
+      return { error: 'Failed to fetch extended user info' }
+    }
+
+    if(!userInfo.data && userInfo.data.userPrincipalName !== userToken.upn) {
+      console.error('User principal name mismatch:', userInfo.data.userPrincipalName, userToken.upn)
+      return { error: 'User principal name mismatch' }
+    }
+
+    userInfo = userInfo.data
+  } catch (error) {
+    console.error('Error fetching extended user info:', error)
+    return { error: 'Error fetching extended user info' }
+  } 
+  
+  try {
+  const response = await axios.post(url, { cart, customerId, userInfo }, { headers: { Authorization: `Bearer ${token}` } })
+    return response
+  } catch (error) {
+    return error
+  }
+}

@@ -18,7 +18,6 @@
         const msalClient = await getMsalClient()
         if (msalClient.getActiveAccount()) {
           account = msalClient.getActiveAccount()
-          // console.log('Active account:', account)
         }
         if (!account) {
           const loginResponse = await login(false, $page.url.pathname) // Sends you to ms auth, and redirects you back here with the msalClient set with active account
@@ -88,10 +87,15 @@
       })
     }
     if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))) {
-      sideMenuItems.splice(3, 0, {
+      sideMenuItems.splice(4, 0, {
         title: 'Instillinger',
         href: '/config',
         icon: 'settings'
+      })
+      sideMenuItems.splice(3, 0, {
+        title: 'Fakturering',
+        href: '/billing',
+        icon: 'request_quote'
       })
     }
   }

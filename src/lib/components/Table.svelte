@@ -115,7 +115,16 @@
                                         border-radius: 0.25rem;">
                                         ${formattedValue}
                             </div>`
+                } else if (formattedValue === "Fakturert - Utkjøp") {
+                    return `<div style="border: 1px solid var(--korn-50);;
+                                        padding: 0.25rem;
+                                        background-color: var(--korn-30);;
+                                        font-weight: bold;
+                                        border-radius: 0.25rem;">
+                                        ${formattedValue}
+                            </div>`
                 }
+                
             }
         }
         
