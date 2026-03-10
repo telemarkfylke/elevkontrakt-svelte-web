@@ -752,7 +752,16 @@
                                             {/if}
                                     </div>
                                 {/each}
-                                {#if addProducts}
+                            {:else}
+                                {#if !addProducts}
+                                    <div class="info-section">
+                                        <div class="textBox">
+                                            <p>Ingen produkter eller tjenester funnet. Legg til et nytt produkt eller en ny tjeneste.</p>
+                                        </div>
+                                    </div>
+                                {/if}
+                            {/if}
+                            {#if addProducts}
                                     <div class="info-section">
                                         <div class="textBox">
                                             <p>Du er i legg til modus.</p>
@@ -803,11 +812,6 @@
                                         </div>
                                     </div>
                                 {/if}
-                            {:else}
-                                <div class="textBox">
-                                    <p>Ingen produkter eller tjenester funnet.</p>
-                                </div>
-                            {/if}
                         </div>
                     {/if}
                 {/await}
