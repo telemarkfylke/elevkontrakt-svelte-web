@@ -5,6 +5,8 @@
     import { formatDate } from "$lib/helpers/formatDate";
     import { formatFnr } from "$lib/helpers/formatFnr";
     import { getElevkontraktToken, searchContracts } from "$lib/useApi";
+    import { get } from "svelte/store";
+    import { billingTargetCollection } from "$lib/store";
 
     let personSearchValue = ''
     let isLoadingSearchData = false
@@ -15,13 +17,20 @@
     let digitrollDataVisible = false
     let digitrollDataRawVisible = false
     let errorMessage = ''
+    let searchSluttaGruppa = false
 
     const getHistoryData = async (searchValue, token) => {
         contractOverviewVisible = false
         errorMessage = ''
-        isLoadingSearchData = true;
+        isLoadingSearchData = true
         try {
-            userData = await searchContracts(searchValue, 'regular', token)
+            
+            let targetCollection = get(billingTargetCollection)
+            if(searchSluttaGruppa) {
+                targetCollection = 'pcIkkeInnlevert'
+                billingTargetCollection.set('pcIkkeInnlevert')
+            }
+            userData = await searchContracts(searchValue, targetCollection, token)
             if (userData && userData.contracts && userData.contracts.length > 0) {
                 contractData = userData.contracts[0]
             } else if (userData.error && userData.error.length > 0) {
@@ -59,8 +68,15 @@
                 <p>Skriv inn navn på eleven i søkefeltet under og trykk på "Hent elev" knappen.</p>
                 <br>
                 <p>Når du har funnet den eleven du ønsker å fakturere, kan du gå videre til faktureringsdelen. Der skal du kunne opprette fakturaer basert på elevens avtaler eller fakturere for andre tjenester.</p>
-                <p><strong>Merk:</strong> Når en faktura er opprettet vil den bli sendt til Xledger påfølgende dag kl 01:00. Når xledger mottar fakturaen vil den ikke bli synlig før den har blitt godkjent av Økonomiavdelingen.</p>
+                <p><strong>Merk:</strong> Når en faktura er opprettet vil den bli sendt til Xledger påfølgende dag kl 01:00. Når xledger mottar fakturaen vil den ikke bli synlig før den har blitt godkjent av økonomiavdelingen.</p>
             </div>
+
+            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+                <h3>
+                    <label for="includeSlutta">Skal du søke blant elevene i slutta-gruppa?</label>
+                    <input type="checkbox" bind:checked={searchSluttaGruppa} id="includeSlutta" />
+                </h3>
+            {/if}
 
             <div class="searchField">
                 <Input disabled="{isLoadingSearchData}" type="text" bind:value={personSearchValue} placeholder="Eleven sitt navn" keypressEvent={(e) => e.key === 'Enter' && getHistoryData(personSearchValue, token)}/>

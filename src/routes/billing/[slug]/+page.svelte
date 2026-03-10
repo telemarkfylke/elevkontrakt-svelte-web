@@ -6,8 +6,10 @@
     import { formatFnr } from '$lib/helpers/formatFnr.js';
     import { returnLatestKnownContractInfo } from '$lib/helpers/latestKnownContractInfo';
     import { returnLatestKnownStudentInfo } from '$lib/helpers/latestKnownStudentInfo';
+    import { billingTargetCollection } from '$lib/store';
     import { getContractsWithId, getElevkontraktToken, getSettings, getProducts, sendInvoice } from '$lib/useApi';
     import { onMount } from 'svelte';
+    import { get } from 'svelte/store';
     
     let isLoadingSearchData = false
     let contractData = null
@@ -71,8 +73,9 @@
     })
 
     const getContractsBySlug = async (slug) => {
+        const targetCollection = get(billingTargetCollection)
         try {
-            const contracts = await getContractsWithId(slug, 'regular');
+            const contracts = await getContractsWithId(slug, targetCollection);
             if(contracts?.error) {
                 contractData = null;
                 errorMessage = contracts.error
@@ -213,7 +216,9 @@
     const sendInvoiceRequest = async (cart, customerId, token) => {
         isSendingInvoice = true;
 
-        const response = await sendInvoice(cart, customerId, token)
+        const mainDocumentCollectionSource = get(billingTargetCollection)
+
+        const response = await sendInvoice(cart, customerId, token, mainDocumentCollectionSource)
 
         isSendingInvoice = false
 

@@ -338,8 +338,15 @@ export const updateProduct = async (productId, productData) => {
     return error
   }
 }
-
-export const sendInvoice = async (cart, customerId, userToken) => {
+/**
+ * 
+ * @param {Object} cart 
+ * @param {String} customerId 
+ * @param {Object} userToken 
+ * @param {String} mainDocumentCollectionSource | ['regular', 'pcIkkeInnlevert'] - The collection where the main document of the contract should be stored. This is used to determine where the contract should be updated and located. 
+ * @returns 
+ */
+export const sendInvoice = async (cart, customerId, userToken, mainDocumentCollectionSource) => {
   // Check if the cart is provided, if not, return an error
   if (!cart) return { error: 'No cart provided' }
   const token = await getElevkontraktToken()
@@ -366,7 +373,7 @@ export const sendInvoice = async (cart, customerId, userToken) => {
   } 
   
   try {
-  const response = await axios.post(url, { cart, customerId, userInfo }, { headers: { Authorization: `Bearer ${token}` } })
+  const response = await axios.post(url, { cart, customerId, userInfo, mainDocumentCollectionSource }, { headers: { Authorization: `Bearer ${token}` } })
     return response
   } catch (error) {
     return error
