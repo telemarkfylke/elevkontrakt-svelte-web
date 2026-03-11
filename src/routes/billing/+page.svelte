@@ -61,7 +61,7 @@
             <IconSpinner width={"32px"} />
         </div>
     {:then token}
-        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.billing-readwrite'].includes(r))}
             <h1>Fakturering</h1>
             <div class="info-text">
                 <p>Her kan du søke etter en elev ved å skrive inn elevens navn. </p>

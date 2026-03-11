@@ -311,7 +311,7 @@
         {#if showSuccessAlert}
             <Alert type="success" title={successTitle} message={successMessage} dismissible={true} on:close={handleSuccessAlertClose} autoClose={true} autoCloseDelay={8000} position="fixed-top"/>
         {/if}
-        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
+        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.billing-readwrite'].includes(r))}
             {#await getContractsBySlug($page.params.slug)}
                 <div class="loading">
                     <IconSpinner width={"32px"} />

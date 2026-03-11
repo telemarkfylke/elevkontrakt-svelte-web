@@ -86,16 +86,18 @@
         icon: 'archive'
       })
     }
+    if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.billing-readwrite'].includes(r))) {
+      sideMenuItems.splice(3, 0, {
+        title: 'Fakturering',
+        href: '/billing',
+        icon: 'receipt_long'
+      })
+    }
     if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))) {
       sideMenuItems.splice(4, 0, {
         title: 'Instillinger',
         href: '/config',
         icon: 'settings'
-      })
-      sideMenuItems.splice(3, 0, {
-        title: 'Fakturering',
-        href: '/billing',
-        icon: 'request_quote'
       })
     }
   }
