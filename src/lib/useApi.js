@@ -83,6 +83,9 @@ export const searchContracts = async (searchName, targetCollection, userToken) =
       return { error: 'Failed to fetch extended user info' }
     } else {
       officeLocation = userInfo.data && userInfo.data.officeLocation ? userInfo.data.officeLocation : null
+      if(officeLocation.startsWith('Nome')) {
+        officeLocation = 'Nome videregående skole'
+      }
     }
   }
 
