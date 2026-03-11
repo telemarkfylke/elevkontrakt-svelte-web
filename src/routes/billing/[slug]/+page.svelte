@@ -2,6 +2,7 @@
     import { page } from '$app/stores';
     import Alert from '$lib/components/alert.svelte';
     import IconSpinner from '$lib/components/IconSpinner.svelte';
+    import Input from '$lib/components/Input.svelte';
     import { formatDate } from '$lib/helpers/formatDate.js';
     import { formatFnr } from '$lib/helpers/formatFnr.js';
     import { returnLatestKnownContractInfo } from '$lib/helpers/latestKnownContractInfo';
@@ -35,6 +36,8 @@
     let products = null
     let productsLength = 0
 
+    let productExtraFields = {}
+
     onMount(async () => {
         try {
             const settingsResponse = await getSettings()
@@ -53,6 +56,8 @@
             } else if (productsResponse?.data?.result) {
                 products = productsResponse.data.result
                 productsLength = products.length
+                // Initialize extra fields for products after products are loaded
+                initializeProductExtraFields()
             }
         } catch (error) {
             console.error('Error loading products:', error)
@@ -177,21 +182,36 @@
      * @param data e.g 'rate1', 'rate2', 'rate3'
      */
     const handleCartAction = (type, shop, data) => {
-        // if(shop === 'buyOut') {
-        //     data = {
-        //         ...data,
-        //         sum: settings.prices.regularPrice
-        //     }
-        // }
-
-
-
         if(type === 'add') {
-            if(!cart[shop].includes(data)) {
-                cart[shop] = [...cart[shop], data]
+            let isAlreadyInCart;
+            
+            if(shop === 'extraInvoice') {
+                isAlreadyInCart = cart[shop].some(item => item._id === data._id);
+            } else if(shop === 'buyOut') {
+                isAlreadyInCart = cart[shop].some(item => item.faktureringsår === data.faktureringsår);
+            } else {
+                isAlreadyInCart = cart[shop].includes(data);
+            }
+                
+            if(!isAlreadyInCart) {
+                if(shop === 'extraInvoice') {
+                    const productWithExtraFields = {
+                        ...data,
+                        ...getProductExtraFields(data._id)
+                    }
+                    cart[shop] = [...cart[shop], productWithExtraFields];
+                } else {
+                    cart[shop] = [...cart[shop], data];
+                }
             }
         } else if (type === 'remove') {
-            cart[shop] = cart[shop].filter(item => item !== data)
+            if(shop === 'extraInvoice') {
+                cart[shop] = cart[shop].filter(item => item._id !== data._id)
+            } else if(shop === 'buyOut') {
+                cart[shop] = cart[shop].filter(item => item.faktureringsår !== data.faktureringsår)
+            } else {
+                cart[shop] = cart[shop].filter(item => item !== data)
+            }
         }
     }
 
@@ -243,6 +263,35 @@
         showSuccessAlert = false;
         successMessage = '';
         successTitle = '';
+    }
+
+    const initializeProductExtraFields = () => {
+        if (products) {
+            products.forEach(product => {
+                const extraFields = {}
+                const standardFields = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
+                
+                Object.keys(product).forEach(key => {
+                    if (!standardFields.includes(key)) {
+                        extraFields[key] = product[key] || ''
+                    }
+                })
+                
+                productExtraFields[product._id] = extraFields
+            })
+        }
+    }
+
+    const updateProductExtraField = (productId, fieldKey, value) => {
+        if (!productExtraFields[productId]) {
+            productExtraFields[productId] = {}
+        }
+        productExtraFields[productId][fieldKey] = value
+        productExtraFields = { ...productExtraFields }
+    }
+
+    const getProductExtraFields = (productId) => {
+        return productExtraFields[productId] || {}
     }
 
 </script>
@@ -730,7 +779,7 @@
                                                             {#if rateInfo.status.toLowerCase() === 'ikke fakturert'}
                                                                 <div class="not-invoiced">
                                                                     Ikke fakturert
-                                                                    {#if !cart.buyOut.includes({...rateInfo, sum: settings.prices.regularPrice})}
+                                                                    {#if !cart.buyOut.some(item => item.faktureringsår === rateInfo.faktureringsår)}
                                                                         <button class="button" on:click={() => handleCartAction('add', 'buyOut', {...rateInfo, sum: settings.prices.regularPrice})}>
                                                                             <span class="material-symbols-outlined">add_shopping_cart</span>
                                                                         </button>
@@ -811,7 +860,7 @@
                                                     <div class="period-header">
                                                         <h4>{product.name}</h4>
                                                         <div class="not-invoiced">
-                                                            {#if !cart.extraInvoice.includes(product)}
+                                                            {#if !cart.extraInvoice.some(item => item._id === product._id)}
                                                                 <button class="button" on:click={() => handleCartAction('add', 'extraInvoice', product)}>
                                                                     <span class="material-symbols-outlined">add_shopping_cart</span>
                                                                 </button>
@@ -832,6 +881,28 @@
                                                             <span class="detail-label">Pris:</span>
                                                             <span class="detail-value">{product.price}</span>
                                                         </div>
+                                                        
+                                                        <!-- Extra fields display/editing -->
+                                                        {#each Object.keys(product).filter(key => !['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog'].includes(key)) as fieldKey}
+                                                            <div class="detail-item">
+                                                                <span class="detail-label">{fieldKey}:</span>
+                                                                {#if product[fieldKey] && product[fieldKey].trim() !== ''}
+                                                                    <!-- Field has value, show it -->
+                                                                    <span class="detail-value">{getProductExtraFields(product._id)[fieldKey] || product[fieldKey]}</span>
+                                                                {:else}
+                                                                    <!-- Field is empty, allow editing -->
+                                                                    <div class="detail-value extra-field-input">
+                                                                        <Input
+                                                                            type="text"
+                                                                            placeholder="Utfyll verdi..."
+                                                                            value={getProductExtraFields(product._id)[fieldKey] || ''}
+                                                                            on:input={(e) => updateProductExtraField(product._id, fieldKey, e.target.value)}
+                                                                            maxlength="100"
+                                                                        />
+                                                                    </div>
+                                                                {/if}
+                                                            </div>
+                                                        {/each}
                                                     </div>
                                                 </div>
                                             {/each}
@@ -896,6 +967,15 @@
                                                         <span class="detail-label">Pris:</span>
                                                         <span class="detail-value">{product.price}</span>
                                                     </div>
+                                                    <!-- Display extra fields in cart summary -->
+                                                    {#each Object.keys(product).filter(key => !['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog'].includes(key)) as fieldKey}
+                                                        {#if product[fieldKey] && product[fieldKey].trim() !== ''}
+                                                            <div class="detail-item">
+                                                                <span class="detail-label">{fieldKey}:</span>
+                                                                <span class="detail-value">{product[fieldKey]}</span>
+                                                            </div>
+                                                        {/if}
+                                                    {/each}
                                                 </div>
                                             {/each}
                                         </div>
@@ -1350,6 +1430,26 @@
         align-items: center;
         gap: 0.5rem;
         font-weight: 600;
+    }
+
+    /* Extra fields styling in billing */
+    .extra-field-input {
+        min-width: 200px;
+        flex: 1;
+    }
+
+    .extra-field-input :global(input) {
+        font-size: 0.9rem;
+        padding: 0.4rem;
+        border: 1px solid var(--vann-30);
+        border-radius: 4px;
+        background-color: var(--vann-5);
+    }
+
+    .extra-field-input :global(input):focus {
+        border-color: var(--vann-60);
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(var(--vann-60), 0.2);
     }
 
     /* Responsive design */

@@ -53,9 +53,65 @@
     let newProductPrice = null
     let newProductDescription = ''
     let newProductActive = ''
+    let newProductExtraInfo = {}
 
-    // Remove product
+    // Dynamic extra fields state
+    let extraFields = []
+    let newFieldKey = ''
+    let newFieldValue = ''
+
     let productId = null
+
+    const addExtraField = () => {
+        if (newFieldKey.trim()) {
+            const trimmedKey = newFieldKey.trim()
+            const trimmedValue = newFieldValue.trim()
+            
+            const standardFields = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
+            if (standardFields.includes(trimmedKey)) {
+                errorMessage = 'Feltnavnet kan ikke være et av de reserverte navnene: ' + standardFields.join(', ')
+                return
+            }
+            
+            if (extraFields.some(field => field.key === trimmedKey)) {
+                errorMessage = 'Et felt med dette navnet eksisterer allerede.'
+                return
+            }
+            
+            extraFields = [...extraFields, { key: trimmedKey, value: trimmedValue }]
+            newProductExtraInfo = { ...newProductExtraInfo, [trimmedKey]: trimmedValue }
+            newFieldKey = ''
+            newFieldValue = ''
+            errorMessage = ''
+        }
+    }
+
+    const removeExtraField = (index, key) => {
+        extraFields = extraFields.filter((_, i) => i !== index)
+        const { [key]: removed, ...rest } = newProductExtraInfo
+        newProductExtraInfo = rest
+    }
+
+    const clearExtraFields = () => {
+        extraFields = []
+        newProductExtraInfo = {}
+        newFieldKey = ''
+        newFieldValue = ''
+    }
+
+    const populateExtraFieldsFromProduct = (product) => {
+        extraFields = []
+        newProductExtraInfo = {}
+        
+        const standardFields = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
+        
+        Object.keys(product).forEach(key => {
+            if (!standardFields.includes(key)) {
+                extraFields = [...extraFields, { key, value: product[key] }]
+                newProductExtraInfo = { ...newProductExtraInfo, [key]: product[key] }
+            }
+        })
+    }
 
     // This functions will handle all the button clicks, 'Lagre' and 'Avbryt'
     const handleButtonClicks = async (clickedButton, action, token) => {
@@ -151,6 +207,7 @@
                 name: newProductName,
                 price: parseInt(newProductPrice),
                 description: newProductDescription,
+                ...newProductExtraInfo,
                 active: newProductActive === 'ja' ? true : false,
                 metadata: {
                     createdBy: token.upn,
@@ -223,6 +280,33 @@
                 changes.active = newProductActive === 'ja' ? true : false
             }
 
+            const standardFields = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
+            const currentExtraFields = {}
+            const originalExtraFields = {}
+            
+            extraFields.forEach(field => {
+                currentExtraFields[field.key] = field.value
+            })
+            
+            Object.keys(originalProductData).forEach(key => {
+                if (!standardFields.includes(key)) {
+                    originalExtraFields[key] = originalProductData[key]
+                }
+            })
+            
+            const allExtraFieldKeys = new Set([...Object.keys(currentExtraFields), ...Object.keys(originalExtraFields)])
+            allExtraFieldKeys.forEach(key => {
+                if (currentExtraFields[key] !== originalExtraFields[key]) {
+                    if (currentExtraFields[key]) {
+                        updateObject.data[key] = currentExtraFields[key]
+                        changes[key] = currentExtraFields[key]
+                    } else {
+                        updateObject.data[key] = null
+                        changes[key] = null
+                    }
+                }
+            })
+
             if (Object.keys(changes).length === 0) {
                 errorMessage = 'Ingen endringer å lagre.'
                 isProcessing = false
@@ -258,8 +342,20 @@
             } else if (action === 'editInvoiceException') {
                 editInvoiceFlowBlock = false
             } else if (action === 'addProduct') {
+                newProductName = ''
+                newProductPrice = null
+                newProductDescription = ''
+                newProductActive = ''
+                clearExtraFields()
                 addProducts = false
-            } else if (action === 'editProducts') {
+            } else if (action === 'editProduct') {
+                newProductName = ''
+                newProductPrice = null
+                newProductDescription = ''
+                newProductActive = ''
+                clearExtraFields()
+                originalProductData = null
+                productId = null
                 editProducts = false
             } else if (action === 'removeProduct') {
                 removeProducts = false
@@ -623,17 +719,17 @@
                                         Produkter/Tjenester {#if editProducts} (redigeringsmodus) {:else if addProducts} (legg til modus) {:else if removeProducts} (fjern modus){/if}
                                     </div>
                                     <div class="button-group">
-                                        <button class="toggle-button" on:click={() => { addProducts = !addProducts; if (editProducts) editProducts = false; if (removeProducts) removeProducts = false; }}>
+                                        <button class="toggle-button" on:click={() => { addProducts = !addProducts; if (editProducts) editProducts = false; if (removeProducts) removeProducts = false; if (addProducts) clearExtraFields(); }}>
                                             <span class="material-symbols-outlined">
                                                 {addProducts ? 'shopping_cart_off' : 'add_shopping_cart'}
                                             </span>
                                         </button>
-                                        <button class="toggle-button" on:click={() => { removeProducts = !removeProducts; if (editProducts) editProducts = false; if (addProducts) addProducts = false; }}>
+                                        <button class="toggle-button" on:click={() => { removeProducts = !removeProducts; if (editProducts) editProducts = false; if (addProducts) addProducts = false; if (removeProducts) clearExtraFields(); }}>
                                             <span class="material-symbols-outlined">
                                                 {removeProducts ? 'shopping_cart_off' : 'remove_shopping_cart'}
                                             </span>
                                         </button>
-                                        <button class="toggle-button" on:click={() => { editProducts = !editProducts; if (addProducts) addProducts = false; if (removeProducts) removeProducts = false; }}>
+                                        <button class="toggle-button" on:click={() => { editProducts = !editProducts; if (addProducts) addProducts = false; if (removeProducts) removeProducts = false; if (editProducts) clearExtraFields(); }}>
                                             <span class="material-symbols-outlined">
                                                 {editProducts ? 'edit_off' : 'edit'}
                                             </span>
@@ -666,7 +762,7 @@
                                                 <div class="header-with-buttons">
                                                     {product.name}
                                                     {#if editProducts}
-                                                        <button class="button" on:click={() => { productId = product._id; originalProductData = product; }}>
+                                                        <button class="button" on:click={() => { productId = product._id; originalProductData = product; populateExtraFieldsFromProduct(product); }}>
                                                             <span class="material-symbols-outlined">
                                                                 edit
                                                             </span>
@@ -693,6 +789,14 @@
                                                 <label>Beskrivelse:</label>
                                                 <span class="value">{product.description ? product.description : 'Ingen beskrivelse'}</span>
                                             </div>
+
+                                            <!-- Display existing extra fields -->
+                                            {#each Object.keys(product).filter(key => !['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog'].includes(key)) as key}
+                                                <div class="info-item">
+                                                    <label>{key}:</label>
+                                                    <span class="value {product[key] ? '' : 'empty-value'}">{product[key] || '(tom - utfylles ved fakturering)'}</span>
+                                                </div>
+                                            {/each}
 
                                             <!-- Field to edit -->
                                             {#if editProducts && product._id === productId}
@@ -724,6 +828,50 @@
                                                         placeholder="Beskrivelse"
                                                         bind:value={newProductDescription}
                                                     />
+                                                </div>
+                                            {/if}
+
+                                            <!-- Edit extra fields -->
+                                            {#if editProducts && product._id === productId}
+                                                <div class="info-item extra-fields-section">
+                                                    <label>Ekstra felter:</label>
+                                                    <div class="extra-fields-container">
+                                                        <!-- Display existing extra fields for editing -->
+                                                        {#if extraFields.length > 0}
+                                                            <div class="extra-fields-list">
+                                                                {#each extraFields as field, index}
+                                                                    <div class="extra-field-item">
+                                                                        <span class="field-name">{field.key}:</span>
+                                                                        <span class="field-value {field.value ? '' : 'empty-value'}">{field.value || '(tom - utfylles ved fakturering)'}</span>
+                                                                        <button type="button" class="remove-field-btn" on:click={() => removeExtraField(index, field.key)}>
+                                                                            <span class="material-symbols-outlined">delete</span>
+                                                                        </button>
+                                                                    </div>
+                                                                {/each}
+                                                            </div>
+                                                        {/if}
+                                                        
+                                                        <!-- Add new extra field -->
+                                                        <div class="add-extra-field">
+                                                            <div class="field-inputs">
+                                                                <Input
+                                                                    type="text"
+                                                                    placeholder="Feltnavn"
+                                                                    bind:value={newFieldKey}
+                                                                    maxlength="50"
+                                                                />
+                                                                <Input
+                                                                    type="text"
+                                                                    placeholder="Verdi (kan være tom)"
+                                                                    bind:value={newFieldValue}
+                                                                    maxlength="100"
+                                                                />
+                                                                <button type="button" class="add-field-btn" on:click={addExtraField} disabled={!newFieldKey.trim()}>
+                                                                    <span class="material-symbols-outlined">add</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             {/if}
 
@@ -802,6 +950,48 @@
                                                     <option value="ja">Ja</option>
                                                     <option value="nei">Nei</option>
                                                 </select>
+                                            </div>
+                                            <div class="input">
+                                                <label>Ekstra informasjon (valgfritt): </label>
+                                                <p style="font-size: 0.9em; color: var(--vann-70); margin-bottom: 1rem;">
+                                                    Du kan legge til egendefinerte felter som for eksempel "Garanti", "Leveringstid", "Kategori", etc. Verdien kan være tom og fylles ut senere ved fakturering.
+                                                </p>
+                                                
+                                                <!-- Display existing extra fields -->
+                                                {#if extraFields.length > 0}
+                                                    <div class="extra-fields-list">
+                                                        {#each extraFields as field, index}
+                                                            <div class="extra-field-item">
+                                                                <span class="field-name">{field.key}:</span>
+                                                                <span class="field-value {field.value ? '' : 'empty-value'}">{field.value || '(tom - utfylles ved fakturering)'}</span>
+                                                                <button type="button" class="remove-field-btn" on:click={() => removeExtraField(index, field.key)}>
+                                                                    <span class="material-symbols-outlined">delete</span>
+                                                                </button>
+                                                            </div>
+                                                        {/each}
+                                                    </div>
+                                                {/if}
+                                                
+                                                <!-- Add new extra field -->
+                                                <div class="add-extra-field">
+                                                    <div class="field-inputs">
+                                                        <Input
+                                                            type="text"
+                                                            placeholder="Feltnavn (f.eks. Garanti)"
+                                                            bind:value={newFieldKey}
+                                                            maxlength="50"
+                                                        />
+                                                        <Input
+                                                            type="text"
+                                                            placeholder="Verdi (kan være tom)"
+                                                            bind:value={newFieldValue}
+                                                            maxlength="100"
+                                                        />
+                                                        <button type="button" class="add-field-btn" on:click={addExtraField} disabled={!newFieldKey.trim()}>
+                                                            <span class="material-symbols-outlined">add</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1025,6 +1215,109 @@
             grid-template-columns: 1fr;
         }
 
+    }
+
+    /* Extra Fields Styling */
+    .extra-fields-section {
+        grid-column: 1 / -1;
+        margin-top: 1rem;
+    }
+
+    .extra-fields-container {
+        margin-top: 0.5rem;
+    }
+
+    .extra-fields-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .extra-field-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        background-color: var(--vann-10);
+        border-radius: 6px;
+        border: 1px solid var(--vann-30);
+    }
+
+    .field-name {
+        font-weight: 600;
+        color: var(--vann-70);
+        min-width: 100px;
+    }
+
+    .field-value {
+        flex: 1;
+        color: var(--vann-90);
+    }
+
+    .empty-value {
+        color: var(--vann-60);
+        font-style: italic;
+    }
+
+    .remove-field-btn {
+        padding: 0.25rem;
+        background-color: var(--nype-50);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: auto;
+        height: 32px;
+        width: 32px;
+    }
+
+    .remove-field-btn:hover {
+        background-color: var(--nype-70);
+    }
+
+    .add-extra-field {
+        border: 1px dashed var(--vann-40);
+        border-radius: 6px;
+        padding: 1rem;
+        background-color: var(--vann-5);
+    }
+
+    .field-inputs {
+        display: flex;
+        gap: 0.5rem;
+        align-items: flex-end;
+    }
+
+    .field-inputs :global(input) {
+        flex: 1;
+    }
+
+    .add-field-btn {
+        padding: 0.5rem;
+        background-color: var(--gress-50);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: auto;
+        height: 40px;
+        width: 40px;
+    }
+
+    .add-field-btn:hover:not(:disabled) {
+        background-color: var(--gress-70);
+    }
+
+    .add-field-btn:disabled {
+        background-color: var(--gress-20);
+        cursor: not-allowed;
     }
 
     /* Material Icons */
