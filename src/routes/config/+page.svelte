@@ -366,7 +366,6 @@
                 clearExtraFields()
                 originalProductData = null
                 productId = null
-                editProducts = false
             } else if (action === 'removeProduct') {
                 removeProducts = false
             }
@@ -486,6 +485,19 @@
             reloadPageWithSuccess('product-deleted') // Reload with success parameter
         } else {
             errorMessage = 'Noe gikk galt ved fjerning av produkt. Vennligst prøv igjen.'
+        }
+    }
+
+    const handleEditProductVisibility = (product) => {
+        if (originalProductData && originalProductData._id === product._id) {
+            // If the same product is clicked again, toggle visibility
+            originalProductData = null
+            productId = null
+        } else {
+            // If a different product is clicked, show that product's data
+            productId = product._id
+            originalProductData = product
+            populateExtraFieldsFromProduct(product)
         }
     }
 </script>
@@ -781,11 +793,19 @@
                                                         <span>{product.name}</span>
                                                     {/if}
                                                     {#if editProducts}
-                                                        <button class="button" on:click={() => { productId = product._id; originalProductData = product; populateExtraFieldsFromProduct(product); }}>
-                                                            <span class="material-symbols-outlined">
-                                                                edit
-                                                            </span>
-                                                        </button>
+                                                        {#if productId === null}
+                                                            <button class="button" on:click={() => { handleEditProductVisibility(product) }}>
+                                                                <span class="material-symbols-outlined">
+                                                                    edit
+                                                                </span>
+                                                            </button>
+                                                        {:else if product._id === productId}
+                                                            <button class="button" on:click={() => { handleEditProductVisibility(product) }}>
+                                                                <span class="material-symbols-outlined">
+                                                                    edit_off
+                                                                </span>
+                                                            </button>
+                                                        {/if}
                                                     {/if}
                                                     {#if removeProducts}
                                                         <button class="button" on:click={() => {  productId = product._id; handleButtonClicks('Fjern produkt', 'removeProduct', token); }}>
