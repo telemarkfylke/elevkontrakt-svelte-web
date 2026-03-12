@@ -256,25 +256,35 @@
             isProcessing = false
 
         } else if (clickedButton === 'Lagre endringer' && action === 'editProduct') {
+
             if (newProductPrice !== null && !validatePrice(newProductPrice)) {
                 errorMessage = 'Ugyldig pris'
                 isProcessing = false
                 return
             }
+
             const updateObject = { data: {}, auditLog: originalProductData.auditLog ? [...originalProductData.auditLog] : [] }
             const changes = {}
+
+            // Product name
             if (newProductName.trim() !== '' && newProductName !== originalProductData.name) {
                 updateObject.data['name'] = newProductName
                 changes.name = newProductName
             }
+
+            // Product price
             if (newProductPrice !== null && parseInt(newProductPrice) !== originalProductData.price) {
                 updateObject.data['price'] = parseInt(newProductPrice)
                 changes.price = parseInt(newProductPrice)
             }
+
+            // Product description
             if (newProductDescription.trim() !== '' && newProductDescription !== originalProductData.description) {
                 updateObject.data['description'] = newProductDescription
                 changes.description = newProductDescription
             }
+
+            // Product active status
             if (newProductActive !== '' && ((newProductActive === 'ja' && !originalProductData.active) || (newProductActive === 'nei' && originalProductData.active))) {
                 updateObject.data['active'] = newProductActive === 'ja' ? true : false
                 changes.active = newProductActive === 'ja' ? true : false
