@@ -227,7 +227,7 @@
                                                                 </div>
                                                                 <div class="detail-item">
                                                                     <span class="detail-label">Sum:</span>
-                                                                    <span class="detail-value">{rateInfo.sum}</span>
+                                                                    <span class="detail-value">{rateInfo.sum} Kr</span>
                                                                 </div>
                                                             </div>
                                                         {/if}
@@ -445,7 +445,7 @@
                                                                 </div>
                                                                 <div class="info-item">
                                                                     <label>Sum:</label>
-                                                                    <span class="value">{contract["Sum"]}</span>
+                                                                    <span class="value">{contract["Sum"]} Kr</span>
                                                                 </div>
                                                                 <div class="info-item">
                                                                     <label>Betalings ID:</label>
