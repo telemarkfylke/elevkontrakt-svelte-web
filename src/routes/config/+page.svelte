@@ -760,7 +760,16 @@
                                         <div class="info-grid">
                                             <h4>
                                                 <div class="header-with-buttons">
-                                                    {product.name}
+                                                    {#if editProducts && product._id === productId}
+                                                        <Input
+                                                            type="text"
+                                                            placeholder="Produktnavn"
+                                                            bind:value={newProductName}
+                                                        />
+                                                    {/if}
+                                                    {#if !editProducts || product._id !== productId}
+                                                        <span>{product.name}</span>
+                                                    {/if}
                                                     {#if editProducts}
                                                         <button class="button" on:click={() => { productId = product._id; originalProductData = product; populateExtraFieldsFromProduct(product); }}>
                                                             <span class="material-symbols-outlined">
