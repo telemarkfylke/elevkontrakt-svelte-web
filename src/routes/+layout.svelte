@@ -95,6 +95,11 @@
     }
     if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))) {
       sideMenuItems.splice(4, 0, {
+        title: 'Se Fakturaer',
+        href: '/invoices',
+        icon: 'receipt'
+      })
+      sideMenuItems.splice(5, 0, {
         title: 'Instillinger',
         href: '/config',
         icon: 'settings'

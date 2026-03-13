@@ -364,7 +364,7 @@ export const sendInvoice = async (cart, customerId, userToken, mainDocumentColle
       return { error: 'Failed to fetch extended user info' }
     }
 
-    if(!userInfo.data && userInfo.data.userPrincipalName !== userToken.upn) {
+    if(!userInfo.data || userInfo.data.userPrincipalName !== userToken.upn) {
       console.error('User principal name mismatch:', userInfo.data.userPrincipalName, userToken.upn)
       return { error: 'User principal name mismatch' }
     }
@@ -382,3 +382,16 @@ export const sendInvoice = async (cart, customerId, userToken, mainDocumentColle
     return error
   }
 }
+
+export const getInvoices = async (userToken) => {
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/invoice?upn=${userToken}`
+
+  try {
+    const response = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
+    return response
+  } catch (error) {
+    return error
+  }
+}
+
