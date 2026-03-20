@@ -111,8 +111,30 @@
                                 {#each data.data as invoice}
                                     {#if invoice.status === 'Ikke Fakturert' && showNotInvoiced}
                                         <div class="info-section">
-                                            <div class="status-item">
-                                                <span>{invoice._id}</span>
+                                            <h3>
+                                                <div class="header-with-buttons">
+                                                    <div class="header-title">
+                                                        <span>Elev - {invoice.student.navn}</span>
+                                                    </div>
+                                                    <div class="button-group">
+                                                    <button class="toggle-button" on:click={() => goto(`/invoices/${invoice._id}`)}>
+                                                        <span class="material-symbols-outlined">contract</span>
+                                                    </button>
+                                                </div>
+                                            </h3>
+                                            <div class="info-grid">
+                                                <div class="info-item">
+                                                    <label>Navn på ansvarlig:</label>
+                                                    <span class="value">{invoice.recipient.navn}</span>
+                                                </div>
+                                                <div class="info-item">
+                                                    <label>Opprettet:</label>
+                                                    <span class="value">{formatDate(invoice.createdTimeStamp)}</span>
+                                                </div>
+                                                <div class="info-item">
+                                                    <label>Type faktura:</label>
+                                                    <span class="value">{returnType(invoice.type)}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     {/if}
@@ -135,8 +157,30 @@
                                 {#each data.data as invoice}
                                     {#if invoice.status === 'Betalt' && showPaid}
                                         <div class="info-section">
-                                            <div class="status-item">
-                                                <span>{invoice._id}</span>
+                                            <h3>
+                                                <div class="header-with-buttons">
+                                                    <div class="header-title">
+                                                        <span>Elev - {invoice.student.navn}</span>
+                                                    </div>
+                                                    <div class="button-group">
+                                                    <button class="toggle-button" on:click={() => goto(`/invoices/${invoice._id}`)}>
+                                                        <span class="material-symbols-outlined">contract</span>
+                                                    </button>
+                                                </div>
+                                            </h3>
+                                            <div class="info-grid">
+                                                <div class="info-item">
+                                                    <label>Navn på ansvarlig:</label>
+                                                    <span class="value">{invoice.recipient.navn}</span>
+                                                </div>
+                                                <div class="info-item">
+                                                    <label>Opprettet:</label>
+                                                    <span class="value">{formatDate(invoice.createdTimeStamp)}</span>
+                                                </div>
+                                                <div class="info-item">
+                                                    <label>Type faktura:</label>
+                                                    <span class="value">{returnType(invoice.type)}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     {/if}
@@ -159,8 +203,30 @@
                                 {#each data.data as invoice}
                                     {#if invoice.status !== 'Betalt' && invoice.status !== 'Fakturert' && invoice.status !== 'Ikke Fakturert' && showOther}
                                         <div class="info-section">
-                                            <div class="status-item">
-                                                <span>{invoice._id}</span>
+                                            <h3>
+                                                <div class="header-with-buttons">
+                                                    <div class="header-title">
+                                                        <span>Elev - {invoice.student.navn}</span>
+                                                    </div>
+                                                    <div class="button-group">
+                                                    <button class="toggle-button" on:click={() => goto(`/invoices/${invoice._id}`)}>
+                                                        <span class="material-symbols-outlined">contract</span>
+                                                    </button>
+                                                </div>
+                                            </h3>
+                                            <div class="info-grid">
+                                                <div class="info-item">
+                                                    <label>Navn på ansvarlig:</label>
+                                                    <span class="value">{invoice.recipient.navn}</span>
+                                                </div>
+                                                <div class="info-item">
+                                                    <label>Opprettet:</label>
+                                                    <span class="value">{formatDate(invoice.createdTimeStamp)}</span>
+                                                </div>
+                                                <div class="info-item">
+                                                    <label>Type faktura:</label>
+                                                    <span class="value">{returnType(invoice.type)}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     {/if}
