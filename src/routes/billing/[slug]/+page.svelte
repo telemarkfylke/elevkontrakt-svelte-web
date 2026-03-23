@@ -3,12 +3,14 @@
     import Alert from '$lib/components/alert.svelte';
     import IconSpinner from '$lib/components/IconSpinner.svelte';
     import Input from '$lib/components/Input.svelte';
+    import { calculateRestValuePC } from '$lib/helpers/calculateRestValuePC';
     import { formatDate } from '$lib/helpers/formatDate.js';
     import { formatFnr } from '$lib/helpers/formatFnr.js';
     import { returnLatestKnownContractInfo } from '$lib/helpers/latestKnownContractInfo';
     import { returnLatestKnownStudentInfo } from '$lib/helpers/latestKnownStudentInfo';
     import { billingTargetCollection } from '$lib/store';
     import { getContractsWithId, getElevkontraktToken, getSettings, getProducts, sendInvoice } from '$lib/useApi';
+    import { error } from '@sveltejs/kit';
     import { onMount } from 'svelte';
     import { get } from 'svelte/store';
     
@@ -21,10 +23,16 @@
     let extraInvoiceVisible = false
     let isSendingInvoice = false
 
+    // Alert states success
     let showSuccessAlert = false
-    let errorMessage = ''
     let successMessage = ''
     let successTitle = ''
+
+    // Alert states error
+    let showErrorAlert = false
+    let errorMessage = ''
+    let errorTitle = ''
+
     let responseMessage = ''
     
     let cart = {
@@ -50,11 +58,17 @@
         }
 
         try {
+            const token = await getElevkontraktToken(true)
             const productsResponse = await getProducts()
             if(productsResponse.status !== 200) {
                 errorMessage = 'Failed to load products: ' + productsResponse.error
             } else if (productsResponse?.data?.result) {
-                products = productsResponse.data.result
+                if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))) {
+                    products = productsResponse.data.result
+                } else {
+                    // Filter out specific products for non-admin users
+                    products = productsResponse.data.result.filter(product => product._id !== '69bd4c20e7d203bdae952250')
+                }
                 productsLength = products.length
                 // Initialize extra fields for products after products are loaded
                 initializeProductExtraFields()
@@ -73,6 +87,17 @@
             // Clean up URL by removing the success parameter
             const newUrl = new URL($page.url)
             newUrl.searchParams.delete('success')
+            window.history.replaceState(null, '', newUrl)
+        }
+
+        if(urlParams.get('error') === 'zero-price') {
+            showErrorAlert = true
+            errorTitle = 'Utkjøpspris er 0 kr'
+            errorMessage = 'Utkjøpsprisen for denne PC-en er 0 kr basert på innkjøpspris og elevens trinn. Det anbefales å ikke legge denne i handlekurven. Vennligst kontakt support hvis du mener dette er en feil.'
+            
+            // Clean up URL by removing the error parameter
+            const newUrl = new URL($page.url)
+            newUrl.searchParams.delete('error')
             window.history.replaceState(null, '', newUrl)
         }
     })
@@ -259,6 +284,18 @@
         window.location.href = currentUrl.toString();
     }
 
+    const reloadPageWithError = (errorType) => {
+        const currentUrl = new URL(window.location);
+        currentUrl.searchParams.set('error', errorType);
+        window.location.href = currentUrl.toString();
+    }
+
+    const handleErrorAlertClose = () => {
+        showErrorAlert = false;
+        errorTitle = '';
+        errorMessage = '';
+    }
+
     const handleSuccessAlertClose = () => {
         showSuccessAlert = false;
         successMessage = '';
@@ -294,6 +331,28 @@
         return productExtraFields[productId] || {}
     }
 
+    const calculatePrice = (product, studentGrade) => {
+        const specialProducts = ['69bd4c20e7d203bdae952250']
+
+        if(specialProducts.includes(product._id)) {
+            if(product._id === '69bd4c20e7d203bdae952250') {
+                const price = calculateRestValuePC(product["Innkjøpspris PC"], studentGrade)
+
+                if(price === 0) {
+                    reloadPageWithError('zero-price')
+                }
+
+                // Add price to the product price in the cart
+                product.price = price
+
+                return price
+            }
+            return product.price
+        } else {
+            return product.price
+        }
+    }
+
 </script>
 
 <main>
@@ -303,7 +362,7 @@
         </div>
     {:then token}
         {#if errorMessage}
-            <Alert type="error" title="Feil" message={errorMessage} dismissible={true} on:close={() => errorMessage = ''} autoClose={true} autoCloseDelay={10000} position="fixed-top"/>
+            <Alert type="error" title={errorTitle ? errorTitle : "Feil"} message={errorMessage} dismissible={true} on:close={handleErrorAlertClose} autoClose={true} autoCloseDelay={10000} position="fixed-top"/>
         {/if}
         {#if responseMessage}
             <Alert type="success" title="Suksess" message={responseMessage} dismissible={true} on:close={() => responseMessage = ''} autoClose={true} autoCloseDelay={10000} position="fixed-top"/>
@@ -704,7 +763,7 @@
                                 </div>
 
                                 <!-- DigiTroll Rawdata Section -->
-                                {#if token.roles.includes('elevkontrakt.administrator-readwrite')}
+                                {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
                                     <br>
                                     <div class="results-digitroll">
                                         <div class="contract-overview">
@@ -856,55 +915,57 @@
                                         <br>
                                         <div class="billing-timeline">
                                             {#each products as product, i}
-                                                <div class="billing-period">
-                                                    <div class="period-header">
-                                                        <h4>{product.name}</h4>
-                                                        <div class="not-invoiced">
-                                                            {#if !cart.extraInvoice.some(item => item._id === product._id)}
-                                                                <button class="button" on:click={() => handleCartAction('add', 'extraInvoice', product)}>
-                                                                    <span class="material-symbols-outlined">add_shopping_cart</span>
-                                                                </button>
-                                                            {:else}
-                                                                <button class="button-remove" on:click={() => handleCartAction('remove', 'extraInvoice', product)}>
-                                                                    <span class="material-symbols-outlined">remove_shopping_cart</span>
-                                                                </button>
-                                                            {/if}
-                                                        </div>   
-                                                    </div>
-                                                    <!-- product details -->
-                                                    <div class="period-details">
-                                                        <div class="detail-item">
-                                                            <span class="detail-label">Beskrivelse:</span>
-                                                            <span class="detail-value">{product.description}</span>
-                                                        </div>
-                                                        <div class="detail-item">
-                                                            <span class="detail-label">Pris:</span>
-                                                            <span class="detail-value">{product.price}</span>
-                                                        </div>
-                                                        
-                                                        <!-- Extra fields display/editing -->
-                                                        {#each Object.keys(product).filter(key => !['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog'].includes(key)) as fieldKey}
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">{fieldKey}:</span>
-                                                                {#if product[fieldKey] && product[fieldKey].trim() !== ''}
-                                                                    <!-- Field has value, show it -->
-                                                                    <span class="detail-value">{getProductExtraFields(product._id)[fieldKey] || product[fieldKey]}</span>
+                                                {#if product.active}
+                                                    <div class="billing-period">
+                                                        <div class="period-header">
+                                                            <h4>{product.name}</h4>
+                                                            <div class="not-invoiced">
+                                                                {#if !cart.extraInvoice.some(item => item._id === product._id)}
+                                                                    <button class="button" on:click={() => handleCartAction('add', 'extraInvoice', product)}>
+                                                                        <span class="material-symbols-outlined">add_shopping_cart</span>
+                                                                    </button>
                                                                 {:else}
-                                                                    <!-- Field is empty, allow editing -->
-                                                                    <div class="detail-value extra-field-input">
-                                                                        <Input
-                                                                            type="text"
-                                                                            placeholder="Utfyll verdi..."
-                                                                            value={getProductExtraFields(product._id)[fieldKey] || ''}
-                                                                            on:input={(e) => updateProductExtraField(product._id, fieldKey, e.target.value)}
-                                                                            maxlength="100"
-                                                                        />
-                                                                    </div>
+                                                                    <button class="button-remove" on:click={() => handleCartAction('remove', 'extraInvoice', product)}>
+                                                                        <span class="material-symbols-outlined">remove_shopping_cart</span>
+                                                                    </button>
                                                                 {/if}
+                                                            </div>   
+                                                        </div>
+                                                        <!-- product details -->
+                                                        <div class="period-details">
+                                                            <div class="detail-item">
+                                                                <span class="detail-label">Beskrivelse:</span>
+                                                                <span class="detail-value">{product.description}</span>
                                                             </div>
-                                                        {/each}
+                                                            <div class="detail-item">
+                                                                <span class="detail-label">Pris:</span>
+                                                                <span class="detail-value">{product.price === 0 ? 'Pris regnes ut i sammendraget' : product.price}</span>
+                                                            </div>
+                                                            
+                                                            <!-- Extra fields display/editing -->
+                                                            {#each Object.keys(product).filter(key => !['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog'].includes(key)) as fieldKey}
+                                                                <div class="detail-item">
+                                                                    <span class="detail-label">{fieldKey}:</span>
+                                                                    {#if product[fieldKey] && product[fieldKey].trim() !== ''}
+                                                                        <!-- Field has value, show it -->
+                                                                        <span class="detail-value">{getProductExtraFields(product._id)[fieldKey] || product[fieldKey]}</span>
+                                                                    {:else}
+                                                                        <!-- Field is empty, allow editing -->
+                                                                        <div class="detail-value extra-field-input">
+                                                                            <Input
+                                                                                type="text"
+                                                                                placeholder="Utfyll verdi..."
+                                                                                value={getProductExtraFields(product._id)[fieldKey] || ''}
+                                                                                on:input={(e) => updateProductExtraField(product._id, fieldKey, e.target.value)}
+                                                                                maxlength="100"
+                                                                            />
+                                                                        </div>
+                                                                    {/if}
+                                                                </div>
+                                                            {/each}
+                                                        </div>
                                                     </div>
-                                                </div>
+                                                {/if}
                                             {/each}
                                         </div>
                                     </div>
@@ -965,7 +1026,7 @@
                                                     </div>
                                                     <div class="detail-item">
                                                         <span class="detail-label">Pris:</span>
-                                                        <span class="detail-value">{product.price}</span>
+                                                        <span class="detail-value">{calculatePrice(product, contractsData[0].elevInfo.trinn)}</span>
                                                     </div>
                                                     <!-- Display extra fields in cart summary -->
                                                     {#each Object.keys(product).filter(key => !['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog'].includes(key)) as fieldKey}
