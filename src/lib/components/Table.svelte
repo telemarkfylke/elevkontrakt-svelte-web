@@ -44,7 +44,7 @@
         let formattedValue = value
         if (value === "true") formattedValue = "Ja"
         if (value === "false") formattedValue = "Nei"
-        if (value === null || value === undefined || value.toLowerCase() === "ukjent") formattedValue = "Ingen data"
+        if ((value === null || value === undefined || (typeof value === 'string' && value.toLowerCase() === "ukjent"))) formattedValue = "Ingen data"
         if (value === "") formattedValue = "Ingen data"
         if (value === null) formattedValue = "Ingen data"
         if (value !== null && typeof value === 'object' && Object.keys(value).length === 0) formattedValue = "Ingen data"
