@@ -100,6 +100,17 @@
             newUrl.searchParams.delete('error')
             window.history.replaceState(null, '', newUrl)
         }
+
+        if(urlParams.get('error') === 'price-too-high') {
+            showErrorAlert = true
+            errorTitle = 'Pris er for høy'
+            errorMessage = 'Prisen for denne PC-en overstiger den anbefalte grensen. Det anbefales å ikke legge denne i handlekurven. Vennligst kontakt support hvis du mener dette er en feil.'
+            
+            // Clean up URL by removing the error parameter
+            const newUrl = new URL($page.url)
+            newUrl.searchParams.delete('error')
+            window.history.replaceState(null, '', newUrl)
+        }
     })
 
     const getContractsBySlug = async (slug) => {
@@ -332,7 +343,7 @@
     }
 
     const calculatePrice = (product, studentGrade) => {
-        const specialProducts = ['69bd4c20e7d203bdae952250']
+        const specialProducts = ['69bd4c20e7d203bdae952250', '69d7d4c3d9ab0462f2ef38fb']
 
         if(specialProducts.includes(product._id)) {
             if(product._id === '69bd4c20e7d203bdae952250') {
@@ -345,6 +356,21 @@
                 // Add price to the product price in the cart
                 product.price = price
 
+                return price
+            }
+            if(product._id === '69d7d4c3d9ab0462f2ef38fb') {
+                // Just return the price. 
+                const price = parseInt(product["Egenandel"])
+
+                if(price === 0) {
+                    reloadPageWithError('zero-price')
+                }
+
+                if(price > 5000) {
+                    reloadPageWithError('price-too-high')
+                }
+
+                product.price = price
                 return price
             }
             return product.price

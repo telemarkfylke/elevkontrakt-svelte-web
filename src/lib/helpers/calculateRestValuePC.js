@@ -14,17 +14,17 @@ export function calculateRestValuePC (totalPCValue, grade) {
 
     // VG1 students 3/3 of value
     if(grade === "VG1") {
-        return totalValue(totalPCValue)
+        return parseInt(totalValue(totalPCValue))
     }
     
     // VG2 students 2/3 of value
     if(grade === "VG2") {
-        return totalValue((Math.round(totalPCValue / 3) * 2))
+        return parseInt(totalValue((Math.round(totalPCValue / 3) * 2)))
     }
 
     // VG3 students 1/3 of value
     if(grade === "VG3") {
-        return totalValue((Math.round(totalPCValue / 3) * 1))
+        return parseInt(totalValue((Math.round(totalPCValue / 3) * 1)))
     }
 
     return 0
