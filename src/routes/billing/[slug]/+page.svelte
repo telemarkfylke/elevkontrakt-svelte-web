@@ -67,7 +67,8 @@
                     products = productsResponse.data.result
                 } else {
                     // Filter out specific products for non-admin users
-                    products = productsResponse.data.result.filter(product => product._id !== '69bd4c20e7d203bdae952250')
+                    const excludedProducts = [ '69bd4c20e7d203bdae952250', '69d7d4c3d9ab0462f2ef38fb' ];
+                    products = productsResponse.data.result.filter(product => !excludedProducts.includes(product._id));
                 }
                 productsLength = products.length
                 // Initialize extra fields for products after products are loaded
