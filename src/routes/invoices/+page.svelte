@@ -1,19 +1,87 @@
 <script>
+    import { page } from '$app/stores';
     import { goto } from '$app/navigation';
+    import Alert from '$lib/components/alert.svelte';
     import IconSpinner from '$lib/components/IconSpinner.svelte';
     import { formatDate } from '$lib/helpers/formatDate';
     import { returnType } from '$lib/helpers/returnInvoiceType';
-    import { getInvoices, getElevkontraktToken } from '$lib/useApi';
+    import { getInvoices, getElevkontraktToken, deleteInvoices } from '$lib/useApi';
     import { onMount } from 'svelte'
 
     let invoices = []
     let error = null
+
+    // Alert states
+    let showErrorAlert = false
+    let errorTitle = ''
+    let errorMessage = ''
+    let showSuccessAlert = false
+    let successTitle = ''
+    let successMessage = ''
 
     // Visibility states for different invoice statuses
     let showInvoiced = false
     let showNotInvoiced = false
     let showPaid = false
     let showOther = false
+
+    onMount(() => {
+        const urlParams = new URLSearchParams($page.url.search);
+        const successParam = urlParams.get('success');
+        const errorParam = urlParams.get('error');
+
+        if (successParam) {
+            if (successParam === 'invoiceDeleted') {
+                successTitle = 'Faktura slettet';
+                successMessage = 'Fakturaen har blitt slettet.';
+                showSuccessAlert = true;
+            }
+            // Legg til flere suksess-typer her hvis nødvendig
+
+            // Clean up URL by removing the success parameter
+            const newUrl = new URL($page.url)
+            newUrl.searchParams.delete('success')
+            window.history.replaceState(null, '', newUrl)
+        }
+
+        if (errorParam) {
+            if (errorParam === 'invoiceDeleteFailed') {
+                errorTitle = 'Sletting av faktura feilet';
+                errorMessage = 'Det oppsto en feil ved sletting av fakturaen. Prøv igjen senere.';
+                showErrorAlert = true;
+            }
+
+            // Clean up URL by removing the error parameter
+            const newUrl = new URL($page.url)
+            newUrl.searchParams.delete('error')
+            window.history.replaceState(null, '', newUrl)
+            // Legg til flere feiltyper her hvis nødvendig
+        }
+    });
+
+    const reloadPageWithSuccess = (successType) => {
+        const currentUrl = new URL(window.location);
+        currentUrl.searchParams.set('success', successType);
+        window.location.href = currentUrl.toString();
+    }
+
+    const reloadPageWithError = (errorType) => {
+        const currentUrl = new URL(window.location);
+        currentUrl.searchParams.set('error', errorType);
+        window.location.href = currentUrl.toString();
+    }
+
+    const handleErrorAlertClose = () => {
+        showErrorAlert = false;
+        errorTitle = '';
+        errorMessage = '';
+    }
+
+    const handleSuccessAlertClose = () => {
+        showSuccessAlert = false;
+        successMessage = '';
+        successTitle = '';
+    }
 
     const handleVisibility = (status, i) => {
         if (status === 'invoiced' && !i) {
@@ -27,6 +95,21 @@
         }
     }
 
+    const deleteInvoice = async (id) => {
+        try {
+            const response = await deleteInvoices(id);
+            if (response.status === 200) {
+                reloadPageWithSuccess('invoiceDeleted');
+            } else {
+                const errorData = await response.json();
+                reloadPageWithError('invoiceDeleteFailed');
+            }
+        } catch (err) {
+            reloadPageWithError('invoiceDeleteFailed');
+        }
+    }
+    
+
     
 </script>
 
@@ -37,6 +120,14 @@
         </div>
     {:then token}
         {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.billing-readwrite', 'elevkontrakt.billing-read'].includes(r))}
+            <!-- ALERTS -->
+            {#if successMessage}
+                <Alert type="success" title="Suksess" message={successMessage} dismissible={true} on:close={() => successMessage = ''} autoClose={true} autoCloseDelay={10000} position="fixed-top"/>
+            {/if}
+            {#if errorMessage}
+                <Alert type="error" title="Feil" message={errorMessage} dismissible={true} on:close={() => errorMessage = ''} autoClose={true} autoCloseDelay={10000} position="fixed-top"/>
+            {/if}
+
             {#await getInvoices(token.upn)}
                 <div class="loading">
                     <IconSpinner width={"32px"} />
@@ -97,16 +188,16 @@
                             <br>
                             <div class="contract-overview">
                                 <h2 class="notinvoiced">
-                                    <div class="header-with-buttons">
-                                        <div class="header-title">
-                                            Ikke Fakturert ({data.data.filter(invoice => invoice.status === 'Ikke Fakturert').length})
-                                        </div>
-                                        <button class="toggle-button" on:click={() => handleVisibility('not-invoiced')}>
-                                            <span class="material-symbols-outlined">
-                                                {showNotInvoiced ? 'visibility_off' : 'visibility'}
-                                            </span>
-                                        </button>
+                                <div class="header-with-buttons">
+                                    <div class="header-title">
+                                        Ikke Fakturert ({data.data.filter(invoice => invoice.status === 'Ikke Fakturert').length})
                                     </div>
+                                    <button class="toggle-button" on:click={() => handleVisibility('not-invoiced')}>
+                                        <span class="material-symbols-outlined">
+                                            {showNotInvoiced ? 'visibility_off' : 'visibility'}
+                                        </span>
+                                    </button>
+                                </div>
                                 </h2>
                                 {#each data.data as invoice}
                                     {#if invoice.status === 'Ikke Fakturert' && showNotInvoiced}
@@ -117,9 +208,13 @@
                                                         <span>Elev - {invoice.student.navn}</span>
                                                     </div>
                                                     <div class="button-group">
-                                                    <button class="toggle-button" on:click={() => goto(`/invoices/${invoice._id}`)}>
-                                                        <span class="material-symbols-outlined">contract</span>
-                                                    </button>
+                                                        <button class="toggle-button" on:click={() => goto(`/invoices/${invoice._id}`)}>
+                                                            <span class="material-symbols-outlined">contract</span>
+                                                        </button>
+                                                        <button class="toggle-button" on:click={() => deleteInvoice(invoice._id)}>
+                                                            <span class="material-symbols-outlined">delete</span>
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </h3>
                                             <div class="info-grid">

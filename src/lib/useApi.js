@@ -395,3 +395,14 @@ export const getInvoices = async (userToken) => {
   }
 }
 
+export const deleteInvoices = async (userToken) => {
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/invoice?invoiceId=${userToken}`
+
+  try {
+    const response = await axios.delete(url, { headers: { Authorization: `Bearer ${token}` } })
+    return response
+  } catch (error) {
+    return error
+  }
+}
