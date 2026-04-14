@@ -322,6 +322,10 @@
                                                     <label>Type faktura:</label>
                                                     <span class="value">{returnType(invoice.type)}</span>
                                                 </div>
+                                                <div class="info-item">
+                                                    <label>Status faktura:</label>
+                                                    <span class="value">{invoice.status}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     {/if}
