@@ -919,7 +919,7 @@
                                                 {/if}
                                             {/if}
                                         </div>
-                                        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite'].includes(r))}
+                                        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))}
                                             {#if !unLockPCFields}
                                                 <button style="margin-bottom: 1rem;" on:click={() => unLockFieldsHandler("PC")}>
                                                     Rediger PC-status 🔓
