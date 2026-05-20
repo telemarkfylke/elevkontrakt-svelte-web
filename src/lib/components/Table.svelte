@@ -1,5 +1,4 @@
 <script>
-    import { get } from "svelte/store";
     import IconSpinner from "./IconSpinner.svelte";
     import JsBarcode from "jsbarcode";
     import { clickToCopy } from "$lib/helpers/clickToCopy";
@@ -33,10 +32,10 @@
     let sortedData = []
     let paginatedData = []
 
-    $: isLaanOnlyChecked = false
-    $: isLeieOnlyChecked = false
-    $: schoolSelected = ''
-    $: classSelected = ''
+    let isLaanOnlyChecked = false
+    let isLeieOnlyChecked = false
+    let schoolSelected = ''
+    let classSelected = ''
 
     const dataCopy = data
 
@@ -209,6 +208,11 @@
         buttonClicked = true
     }
 
+    const handleSchoolChange = () => {
+        // Reset class filter when school changes so the new school's full class list is shown.
+        classSelected = ''
+    }
+
     const applyFilter = (laanOnly, leieOnly, schoolSelected, classSelected) => {
         // Reset data to original data if no filters are selected
         if(laanOnly === false || !schoolSelected === true || !classSelected === true || leieOnly === false) {
@@ -253,30 +257,35 @@
 
     const getUniqueValue = (value, uniqueClassesForSchool) => {
         for(const item of value) {
-            const school = get(schools)
             if(uniqueClassesForSchool === true) {
-                const classesStore = get(classesForEachSchool)
-                if(school.includes(item?.skole)) {
-                    if(!classesStore[item.skole]) {
-                        classesStore[item.skole] = []
+                classesForEachSchool.update((classesStore) => {
+                    if(item?.skole) {
+                        if(!classesStore[item.skole]) {
+                            classesStore[item.skole] = []
+                        }
+                        classesStore[item.skole].push(item.klasse)
                     }
-                    classesStore[item.skole].push(item.klasse)
-                }
+                    return classesStore
+                })
             } else {
-                if(!school.includes(item)) {
-                    school.push(item)
-                }
+                schools.update((schoolStore) => {
+                    if(item && !schoolStore.includes(item)) {
+                        schoolStore.push(item)
+                    }
+                    return schoolStore
+                })
             }
         }
 
         // Sort the schools
-        const schoolStore = get(schools)
-        schoolStore.sort()
+        schools.update((schoolStore) => schoolStore.sort())
         // Sort the classes for each school
-        const classesStore = get(classesForEachSchool)
-        for(const school in classesStore) {
-            classesStore[school] = [...new Set(classesStore[school])].sort()
-        }
+        classesForEachSchool.update((classesStore) => {
+            for(const school in classesStore) {
+                classesStore[school] = [...new Set(classesStore[school])].sort()
+            }
+            return classesStore
+        })
     }
     
     const getSchools = () => {
@@ -353,7 +362,7 @@
                     </div>
                     <div class="schoolFilter">
                         <label for="school">Velg Skole: </label>
-                        <select bind:value={schoolSelected} on:change={() => { schoolSelected = schoolSelected }}>
+                        <select bind:value={schoolSelected} on:change={handleSchoolChange}>
                             <option value="">Alle skoler</option>
                             {#await getSchools()}
                                 <option value="Henter skoler...">"Henter skoler..."</option>
@@ -369,9 +378,9 @@
                     <!-- Show disabled if school is not selected -->
                     <div class="classFilter">
                         <label for="class">Velg Klasse: </label>
-                        <select bind:value={classSelected} on:change={() => { classSelected = classSelected }} disabled={!schoolSelected ? true : false}>
+                        <select bind:value={classSelected} disabled={!schoolSelected ? true : false}>
                             <option value="">Alle klasser</option>
-                            {#each $classesForEachSchool[schoolSelected] as classes}
+                            {#each ($classesForEachSchool[schoolSelected] || []) as classes}
                                 <option value={classes}>{classes}</option>
                             {/each}
                         </select>
