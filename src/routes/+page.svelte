@@ -944,30 +944,36 @@
                                                             {/if}
                                                         </div>
                                                     </div>
-                                                {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false" && contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() !== "ikke fakturert" && contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() !== "ikke fakturert" && contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() !== "ikke fakturert"}
-                                                    <p>PCen er alt utlevert, skal den leveres inn? Husk å endre status</p>
-                                                    <br>
-                                                    <div class="checkbox-container">
-                                                        <div class="checkbox-item">
-                                                            <label for="innleverpc">Registrer inn PC?</label>
-                                                            <input type="checkbox" id="innleverpc" name="innleverpc" value="true" style="margin: 0.2rem;"/> 
-                                                            {#if saveErrorMessage.length > 0} 
-                                                                <p style="color: red;">*</p>
-                                                            {:else}
-                                                                <p>*</p>
-                                                            {/if}
+                                                {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false"}
+                                                    {#if (contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() !== "fakturert" && contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() !== "fakturert" && contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() !== "fakturert")}
+                                                        <p>PCen er alt utlevert, skal den leveres inn? Husk å endre status</p>
+                                                        <br>
+                                                        <div class="checkbox-container">
+                                                            <div class="checkbox-item">
+                                                                <label for="innleverpc">Registrer inn PC?</label>
+                                                                <input type="checkbox" id="innleverpc" name="innleverpc" value="true" style="margin: 0.2rem;"/> 
+                                                                {#if saveErrorMessage.length > 0} 
+                                                                    <p style="color: red;">*</p>
+                                                                {:else}
+                                                                    <p>*</p>
+                                                                {/if}
+                                                            </div>
                                                         </div>
-                                                        <div class="checkbox-item">
-                                                            <label for="utkjoppc">Registrer PC som utkjøpt?</label>
-                                                            <input type="checkbox" id="utkjoppc" name="utkjoppc" value="true" style="margin: 0.2rem;"/> 
-                                                            {#if saveErrorMessage.length > 0} 
-                                                                <p style="color: red;">*</p>
-                                                            {:else}
-                                                                <p>*</p>
-                                                            {/if}
+                                                    {/if}
+                                                    {#if (contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() !== "ikke fakturert" && contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() !== "ikke fakturert" && contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() !== "ikke fakturert")}
+                                                        <div class="checkbox-container">    
+                                                            <div class="checkbox-item">
+                                                                <label for="utkjoppc">Registrer PC som utkjøpt?</label>
+                                                                <input type="checkbox" id="utkjoppc" name="utkjoppc" value="true" style="margin: 0.2rem;"/> 
+                                                                {#if saveErrorMessage.length > 0} 
+                                                                    <p style="color: red;">*</p>
+                                                                {:else}
+                                                                    <p>*</p>
+                                                                {/if}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false" && (contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "ikke fakturert" && contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "ikke fakturert")}
+                                                    {/if}
+                                                {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false" && (contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "ikke fakturert" && contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "ikke fakturert" && contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "ikke fakturert")}
                                                     <p>PCen er alt utlevert, skal den leveres inn?</p>
                                                     <p>PCen kan ikke leveres inn før alle fakturaene er betalt/fakturert, eller har status "Skal ikke betale"</p>
                                                 {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "true"}
@@ -986,6 +992,7 @@
                                                         <li>En eller flere fakturaer har status "Ikke fakturert"</li>
                                                     </ul>
                                                 </div>
+                                                {console.log(contractToBeEdited.isSigned, contractToBeEdited.pcInfo.released, contractToBeEdited.pcInfo.returned, contractToBeEdited.fakturaInfo.rate1.status, contractToBeEdited.fakturaInfo.rate2.status, contractToBeEdited.fakturaInfo.rate3.status)}
                                                 {/if}
                                             {:else if unLockPCFields && editAsAdmin}
                                                 <div class="checkbox-container-admin">
