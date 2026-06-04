@@ -67,7 +67,7 @@
                     products = productsResponse.data.result
                 } else {
                     // Filter out specific products for non-admin users
-                    const excludedProducts = [ '69bd4c20e7d203bdae952250', '69d7d4c3d9ab0462f2ef38fb' ];
+                    const excludedProducts = [ '69bd4c20e7d203bdae952250', '69d7d4c3d9ab0462f2ef38fb', '6a216481d8650085b998a23d' ];
                     products = productsResponse.data.result.filter(product => !excludedProducts.includes(product._id));
                 }
                 productsLength = products.length
@@ -344,7 +344,7 @@
     }
 
     const calculatePrice = (product, studentGrade) => {
-        const specialProducts = ['69bd4c20e7d203bdae952250', '69d7d4c3d9ab0462f2ef38fb']
+        const specialProducts = ['69bd4c20e7d203bdae952250', '69d7d4c3d9ab0462f2ef38fb', '6a216481d8650085b998a23d']
 
         if(specialProducts.includes(product._id)) {
             if(product._id === '69bd4c20e7d203bdae952250') {
@@ -374,7 +374,23 @@
                 product.price = price
                 return price
             }
-            return product.price
+            
+            if(product._id === '6a216481d8650085b998a23d') {
+                // Just return the price. 
+                const price = parseInt(product["Restverdi"])
+                console.log(price)
+
+                if(price === 0) {
+                    reloadPageWithError('zero-price')
+                }
+
+                if(price > 5000) {
+                    reloadPageWithError('price-too-high')
+                }
+
+                product.price = price
+                return price
+            }
         } else {
             return product.price
         }
