@@ -973,9 +973,8 @@
                                                             </div>
                                                         </div>
                                                     {/if}
-                                                {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false" && (contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "ikke fakturert" && contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "ikke fakturert" && contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "ikke fakturert")}
+                                                {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false"}
                                                     <p>PCen er alt utlevert, skal den leveres inn?</p>
-                                                    <p>PCen kan ikke leveres inn før alle fakturaene er betalt/fakturert, eller har status "Skal ikke betale"</p>
                                                 {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "true"}
                                                     <p>PCen er alt innlevert</p>
                                                     <p>Mener du at dette er feil, kontakt en administrator.</p>
@@ -992,7 +991,6 @@
                                                         <li>En eller flere fakturaer har status "Ikke fakturert"</li>
                                                     </ul>
                                                 </div>
-                                                {console.log(contractToBeEdited.isSigned, contractToBeEdited.pcInfo.released, contractToBeEdited.pcInfo.returned, contractToBeEdited.fakturaInfo.rate1.status, contractToBeEdited.fakturaInfo.rate2.status, contractToBeEdited.fakturaInfo.rate3.status)}
                                                 {/if}
                                             {:else if unLockPCFields && editAsAdmin}
                                                 <div class="checkbox-container-admin">
@@ -1064,7 +1062,6 @@
                                                     {/if}
                                                 </div>
                                             {/if}
-                                        {/if}
                                         {#if contractToBeEdited.isSigned === "true" && contractToBeEdited.unSignedskjemaInfo.kontraktType.toLowerCase() === "leieavtale" && contractToBeEdited.pcInfo.returned === "false"}
                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))}
                                                 {#if !unLockUpdateFields}
