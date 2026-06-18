@@ -944,6 +944,7 @@
                                                             {/if}
                                                         </div>
                                                     </div>
+                                                {/if}
                                                 {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false"}
                                                     <!-- {#if (contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() !== "fakturert" && contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() !== "fakturert" && contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() !== "fakturert")} -->
                                                         <p>PCen er alt utlevert, skal den leveres inn? Husk å endre status</p>
@@ -959,7 +960,7 @@
                                                                 {/if}
                                                             </div>
                                                         </div>
-                                                    {/if}
+                                                    <!-- {/if} -->
                                                     {#if (contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() !== "ikke fakturert" && contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() !== "ikke fakturert" && contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() !== "ikke fakturert")}
                                                         <div class="checkbox-container">    
                                                             <div class="checkbox-item">
@@ -982,15 +983,15 @@
                                                     <p>PCen er alt kjøpt ut</p>
                                                     <p>Mener du at dette er feil, kontakt en administrator.</p>
                                                 {:else}
-                                                <p>Du kan ikke redigere pc-status, dette kan være av ulike grunner: </p>
-                                                <div class="info-list" style="background-color: white; border-color:white;">
-                                                    <ul>
-                                                        <li>Avtalen er ikke signert</li>
-                                                        <li>PCen er allerede innlevert</li>
-                                                        <li>PCen er allerede kjøpt ut</li>
-                                                        <li>En eller flere fakturaer har status "Ikke fakturert"</li>
-                                                    </ul>
-                                                </div>
+                                                    <p>Du kan ikke redigere pc-status, dette kan være av ulike grunner: </p>
+                                                    <div class="info-list" style="background-color: white; border-color:white;">
+                                                        <ul>
+                                                            <li>Avtalen er ikke signert</li>
+                                                            <li>PCen er allerede innlevert</li>
+                                                            <li>PCen er allerede kjøpt ut</li>
+                                                            <li>En eller flere fakturaer har status "Ikke fakturert"</li>
+                                                        </ul>
+                                                    </div>
                                                 {/if}
                                             {:else if unLockPCFields && editAsAdmin}
                                                 <div class="checkbox-container-admin">
