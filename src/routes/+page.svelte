@@ -944,7 +944,6 @@
                                                             {/if}
                                                         </div>
                                                     </div>
-                                                {/if}
                                                 {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false"}
                                                     <!-- {#if (contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() !== "fakturert" && contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() !== "fakturert" && contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() !== "fakturert")} -->
                                                         <p>PCen er alt utlevert, skal den leveres inn? Husk å endre status</p>
@@ -1063,6 +1062,7 @@
                                                     {/if}
                                                 </div>
                                             {/if}
+                                        {/if}
                                         {#if contractToBeEdited.isSigned === "true" && contractToBeEdited.unSignedskjemaInfo.kontraktType.toLowerCase() === "leieavtale" && contractToBeEdited.pcInfo.returned === "false"}
                                             {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))}
                                                 {#if !unLockUpdateFields}
