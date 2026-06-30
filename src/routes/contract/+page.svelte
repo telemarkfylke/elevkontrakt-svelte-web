@@ -48,8 +48,8 @@
                 <br>
                 <p>Lenker til papirversjon av skjemaene:</p>
                 <ul style="list-style-type: none; padding: 0;">
-                    <li><a href="https://telemarkfylke.no/globalassets/tfk/dokumenter/opplaring-og-folkehelse/elev-pc/leieavtale/avtale-leie-elev-pc-og-utlansmidler---revisjon250625.pdf" target="_blank">Lenke til leieavtale for utskrift</a></li>
-                    <li><a href="https://telemarkfylke.no/globalassets/tfk/dokumenter/opplaring-og-folkehelse/elev-pc/laneavtale/avtale-utlan-elev-pc-og-gratis-laremidler---revisjon250625.pdf" target="_blank">Lenke til låneavtale for utskrift</a></li>
+                    <li><a href="https://telemarkfylke.no/globalassets/tfk/dokumenter/opplaring-og-folkehelse/elev-pc/leieavtale/avtale-leie-elev-pc-og-utlansmidler---revidert-juni-26.pdf" target="_blank">Lenke til leieavtale for utskrift</a></li>
+                    <li><a href="https://telemarkfylke.no/globalassets/tfk/dokumenter/opplaring-og-folkehelse/elev-pc/laneavtale/avtale-utlan-elev-pc-og-gratis-laremidler---revidert-juni-26.pdf" target="_blank">Lenke til låneavtale for utskrift</a></li>
                     <li><a href="https://telemarkfylke.no/no/meny/tjenester/opplaring-og-folkehelse/opplaring-i-skole/praktisk-informasjon/laneavtale-pc-og-lan-av-lareboker/Loan-PC-and-textbooks/" target="_blank">Leie- og utlånsavtale på andre språk</a></li>
                 </ul>
                 <br>
