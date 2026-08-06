@@ -10,6 +10,7 @@
     let isLoadingStudentData = false
     let isLoading = false
     let result
+    let showRawData = false
 
     const checkStudentSSN = async (ssn) => {
         result = undefined
@@ -34,7 +35,13 @@
     <IconSpinner width={"32px"} />
 </div>
 {:then token}
-    {#if !token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))}
+    {#if !token.roles.some((r) =>
+        [
+            'elevkontrakt.administrator-readwrite',
+            'elevkontrakt.itservicedesk-readwrite',
+            'elevkontrakt.skoleadministrator-write'
+        ].includes(r)
+    )}
         <div class="error">
             <h2>Du har ikke tilgang til å opprette en avtale</h2>
             <p>Vennligst ta kontakt med din administrator for å få tilgang.</p>
@@ -80,6 +87,23 @@
                     <h2>Noe gikk galt, fant ikke elev eller annen viktig informasjon!</h2>
                     <p>Vennligst sjekk at fødselsnummeret er korrekt, at eleven er opprettet i <strong>VIS</strong> og at eleven har et gyldig skoleforhold.</p>
                 </div>
+                {#if token.roles.includes('elevkontrakt.administrator-readwrite')}
+                    <div class="header-with-buttons">
+                        <div class="header-title">Rådata (Debug)</div>
+                        <div class="button-group">
+                            <button class="toggle-button" on:click={() => showRawData = !showRawData}>
+                                <span class="material-symbols-outlined">
+                                    {showRawData ? 'visibility_off' : 'visibility'}
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                    {#if showRawData}
+                        <div class="info-section">
+                            <pre>{JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    {/if}
+                {/if}
             {:else if data?.studentData}
                 <Form data={data} onSubmit={(data) => submittedData = data} token={token} />
                 {#if submittedData}
@@ -129,5 +153,37 @@
         display: flex;
         flex-direction: column;
         gap: 1rem;
+    }
+
+    .header-with-buttons {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .header-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+
+    .toggle-button {
+        background-color: transparent;
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 6px;
+    }
+
+    .info-section {
+        border-bottom: 1px solid var(--gress-10);
+        padding: 2rem;
+    }
+
+    .info-section:last-child {
+        border-bottom: none;
     }
 </style>
