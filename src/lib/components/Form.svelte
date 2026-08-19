@@ -30,11 +30,11 @@
         attachment, 
         schoolName: data.studentData?.schoolInfo?.navn, 
         schoolOrgNumber:data.studentData?.schoolInfo?.orgnr, 
-        fnr, 
-        foresatt, 
-        foresattValg: result?.foresatt?.fulltnavn, 
-        foresattNavn: result?.foresatt?.fulltnavn || foresattNavn,
-        foresattFnr: result?.foresatt?.foedselsEllerDNummer || foresattFnr
+        fnr,
+        foresatt,
+        foresattValg: foresatt?.fulltnavn,
+        foresattNavn: foresatt?.fulltnavn || foresattNavn,
+        foresattFnr: foresatt?.foedselsEllerDNummer || foresattFnr
 	}
 	
 	$: errors = validate(touchedFields, result)

@@ -124,6 +124,11 @@
                         <br>
                         <p>Ønsker du å opprette en ny avtale kan du skrive inn et nytt fødselsnummer og hente en ny elev.</p>
                     </div>
+                {:else if result?.data?.isDuplicate === true && result !== undefined}
+                    <div class="error">
+                        <h2>Eleven har allerede en aktiv avtale av denne typen</h2>
+                        <p>Avtalen ble ikke opprettet som ny, men lagret for gjennomgang. Ta kontakt med en administrator hvis dette ikke stemmer.</p>
+                    </div>
                 {:else if result !== undefined && result?.data?.result?.acknowledged !== true}
                     <div class="error">
                         <h2>Noe gikk galt under oppretting av avtalen!</h2>
