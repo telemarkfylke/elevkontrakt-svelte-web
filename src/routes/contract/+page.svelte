@@ -1,9 +1,10 @@
 <script>
     import IconSpinner from '$lib/components/IconSpinner.svelte';
     import Input from '$lib/components/Input.svelte';
+    import Alert from '$lib/components/alert.svelte';
 	import Form from '../../lib/components/Form.svelte';
     import { checkStudent, getElevkontraktToken, postManualContract } from '../../lib/useApi.js';
-	
+
 	let data = {}
 	let submittedData = null
     let studentSSN = ''
@@ -11,6 +12,8 @@
     let isLoading = false
     let result
     let showRawData = false
+    let successMessage = ''
+    let errorMessage = ''
 
     const checkStudentSSN = async (ssn) => {
         result = undefined
@@ -23,9 +26,21 @@
 
     const postToManualContract = async (data) => {
         isLoading = true
+        successMessage = ''
+        errorMessage = ''
         result = await postManualContract(data);
         submittedData = null; // Reset submitted data after posting
         isLoading = false
+
+        if (result?.data?.result?.acknowledged === true) {
+            successMessage = `Avtalen er opprettet og arkivert med dokumentnummer: ${result.data.document.signedSkjemaInfo.archiveDocumentNumber}. Ønsker du å opprette en ny avtale kan du skrive inn et nytt fødselsnummer og hente en ny elev.`
+        } else if (result?.data?.isDuplicate === true) {
+            errorMessage = 'Eleven har allerede en aktiv avtale av denne typen. Avtalen ble ikke opprettet som ny, men lagret for gjennomgang. Ta kontakt med en administrator hvis dette ikke stemmer.'
+        } else if (result?.data?.isFakturaInfoMismatch === true) {
+            errorMessage = 'Det oppstod et avvik i fakturainformasjonen for avtalen. Avtalen ble ikke opprettet, men lagret for manuell gjennomgang av en administrator.'
+        } else {
+            errorMessage = 'Noe gikk galt under oppretting av avtalen! Vennligst prøv igjen senere.'
+        }
     }
 
 </script>
@@ -42,10 +57,7 @@
             'elevkontrakt.skoleadministrator-write'
         ].includes(r)
     )}
-        <div class="error">
-            <h2>Du har ikke tilgang til å opprette en avtale</h2>
-            <p>Vennligst ta kontakt med din administrator for å få tilgang.</p>
-        </div>
+        <Alert type="error" title="Feil" message="Du har ikke tilgang til å opprette en avtale. Vennligst ta kontakt med din administrator for å få tilgang." position="static" />
     {:else}
         <main>
             <div>
@@ -83,10 +95,7 @@
                     <IconSpinner width={"32px"} />
                 </div>
             {:else if (data?.studentData?.isError || data?.studentData?.isNonFixAbleError) && (data?.studentData?.error !== "No foreldre/ansvarlig that can be contacted digitally") && data?.studentData?.gotSchoolOrgNr === false}
-                <div class="error">
-                    <h2>Noe gikk galt, fant ikke elev eller annen viktig informasjon!</h2>
-                    <p>Vennligst sjekk at fødselsnummeret er korrekt, at eleven er opprettet i <strong>VIS</strong> og at eleven har et gyldig skoleforhold.</p>
-                </div>
+                <Alert type="error" title="Feil" message="Noe gikk galt, fant ikke elev eller annen viktig informasjon! Vennligst sjekk at fødselsnummeret er korrekt, at eleven er opprettet i VIS og at eleven har et gyldig skoleforhold." position="static" />
                 {#if token.roles.includes('elevkontrakt.administrator-readwrite')}
                     <div class="header-with-buttons">
                         <div class="header-title">Rådata (Debug)</div>
@@ -117,23 +126,12 @@
                             <button on:click={() => postToManualContract(submittedData)}>Opprett avtale</button>
                         </div>
                     {/if}
-                {:else if result?.data?.result?.acknowledged === true && result !== undefined}
-                    <div class="success">
-                        <h2>Avtalen er opprettet og arkivert ✅</h2>
-                        <p>Avtalen er arikvert med dette dokumentnummeret: <strong>{result.data.document.signedSkjemaInfo.archiveDocumentNumber}</strong></p>
-                        <br>
-                        <p>Ønsker du å opprette en ny avtale kan du skrive inn et nytt fødselsnummer og hente en ny elev.</p>
-                    </div>
-                {:else if result?.data?.isDuplicate === true && result !== undefined}
-                    <div class="error">
-                        <h2>Eleven har allerede en aktiv avtale av denne typen</h2>
-                        <p>Avtalen ble ikke opprettet som ny, men lagret for gjennomgang. Ta kontakt med en administrator hvis dette ikke stemmer.</p>
-                    </div>
-                {:else if result !== undefined && result?.data?.result?.acknowledged !== true}
-                    <div class="error">
-                        <h2>Noe gikk galt under oppretting av avtalen!</h2>
-                        <p>Vennligst prøv igjen senere.</p>
-                    </div>
+                {/if}
+                {#if successMessage}
+                    <Alert type="success" title="Suksess" message={successMessage} dismissible={true} on:close={() => successMessage = ''} autoClose={true} autoCloseDelay={10000} position="fixed-top"/>
+                {/if}
+                {#if errorMessage}
+                    <Alert type="error" title="Feil" message={errorMessage} dismissible={true} on:close={() => errorMessage = ''} autoClose={true} autoCloseDelay={10000} position="fixed-top"/>
                 {/if}
             {/if}
         </main>
