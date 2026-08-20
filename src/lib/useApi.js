@@ -212,7 +212,7 @@ export const getExtendedUserInfo = async (upn) => {
  */
 export const checkStudent = async (ssn) => {
   const token = await getElevkontraktToken()
-  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/checkStudent/${ssn}/false}`
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/checkStudent/${ssn}/false`
   const { data } = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
   return data
 }
