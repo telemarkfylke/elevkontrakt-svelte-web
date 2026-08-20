@@ -653,14 +653,14 @@
         }
 
         // 4. Build CSV rows
-        const csvRows = [availableHeaders.map(h => `${h.label}`).join(",") ]
+        const csvRows = [availableHeaders.map(h => `"${h.label}"`).join(",") ]
         response.result.forEach(row => {
             csvRows.push(
             availableHeaders.map(h => {
                 let val = getValue(row, h.key)
                 if (typeof val === "boolean") val = val ? "Ja" : "Nei"
                 if (val === null || val === undefined) val = ""
-                return `${String(val).replace(/"/g, '""')}`
+                return `"${String(val).replace(/"/g, '""')}"`
             }).join(",")
             )
         });
