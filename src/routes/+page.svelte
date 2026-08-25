@@ -315,6 +315,8 @@
         return response.result
     }
 
+    // Function to toggle preHistoryActive and reload contracts with the target collection
+    // True = pcIkkeInnlevert, False = regular
     const preHistoryMode = async (token, targetCollection) => {
         preHistoryActive = !preHistoryActive
         contracts(token, targetCollection) 
@@ -575,6 +577,24 @@
                     // Handle flytt to historisk
                     try {
                         response = await moveContract(contractToBeEdited._id, 'historic', preHistoryActive ? 'pcIkkeInnlevert' : 'regular') 
+                    } catch (error) {
+                        saveErrorMessage = "Noe gikk galt, prøv igjen senere"
+                        isProcessing = false
+                    }
+                }
+                else if (nyPlassering === 'regular') {
+                    // Handle flytt to regular
+                    try {
+                        response = await moveContract(contractToBeEdited._id, 'regular', preHistoryActive ? 'pcIkkeInnlevert' : 'regular') 
+                    } catch (error) {
+                        saveErrorMessage = "Noe gikk galt, prøv igjen senere"
+                        isProcessing = false
+                    }
+                }
+                else if (nyPlassering === 'pcIkkeInnlevert') {
+                    // Handle flytt to pcIkkeInnlevert
+                    try {
+                        response = await moveContract(contractToBeEdited._id, 'pcIkkeInnlevert', preHistoryActive ? 'pcIkkeInnlevert' : 'regular') 
                     } catch (error) {
                         saveErrorMessage = "Noe gikk galt, prøv igjen senere"
                         isProcessing = false
@@ -1385,6 +1405,12 @@
                                     <select id="nyPlassering">
                                         <option value="">Velg ny plassering</option>
                                         <option value="historisk">Historisk</option>
+                                        {#if preHistoryActive === true}
+                                            <option value="regular">Ordinær gruppe</option>
+                                        {/if}
+                                        {#if preHistoryActive === false}
+                                            <option value="pcIkkeInnlevert">PC Ikke Innlevert/Rater Ikke Betalt</option>
+                                        {/if}
                                     </select>
                                     {#if saveErrorMessage.length > 0}
                                         <p style="color: red;"> <strong>{saveErrorMessage}❗</strong></p>
