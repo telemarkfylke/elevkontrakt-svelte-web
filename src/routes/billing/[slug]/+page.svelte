@@ -378,7 +378,6 @@
             if(product._id === '6a216481d8650085b998a23d') {
                 // Just return the price. 
                 const price = parseInt(product["Restverdi"])
-                console.log(price)
 
                 if(price === 0) {
                     reloadPageWithError('zero-price')

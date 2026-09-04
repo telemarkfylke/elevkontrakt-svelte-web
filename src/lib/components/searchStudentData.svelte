@@ -1,6 +1,7 @@
 <script>
     import { searchContracts } from "$lib/useApi";
     import Input from "./Input.svelte";
+    import { getElevkontraktToken } from '$lib/useApi.js'
 
     export let data = null;
     export let errorMessage = ''
@@ -12,8 +13,9 @@
     const getdata = async (searchValue) => {
         errorMessage = ''
         isLoadingSearchData = true;
+        const token = await getElevkontraktToken()
         try {
-            const userData = await searchContracts(searchValue, 'regular');
+            const userData = await searchContracts(searchValue, 'regular', token);
             if (Array.isArray(userData) && userData.length > 0) {
                 data = userData
             } else if (userData.error && userData.error.length > 0) {
