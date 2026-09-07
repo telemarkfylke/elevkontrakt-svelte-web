@@ -244,7 +244,8 @@ export const deleteContract = async (contractID) => {
     const response = await axios.delete(url, { data: { contractID }, headers: { Authorization: `Bearer ${token}` } })
     return response
   } catch (error) {
-    return error
+    // Return the server's own response so callers can surface its message; a network failure has no response, so synthesise one
+    return error.response ?? { status: 500, data: { error: 'Noe gikk galt, prøv igjen senere' } }
   }
 }
 /**
@@ -263,7 +264,8 @@ export const moveContract = async (contractID, targetCollection, sourceCollectio
     const response = await axios.delete(url, { data: { contractID, targetCollection, sourceCollection }, headers: { Authorization: `Bearer ${token}` } })
     return response
   } catch (error) {
-    return error
+    // Return the server's own response so callers can surface its message (e.g. the 409 invoice gate that blocks archiving a contract with unsettled invoices); a network failure has no response, so synthesise one
+    return error.response ?? { status: 500, data: { error: 'Noe gikk galt, prøv igjen senere' } }
   }
 }
 

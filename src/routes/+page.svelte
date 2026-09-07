@@ -609,7 +609,14 @@
                 saveErrorMessage = ""
                 reloadPage()
             } else if (response && response?.status !== 200) {
-                saveErrorMessage = "Noe gikk galt, prøv igjen senere"
+                // Prefer the API's own message when it sent one - the strings are already written as norwegian end-user text (e.g. the 409 that blocks archiving a contract with unsettled invoices). Plain-text error bodies leave data as a string, so the lookup yields undefined and we fall back to the generic message
+                const serverMessage = response?.data?.error
+                const invoiceDetail = Array.isArray(response?.data?.invoices)
+                    ? response.data.invoices.map(invoice => `${invoice.type}: ${invoice.status}`).join(', ')
+                    : ''
+                saveErrorMessage = serverMessage
+                    ? (invoiceDetail ? `${serverMessage} (${invoiceDetail})` : serverMessage)
+                    : "Noe gikk galt, prøv igjen senere"
                 isProcessing = false
             } else {
                 saveErrorMessage = "Noe gikk galt, prøv igjen senere"
@@ -1381,7 +1388,8 @@
                                     <p>Er du sikker på at du vil slette avtalen for: <strong>{contractToBeEdited.elevInfo.navn}</strong>?</p>
                                     <p>Dette kan ikke angres(joda :P)!</p>
                                     {#if saveErrorMessage.length > 0}
-                                        <p style="color: red;"> <strong>{saveErrorMessage}❗</strong></p>
+                                        <!-- max-width holder api-meldinger til en lesbar bredde - uten den strekker den flex-baserte modalen seg til én lang linje -->
+                                        <p style="color: red; max-width: 35em;"> <strong>{saveErrorMessage}❗</strong></p>
                                     {/if}
                                     {#if isProcessing === true}
                                         <IconSpinner width="50px" />
@@ -1413,7 +1421,8 @@
                                         {/if}
                                     </select>
                                     {#if saveErrorMessage.length > 0}
-                                        <p style="color: red;"> <strong>{saveErrorMessage}❗</strong></p>
+                                        <!-- max-width holder api-meldinger til en lesbar bredde - uten den strekker den flex-baserte modalen seg til én lang linje -->
+                                        <p style="color: red; max-width: 35em;"> <strong>{saveErrorMessage}❗</strong></p>
                                     {/if}
                                     {#if isProcessing === true}
                                         <IconSpinner width="50px" />
