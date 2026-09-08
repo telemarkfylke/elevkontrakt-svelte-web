@@ -45,7 +45,6 @@
     let productsLength = 0
 
     let productExtraFields = {}
-
     onMount(async () => {
         try {
             const settingsResponse = await getSettings()
@@ -343,8 +342,11 @@
         return productExtraFields[productId] || {}
     }
 
-    const calculatePrice = (product, studentGrade) => {
-        const specialProducts = ['69bd4c20e7d203bdae952250', '69d7d4c3d9ab0462f2ef38fb', '6a216481d8650085b998a23d']
+    const calculatePrice = (product, student) => {
+        // Studentdata == contractsData[0].elevInfo
+        const studentGrade = student.elevInfo.trinn
+        const studentFnr = student.elevInfo.fnr
+        const specialProducts = ['69bd4c20e7d203bdae952250', '69d7d4c3d9ab0462f2ef38fb', '6a216481d8650085b998a23d', '6a9eae8f4d0dd6ed3d8de53f']
 
         if(specialProducts.includes(product._id)) {
             if(product._id === '69bd4c20e7d203bdae952250') {
@@ -374,7 +376,6 @@
                 product.price = price
                 return price
             }
-            
             if(product._id === '6a216481d8650085b998a23d') {
                 // Just return the price. 
                 const price = parseInt(product["Restverdi"])
@@ -389,6 +390,18 @@
 
                 product.price = price
                 return price
+            }
+            // Yearly rent beyond the 3rd rate. Fetches the price from settings and also checks if the student should have the original price or the discounted price based on the rules in settings.
+            if(product._id === '6a9eae8f4d0dd6ed3d8de53f') {
+                const pricesFromSettings = settings.prices || {}
+
+                // Check if student is in the list of studnets from settings
+                    const studentInExceptions = settings.exceptionsFromRegularPrices.students.some((s) => s.fnr === studentFnr)
+                    if(studentInExceptions) {
+                        return pricesFromSettings.reducedPrice
+                    } else {
+                        return pricesFromSettings.regularPrice
+                    }
             }
         } else {
             return product.price
@@ -1068,7 +1081,7 @@
                                                     </div>
                                                     <div class="detail-item">
                                                         <span class="detail-label">Pris:</span>
-                                                        <span class="detail-value">{calculatePrice(product, contractsData[0].elevInfo.trinn)}</span>
+                                                        <span class="detail-value">{calculatePrice(product, contractsData[0])}</span>
                                                     </div>
                                                     <!-- Display extra fields in cart summary -->
                                                     {#each Object.keys(product).filter(key => !['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog'].includes(key)) as fieldKey}
