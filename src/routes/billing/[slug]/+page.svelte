@@ -251,7 +251,7 @@
         }
     }
 
-    const calculateTotal = (cart) => {
+    const calculateTotal = (cart, student) => {
         let total = 0;
 
         if(cart.buyOut.length > 0) {
@@ -262,7 +262,7 @@
 
         if(cart.extraInvoice.length > 0) {
             total += cart.extraInvoice.reduce((sum, product) => {
-                return sum + product.price
+                return sum + calculatePrice(product, student)
             }, 0)
         }
 
@@ -394,14 +394,12 @@
             // Yearly rent beyond the 3rd rate. Fetches the price from settings and also checks if the student should have the original price or the discounted price based on the rules in settings.
             if(product._id === '6a9eae8f4d0dd6ed3d8de53f') {
                 const pricesFromSettings = settings.prices || {}
-
                 // Check if student is in the list of studnets from settings
-                    const studentInExceptions = settings.exceptionsFromRegularPrices.students.some((s) => s.fnr === studentFnr)
-                    if(studentInExceptions) {
-                        return pricesFromSettings.reducedPrice
-                    } else {
-                        return pricesFromSettings.regularPrice
-                    }
+                const studentInExceptions = settings.exceptionsFromRegularPrices.students.some((s) => s.fnr === studentFnr)
+                const price = parseInt(studentInExceptions ? pricesFromSettings.reducedPrice : pricesFromSettings.regularPrice)
+
+                product.price = price
+                return price
             }
         } else {
             return product.price
@@ -1103,7 +1101,7 @@
                                         </h3>
                                         <div class="info-item">
                                             <label>Total sum:</label>
-                                            <span class="value">{calculateTotal(cart)} Kr</span>
+                                            <span class="value">{calculateTotal(cart, contractsData[0])} Kr</span>
                                         </div>
                                     </div>
                                     <div class="info-section">
