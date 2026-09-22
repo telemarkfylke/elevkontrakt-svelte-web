@@ -1480,7 +1480,9 @@
         outline: none;
     }
     .icon-input input::placeholder {
-        color: var(--himmel);
+        /* Not --himmel: it is now the designmanual's #009BC2, which sits at ~3.3:1 on white and
+           fails WCAG AA for text. Borders keep --himmel; text does not. */
+        color: var(--vann);
     }
     .icon-input input:focus::placeholder {
         color: transparent;
@@ -1510,7 +1512,8 @@
         outline: revert;
     }
     .info-button:hover {
-        color: var(--himmel);
+        /* --himmel is a border/background tone; as text on white it fails AA. See the placeholder. */
+        color: var(--vann);
     }
     .info-button span {
         font-size: 1.5rem;

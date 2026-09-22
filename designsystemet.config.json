@@ -1,0 +1,20 @@
+{
+  "$schema": "https://cdn.jsdelivr.net/npm/@digdir/designsystemet@1.21.1/dist/config.schema.json",
+  "outDir": "./design-tokens",
+  "themes": {
+    "telemark": {
+      "colors": {
+        "accent": "#005260",
+        "brand1": "#009BC2",
+        "brand2": "#1F9562",
+        "korn": "#A5983A",
+        "plomme": "#6A4371",
+        "neutral": "#7B7B7A"
+      },
+      "typography": {
+        "fontFamily": "Nunito Sans"
+      },
+      "borderRadius": 4
+    }
+  }
+}

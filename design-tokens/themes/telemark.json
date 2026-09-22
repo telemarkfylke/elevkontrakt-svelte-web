@@ -1,0 +1,732 @@
+{
+  "color": {
+    "accent": {
+      "1": {
+        "$type": "color",
+        "$value": "{telemark.accent.1}"
+      },
+      "2": {
+        "$type": "color",
+        "$value": "{telemark.accent.2}"
+      },
+      "3": {
+        "$type": "color",
+        "$value": "{telemark.accent.3}"
+      },
+      "4": {
+        "$type": "color",
+        "$value": "{telemark.accent.4}"
+      },
+      "5": {
+        "$type": "color",
+        "$value": "{telemark.accent.5}"
+      },
+      "6": {
+        "$type": "color",
+        "$value": "{telemark.accent.6}"
+      },
+      "7": {
+        "$type": "color",
+        "$value": "{telemark.accent.7}"
+      },
+      "8": {
+        "$type": "color",
+        "$value": "{telemark.accent.8}"
+      },
+      "9": {
+        "$type": "color",
+        "$value": "{telemark.accent.9}"
+      },
+      "10": {
+        "$type": "color",
+        "$value": "{telemark.accent.10}"
+      },
+      "11": {
+        "$type": "color",
+        "$value": "{telemark.accent.11}"
+      },
+      "12": {
+        "$type": "color",
+        "$value": "{telemark.accent.12}"
+      },
+      "13": {
+        "$type": "color",
+        "$value": "{telemark.accent.13}"
+      },
+      "14": {
+        "$type": "color",
+        "$value": "{telemark.accent.14}"
+      },
+      "15": {
+        "$type": "color",
+        "$value": "{telemark.accent.15}"
+      },
+      "16": {
+        "$type": "color",
+        "$value": "{telemark.accent.16}"
+      }
+    },
+    "brand1": {
+      "1": {
+        "$type": "color",
+        "$value": "{telemark.brand1.1}"
+      },
+      "2": {
+        "$type": "color",
+        "$value": "{telemark.brand1.2}"
+      },
+      "3": {
+        "$type": "color",
+        "$value": "{telemark.brand1.3}"
+      },
+      "4": {
+        "$type": "color",
+        "$value": "{telemark.brand1.4}"
+      },
+      "5": {
+        "$type": "color",
+        "$value": "{telemark.brand1.5}"
+      },
+      "6": {
+        "$type": "color",
+        "$value": "{telemark.brand1.6}"
+      },
+      "7": {
+        "$type": "color",
+        "$value": "{telemark.brand1.7}"
+      },
+      "8": {
+        "$type": "color",
+        "$value": "{telemark.brand1.8}"
+      },
+      "9": {
+        "$type": "color",
+        "$value": "{telemark.brand1.9}"
+      },
+      "10": {
+        "$type": "color",
+        "$value": "{telemark.brand1.10}"
+      },
+      "11": {
+        "$type": "color",
+        "$value": "{telemark.brand1.11}"
+      },
+      "12": {
+        "$type": "color",
+        "$value": "{telemark.brand1.12}"
+      },
+      "13": {
+        "$type": "color",
+        "$value": "{telemark.brand1.13}"
+      },
+      "14": {
+        "$type": "color",
+        "$value": "{telemark.brand1.14}"
+      },
+      "15": {
+        "$type": "color",
+        "$value": "{telemark.brand1.15}"
+      },
+      "16": {
+        "$type": "color",
+        "$value": "{telemark.brand1.16}"
+      }
+    },
+    "brand2": {
+      "1": {
+        "$type": "color",
+        "$value": "{telemark.brand2.1}"
+      },
+      "2": {
+        "$type": "color",
+        "$value": "{telemark.brand2.2}"
+      },
+      "3": {
+        "$type": "color",
+        "$value": "{telemark.brand2.3}"
+      },
+      "4": {
+        "$type": "color",
+        "$value": "{telemark.brand2.4}"
+      },
+      "5": {
+        "$type": "color",
+        "$value": "{telemark.brand2.5}"
+      },
+      "6": {
+        "$type": "color",
+        "$value": "{telemark.brand2.6}"
+      },
+      "7": {
+        "$type": "color",
+        "$value": "{telemark.brand2.7}"
+      },
+      "8": {
+        "$type": "color",
+        "$value": "{telemark.brand2.8}"
+      },
+      "9": {
+        "$type": "color",
+        "$value": "{telemark.brand2.9}"
+      },
+      "10": {
+        "$type": "color",
+        "$value": "{telemark.brand2.10}"
+      },
+      "11": {
+        "$type": "color",
+        "$value": "{telemark.brand2.11}"
+      },
+      "12": {
+        "$type": "color",
+        "$value": "{telemark.brand2.12}"
+      },
+      "13": {
+        "$type": "color",
+        "$value": "{telemark.brand2.13}"
+      },
+      "14": {
+        "$type": "color",
+        "$value": "{telemark.brand2.14}"
+      },
+      "15": {
+        "$type": "color",
+        "$value": "{telemark.brand2.15}"
+      },
+      "16": {
+        "$type": "color",
+        "$value": "{telemark.brand2.16}"
+      }
+    },
+    "korn": {
+      "1": {
+        "$type": "color",
+        "$value": "{telemark.korn.1}"
+      },
+      "2": {
+        "$type": "color",
+        "$value": "{telemark.korn.2}"
+      },
+      "3": {
+        "$type": "color",
+        "$value": "{telemark.korn.3}"
+      },
+      "4": {
+        "$type": "color",
+        "$value": "{telemark.korn.4}"
+      },
+      "5": {
+        "$type": "color",
+        "$value": "{telemark.korn.5}"
+      },
+      "6": {
+        "$type": "color",
+        "$value": "{telemark.korn.6}"
+      },
+      "7": {
+        "$type": "color",
+        "$value": "{telemark.korn.7}"
+      },
+      "8": {
+        "$type": "color",
+        "$value": "{telemark.korn.8}"
+      },
+      "9": {
+        "$type": "color",
+        "$value": "{telemark.korn.9}"
+      },
+      "10": {
+        "$type": "color",
+        "$value": "{telemark.korn.10}"
+      },
+      "11": {
+        "$type": "color",
+        "$value": "{telemark.korn.11}"
+      },
+      "12": {
+        "$type": "color",
+        "$value": "{telemark.korn.12}"
+      },
+      "13": {
+        "$type": "color",
+        "$value": "{telemark.korn.13}"
+      },
+      "14": {
+        "$type": "color",
+        "$value": "{telemark.korn.14}"
+      },
+      "15": {
+        "$type": "color",
+        "$value": "{telemark.korn.15}"
+      },
+      "16": {
+        "$type": "color",
+        "$value": "{telemark.korn.16}"
+      }
+    },
+    "plomme": {
+      "1": {
+        "$type": "color",
+        "$value": "{telemark.plomme.1}"
+      },
+      "2": {
+        "$type": "color",
+        "$value": "{telemark.plomme.2}"
+      },
+      "3": {
+        "$type": "color",
+        "$value": "{telemark.plomme.3}"
+      },
+      "4": {
+        "$type": "color",
+        "$value": "{telemark.plomme.4}"
+      },
+      "5": {
+        "$type": "color",
+        "$value": "{telemark.plomme.5}"
+      },
+      "6": {
+        "$type": "color",
+        "$value": "{telemark.plomme.6}"
+      },
+      "7": {
+        "$type": "color",
+        "$value": "{telemark.plomme.7}"
+      },
+      "8": {
+        "$type": "color",
+        "$value": "{telemark.plomme.8}"
+      },
+      "9": {
+        "$type": "color",
+        "$value": "{telemark.plomme.9}"
+      },
+      "10": {
+        "$type": "color",
+        "$value": "{telemark.plomme.10}"
+      },
+      "11": {
+        "$type": "color",
+        "$value": "{telemark.plomme.11}"
+      },
+      "12": {
+        "$type": "color",
+        "$value": "{telemark.plomme.12}"
+      },
+      "13": {
+        "$type": "color",
+        "$value": "{telemark.plomme.13}"
+      },
+      "14": {
+        "$type": "color",
+        "$value": "{telemark.plomme.14}"
+      },
+      "15": {
+        "$type": "color",
+        "$value": "{telemark.plomme.15}"
+      },
+      "16": {
+        "$type": "color",
+        "$value": "{telemark.plomme.16}"
+      }
+    },
+    "neutral": {
+      "1": {
+        "$type": "color",
+        "$value": "{telemark.neutral.1}"
+      },
+      "2": {
+        "$type": "color",
+        "$value": "{telemark.neutral.2}"
+      },
+      "3": {
+        "$type": "color",
+        "$value": "{telemark.neutral.3}"
+      },
+      "4": {
+        "$type": "color",
+        "$value": "{telemark.neutral.4}"
+      },
+      "5": {
+        "$type": "color",
+        "$value": "{telemark.neutral.5}"
+      },
+      "6": {
+        "$type": "color",
+        "$value": "{telemark.neutral.6}"
+      },
+      "7": {
+        "$type": "color",
+        "$value": "{telemark.neutral.7}"
+      },
+      "8": {
+        "$type": "color",
+        "$value": "{telemark.neutral.8}"
+      },
+      "9": {
+        "$type": "color",
+        "$value": "{telemark.neutral.9}"
+      },
+      "10": {
+        "$type": "color",
+        "$value": "{telemark.neutral.10}"
+      },
+      "11": {
+        "$type": "color",
+        "$value": "{telemark.neutral.11}"
+      },
+      "12": {
+        "$type": "color",
+        "$value": "{telemark.neutral.12}"
+      },
+      "13": {
+        "$type": "color",
+        "$value": "{telemark.neutral.13}"
+      },
+      "14": {
+        "$type": "color",
+        "$value": "{telemark.neutral.14}"
+      },
+      "15": {
+        "$type": "color",
+        "$value": "{telemark.neutral.15}"
+      },
+      "16": {
+        "$type": "color",
+        "$value": "{telemark.neutral.16}"
+      }
+    },
+    "info": {
+      "1": {
+        "$type": "color",
+        "$value": "{telemark.info.1}"
+      },
+      "2": {
+        "$type": "color",
+        "$value": "{telemark.info.2}"
+      },
+      "3": {
+        "$type": "color",
+        "$value": "{telemark.info.3}"
+      },
+      "4": {
+        "$type": "color",
+        "$value": "{telemark.info.4}"
+      },
+      "5": {
+        "$type": "color",
+        "$value": "{telemark.info.5}"
+      },
+      "6": {
+        "$type": "color",
+        "$value": "{telemark.info.6}"
+      },
+      "7": {
+        "$type": "color",
+        "$value": "{telemark.info.7}"
+      },
+      "8": {
+        "$type": "color",
+        "$value": "{telemark.info.8}"
+      },
+      "9": {
+        "$type": "color",
+        "$value": "{telemark.info.9}"
+      },
+      "10": {
+        "$type": "color",
+        "$value": "{telemark.info.10}"
+      },
+      "11": {
+        "$type": "color",
+        "$value": "{telemark.info.11}"
+      },
+      "12": {
+        "$type": "color",
+        "$value": "{telemark.info.12}"
+      },
+      "13": {
+        "$type": "color",
+        "$value": "{telemark.info.13}"
+      },
+      "14": {
+        "$type": "color",
+        "$value": "{telemark.info.14}"
+      },
+      "15": {
+        "$type": "color",
+        "$value": "{telemark.info.15}"
+      },
+      "16": {
+        "$type": "color",
+        "$value": "{telemark.info.16}"
+      }
+    },
+    "success": {
+      "1": {
+        "$type": "color",
+        "$value": "{telemark.success.1}"
+      },
+      "2": {
+        "$type": "color",
+        "$value": "{telemark.success.2}"
+      },
+      "3": {
+        "$type": "color",
+        "$value": "{telemark.success.3}"
+      },
+      "4": {
+        "$type": "color",
+        "$value": "{telemark.success.4}"
+      },
+      "5": {
+        "$type": "color",
+        "$value": "{telemark.success.5}"
+      },
+      "6": {
+        "$type": "color",
+        "$value": "{telemark.success.6}"
+      },
+      "7": {
+        "$type": "color",
+        "$value": "{telemark.success.7}"
+      },
+      "8": {
+        "$type": "color",
+        "$value": "{telemark.success.8}"
+      },
+      "9": {
+        "$type": "color",
+        "$value": "{telemark.success.9}"
+      },
+      "10": {
+        "$type": "color",
+        "$value": "{telemark.success.10}"
+      },
+      "11": {
+        "$type": "color",
+        "$value": "{telemark.success.11}"
+      },
+      "12": {
+        "$type": "color",
+        "$value": "{telemark.success.12}"
+      },
+      "13": {
+        "$type": "color",
+        "$value": "{telemark.success.13}"
+      },
+      "14": {
+        "$type": "color",
+        "$value": "{telemark.success.14}"
+      },
+      "15": {
+        "$type": "color",
+        "$value": "{telemark.success.15}"
+      },
+      "16": {
+        "$type": "color",
+        "$value": "{telemark.success.16}"
+      }
+    },
+    "warning": {
+      "1": {
+        "$type": "color",
+        "$value": "{telemark.warning.1}"
+      },
+      "2": {
+        "$type": "color",
+        "$value": "{telemark.warning.2}"
+      },
+      "3": {
+        "$type": "color",
+        "$value": "{telemark.warning.3}"
+      },
+      "4": {
+        "$type": "color",
+        "$value": "{telemark.warning.4}"
+      },
+      "5": {
+        "$type": "color",
+        "$value": "{telemark.warning.5}"
+      },
+      "6": {
+        "$type": "color",
+        "$value": "{telemark.warning.6}"
+      },
+      "7": {
+        "$type": "color",
+        "$value": "{telemark.warning.7}"
+      },
+      "8": {
+        "$type": "color",
+        "$value": "{telemark.warning.8}"
+      },
+      "9": {
+        "$type": "color",
+        "$value": "{telemark.warning.9}"
+      },
+      "10": {
+        "$type": "color",
+        "$value": "{telemark.warning.10}"
+      },
+      "11": {
+        "$type": "color",
+        "$value": "{telemark.warning.11}"
+      },
+      "12": {
+        "$type": "color",
+        "$value": "{telemark.warning.12}"
+      },
+      "13": {
+        "$type": "color",
+        "$value": "{telemark.warning.13}"
+      },
+      "14": {
+        "$type": "color",
+        "$value": "{telemark.warning.14}"
+      },
+      "15": {
+        "$type": "color",
+        "$value": "{telemark.warning.15}"
+      },
+      "16": {
+        "$type": "color",
+        "$value": "{telemark.warning.16}"
+      }
+    },
+    "danger": {
+      "1": {
+        "$type": "color",
+        "$value": "{telemark.danger.1}"
+      },
+      "2": {
+        "$type": "color",
+        "$value": "{telemark.danger.2}"
+      },
+      "3": {
+        "$type": "color",
+        "$value": "{telemark.danger.3}"
+      },
+      "4": {
+        "$type": "color",
+        "$value": "{telemark.danger.4}"
+      },
+      "5": {
+        "$type": "color",
+        "$value": "{telemark.danger.5}"
+      },
+      "6": {
+        "$type": "color",
+        "$value": "{telemark.danger.6}"
+      },
+      "7": {
+        "$type": "color",
+        "$value": "{telemark.danger.7}"
+      },
+      "8": {
+        "$type": "color",
+        "$value": "{telemark.danger.8}"
+      },
+      "9": {
+        "$type": "color",
+        "$value": "{telemark.danger.9}"
+      },
+      "10": {
+        "$type": "color",
+        "$value": "{telemark.danger.10}"
+      },
+      "11": {
+        "$type": "color",
+        "$value": "{telemark.danger.11}"
+      },
+      "12": {
+        "$type": "color",
+        "$value": "{telemark.danger.12}"
+      },
+      "13": {
+        "$type": "color",
+        "$value": "{telemark.danger.13}"
+      },
+      "14": {
+        "$type": "color",
+        "$value": "{telemark.danger.14}"
+      },
+      "15": {
+        "$type": "color",
+        "$value": "{telemark.danger.15}"
+      },
+      "16": {
+        "$type": "color",
+        "$value": "{telemark.danger.16}"
+      }
+    },
+    "link": {
+      "visited": {
+        "$type": "color",
+        "$value": "{telemark.link.visited}"
+      }
+    },
+    "focus": {
+      "inner-color": {
+        "$type": "color",
+        "$value": "{telemark.focus.inner}"
+      },
+      "outer-color": {
+        "$type": "color",
+        "$value": "{telemark.focus.outer}"
+      }
+    }
+  },
+  "font-family": {
+    "$type": "fontFamilies",
+    "$value": "{telemark.font-family}"
+  },
+  "font-weight": {
+    "medium": {
+      "$type": "fontWeights",
+      "$value": "{telemark.font-weight.medium}"
+    },
+    "semibold": {
+      "$type": "fontWeights",
+      "$value": "{telemark.font-weight.semibold}"
+    },
+    "regular": {
+      "$type": "fontWeights",
+      "$value": "{telemark.font-weight.regular}"
+    }
+  },
+  "border-radius": {
+    "1": {
+      "$type": "dimension",
+      "$value": "min({border-radius.base}*0.5,{border-radius.scale})"
+    },
+    "2": {
+      "$type": "dimension",
+      "$value": "min({border-radius.base},{border-radius.scale}*2)"
+    },
+    "3": {
+      "$type": "dimension",
+      "$value": "min({border-radius.base}*2,{border-radius.scale}*5)"
+    },
+    "4": {
+      "$type": "dimension",
+      "$value": "min({border-radius.base}*3,{border-radius.scale}*7)"
+    },
+    "5": {
+      "$type": "dimension",
+      "$value": "{border-radius.base}"
+    },
+    "6": {
+      "$type": "dimension",
+      "$value": "9999"
+    },
+    "base": {
+      "$type": "dimension",
+      "$value": "4"
+    },
+    "scale": {
+      "$type": "dimension",
+      "$value": "4"
+    }
+  }
+}

@@ -217,6 +217,72 @@ export const checkStudent = async (ssn) => {
   return data
 }
 
+/**
+ * Classifies an identifier: ordinary fnr, fiktivt fnr, or organisasjonsnummer. The status code is
+ * what we branch on, and the failures must stay apart - an archive outage must never read as
+ * "check the number". 400 malformed, 404 unknown, 409 no saksnummer, 502 lookup unreachable.
+ *
+ * @param {String} identifier
+ * @returns {Object} - { ok, ...classification } or { ok: false, reason, error, status }
+ */
+export const checkIdentifier = async (identifier) => {
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/checkIdentifier/${identifier}`
+  try {
+    const { data } = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
+    return data
+  } catch (error) {
+    const status = error?.response?.status
+    if (error?.response?.data) return { ...error.response.data, ok: false, status }
+    return { ok: false, reason: 'lookup-failed', error: 'Oppslaget feilet. Prøv igjen.', status }
+  }
+}
+
+/**
+ * Looks up an organisation in Enhetsregisteret (read-only, no side effects).
+ *
+ * @param {String} orgnr
+ * @returns {Object} - the unit, or { error, status }
+ */
+export const lookupOrganisation = async (orgnr) => {
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/lookupOrganisation/${orgnr}`
+  try {
+    const { data } = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
+    return data
+  } catch (error) {
+    const status = error?.response?.status
+    const messageByStatus = {
+      400: 'Ugyldig organisasjonsnummer',
+      404: 'Fant ikke organisasjonsnummeret i Enhetsregisteret',
+      410: 'Organisasjonen er slettet og kan ikke være ansvarlig',
+      502: 'Kunne ikke nå Enhetsregisteret. Prøv igjen.'
+    }
+    return {
+      error: error?.response?.data?.error || messageByStatus[status] || 'Oppslaget feilet',
+      status
+    }
+  }
+}
+
+/**
+ * School list, for the rare student with no active elevforhold in FINT. Served from the backend's
+ * tfk-schools.js rather than duplicated here - archiveDocument resolves tilgangsgruppe from that
+ * same list, so a copy that drifted would break contract creation.
+ *
+ * Throws on failure rather than returning []: the caller renders this into a REQUIRED select, and an
+ * empty list is indistinguishable from an outage - the admin gets a field they cannot fill and no
+ * reason why.
+ *
+ * @returns {Array} - [{ navn, orgNr }]
+ */
+export const getSchools = async () => {
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/schools`
+  const { data } = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
+  return data
+}
+
 export const postManualContract = async (contractData) => {
   // Check if the contractData is provided, if not, return an error
   // Post contractData to the Elevkontrakt API for manual contract creation and archiving.
