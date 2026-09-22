@@ -2,6 +2,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
+/**
+ * Cascade layer order. Unlayered CSS beats layered CSS regardless of specificity, so app.base sits
+ * BETWEEN ds.base and ds.components: our element rules still win over ds.base (no route changes
+ * appearance), while .ds-button beats the bare `button {}` rule on /contract.
+ *
+ * Only bare element selectors are layered; everything else here stays unlayered.
+ *
+ * Kept in sync with src/lib/styles/layers.css, which declares the same order from the /contract
+ * layout - whichever stylesheet loads first must name the same order. Change both together.
+ */
+@layer ds.theme, ds.base, app.base, ds.components, app.overrides;
+
 /* COMMON CSS */
 body {
 	margin: 0px;
@@ -24,8 +36,17 @@ body:has(dialog[open]) {
 	-moz-osx-font-smoothing: grayscale;
 	image-rendering: -webkit-optimize-contrast;
 	-webkit-tap-highlight-color:  rgba(255, 255, 255, 0);
-	padding: 0;
-	margin: 0;
+}
+
+/* Layered, because an unlayered `* { padding: 0; margin: 0 }` flattens every Designsystemet
+ * component - .ds-card's padding, .ds-alert's, the .ds-field spacing. `*` is the lowest specificity
+ * so it already lost to everything else; layering only changes how it ranks against ds.components.
+ * box-sizing and the rendering hints stay unlayered. */
+@layer app.base {
+	* {
+		padding: 0;
+		margin: 0;
+	}
 }
 
 /* VARIABLES */
@@ -99,58 +120,62 @@ body:has(dialog[open]) {
 }
 
 
-/* HTML Elements styling */
-input, select, textarea, button {
-  font-family: inherit;
-  font-size: inherit;
+/* HTML element styling, layered so Designsystemet's .ds-* classes can win over it on /contract.
+ * A plain <button> elsewhere is untouched - it never matches .ds-button. */
+@layer app.base {
+	input, select, textarea, button {
+		font-family: inherit;
+		font-size: inherit;
+	}
+
+	button {
+		padding: 4px;
+		cursor: pointer;
+		background-color: var(--himmel-20);
+		border: 1px solid black;
+		border-radius: 5px;
+	}
+
+	button.link {
+		padding: 0px;
+		background-color: inherit;
+		border: none;
+		text-decoration: underline;
+		color: var(--vann-10);
+	}
+
+	button.link span {
+		font-size: 18px;
+		padding: 0px 5px;
+		vertical-align: middle !important;
+	}
+	button:hover {
+		background-color: var(--himmel-30);
+	}
+	button.link:hover {
+		background-color: inherit;
+		color: #000;
+	}
+
+	button[disabled] {
+		background-color: var(--himmel-10);
+		cursor: not-allowed;
+	}
+
+	button[icon] {
+		all: unset;
+		cursor: pointer;
+	}
+
+	dialog {
+		width: 80vw;
+		height: 80vh;
+		margin: auto;
+		border: none;
+		padding: 32px
+	}
 }
 
-button {
-	padding: 4px;
-	cursor: pointer;
-	background-color: var(--himmel-20);
-	border: 1px solid black;
-	border-radius: 5px;
-} 
-
-button.link {
-	padding: 0px;
-	background-color: inherit;
-	border: none;
-	text-decoration: underline;
-	color: var(--vann-10);
-}
-
-button.link span {
-	font-size: 18px;
-	padding: 0px 5px;
-	vertical-align: middle !important;
-}
-button:hover {
-	background-color: var(--himmel-30);
-}
-button.link:hover {
-	background-color: inherit;
-	color: #000;
-}
-
-button[disabled] {
-	background-color: var(--himmel-10);
-	cursor: not-allowed;
-}
-
-button[icon] {
-	all: unset;
-	cursor: pointer;
-}
-
-dialog {
-	width: 80vw;
-	height: 80vh;
-	margin: auto;
-	border: none;
-	padding: 32px
-}
 dialog::backdrop {
 	background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.7));
 	animation: fade-in 1s;
