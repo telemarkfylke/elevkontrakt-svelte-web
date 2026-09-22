@@ -72,7 +72,7 @@ body:has(dialog[open]) {
 	--himmel-70: #4CB9D4;
 	--himmel-80: #33AFCE;
 	--himmel-90: #19A5C8;
-	--himmel: #005260;
+	--himmel: #009BC2;
 
 	--nype-10: #F8E8EC;
 	--nype-20: #F1D1D8;
@@ -93,7 +93,7 @@ body:has(dialog[open]) {
 	--plomme-60: #9C82A0;
 	--plomme-70: #8B6D90;
 	--plomme-80: #7B5881;
-	--plomme-90: #19A5C8;
+	--plomme-90: #754D7B;
 	--plomme: #6A4371;
 
 	--gress-10: #E9F4EF;
@@ -117,6 +117,9 @@ body:has(dialog[open]) {
 	--korn-80: #B7AD61;
 	--korn-90: #AEA24E;
 	--korn: #A5983A;
+
+	--gress-5: #F4FAF7;
+	--vann-5: #F2F7F7;
 }
 
 
