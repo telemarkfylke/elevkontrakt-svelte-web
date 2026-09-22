@@ -17,6 +17,7 @@
     import ContractForm from '$lib/components/ds/ContractForm.svelte'
     import { checkStudent, checkIdentifier, getElevkontraktToken, postManualContract } from '$lib/useApi.js'
     import { detectIdentifierType, normalizeIdentifier } from '$lib/helpers/identifier.js'
+    import { isElevkontraktAdmin } from '$lib/helpers/roles.js'
 
     let studentSSN = ''
     let identity = null
@@ -62,6 +63,15 @@
     /** Maps a failed classification onto a message aimed at whoever can act on it. */
     const describeFailure = (result) => {
         switch (result?.reason) {
+            case 'requires-admin':
+                // The number is fine; the caller is not an administrator. Only the API can tell us
+                // this - a fiktivt fnr is indistinguishable from an ordinary one until it is looked
+                // up - so the message it sends is the one shown.
+                return {
+                    color: 'warning',
+                    heading: 'Krever administrator',
+                    message: result.error
+                }
             case 'no-case-number':
                 return {
                     color: 'warning',
@@ -229,7 +239,7 @@
             <DsAlert color="info">
                 <p class="ds-paragraph" data-size="sm">
                     Dette ser ut som et organisasjonsnummer. En organisasjon kan bare være ansvarlig,
-                    ikke elev — legg det inn i ansvarlig-feltet lenger ned i skjemaet.
+                    ikke elev{#if isElevkontraktAdmin(token)} — legg det inn i ansvarlig-feltet lenger ned i skjemaet{:else}, og bare en administrator kan opprette en avtale der en virksomhet er ansvarlig{/if}.
                 </p>
             </DsAlert>
         {/if}

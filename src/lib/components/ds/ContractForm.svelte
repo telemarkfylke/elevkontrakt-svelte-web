@@ -15,6 +15,7 @@
     import DsFileUpload from './DsFileUpload.svelte'
     import { lookupOrganisation, checkIdentifier, getSchools } from '$lib/useApi.js'
     import { detectIdentifierType, isValidOrgnrChecksum, formatOrgnr, normalizeIdentifier } from '$lib/helpers/identifier.js'
+    import { isElevkontraktAdmin } from '$lib/helpers/roles.js'
 
     export let identity = null // the resolved elev, from checkIdentifier or checkStudent
     export let onSubmit = () => {}
@@ -23,7 +24,12 @@
     // flag could only ever be set, so a failed post left the admin with no form and no PDF.
     export let collapsed = false
 
-    const isAdmin = token?.roles?.includes('elevkontrakt.administrator-readwrite')
+    /**
+     * Three things here are administrator-only: an organisasjon as ansvarlig, a school picked by
+     * hand, and (blocked before this component ever mounts) a fiktiv elev. The API refuses all three
+     * as well - these checks only decide what is worth showing.
+     */
+    const isAdmin = isElevkontraktAdmin(token)
 
     // ---- Contract fields ----------------------------------------------------
     let type = ''
@@ -93,7 +99,10 @@
     // FINT supplies the school for almost every student, fiktiv ones included. The picker is only
     // for the uncommon case where there is no active elevforhold to derive it from.
     $: needsSchoolPicker = !identity?.school?.orgNr && !identity?.schoolInfo?.orgnr
-    $: if (needsSchoolPicker && schoolsPromise === null) {
+    // Choosing a school by hand is administrator-only, and without a school there is no contract to
+    // create - so the rest of the form would only waste a non-admin's time and then refuse.
+    $: blockedForNonAdmin = needsSchoolPicker && !isAdmin
+    $: if (needsSchoolPicker && !blockedForNonAdmin && schoolsPromise === null) {
         schoolsPromise = getSchools()
             .then((list) => { schools = list ?? []; return schools })
             .catch(() => {
@@ -164,6 +173,12 @@
 
         try {
             if (ansvarligInputType === 'orgnr') {
+                // The real gate: ansvarligType only ever becomes 'organisasjon' further down this
+                // branch, so refusing here is what keeps a non-admin off the whole org flow.
+                if (!isAdmin) {
+                    ansvarligLookupError = 'Bare en administrator kan sette en virksomhet som ansvarlig. Ta kontakt med en administrator hvis avtalen skal faktureres til en virksomhet.'
+                    return
+                }
                 if (!isValidOrgnrChecksum(identifier)) {
                     ansvarligLookupError = 'Ugyldig organisasjonsnummer (feil kontrollsiffer)'
                     return
@@ -233,8 +248,14 @@
         if (!resolvedSchool?.orgNr) found.school = 'Skole er obligatorisk'
 
         if (ansvarligType === 'organisasjon') {
-            if (!organisasjon) found.ansvarlig = 'Slå opp organisasjonsnummeret før du oppretter avtalen'
-            if (!ansvarligEpost) found.ansvarligEpost = 'Fakturaepost er obligatorisk for organisasjoner'
+            if (!isAdmin) {
+                // Unreachable while lookupAnsvarlig holds, but this is the check that survives an
+                // edit to that branch. First, so it is not overwritten by the detail checks below.
+                found.ansvarlig = 'Bare en administrator kan sette en virksomhet som ansvarlig'
+            } else {
+                if (!organisasjon) found.ansvarlig = 'Slå opp organisasjonsnummeret før du oppretter avtalen'
+                if (!ansvarligEpost) found.ansvarligEpost = 'Fakturaepost er obligatorisk for organisasjoner'
+            }
         } else if (!selectedForesatt && normalizeIdentifier(ansvarligInput) && !ansvarligResolved) {
             // Typed but never looked up. Accepting it would send an unverified number with a blank
             // name - the old form demanded 11 digits and a resolved name before it let this through.
@@ -307,7 +328,18 @@
                 </DsCard>
             {/if}
 
-            {#if needsSchoolPicker}
+            {#if blockedForNonAdmin}
+                <DsAlert color="warning" heading="Krever administrator">
+                    <p class="ds-paragraph" data-size="sm">
+                        Vi fant ingen aktivt elevforhold for denne eleven i VIS, så skolen må velges
+                        manuelt. Det er det bare en administrator som kan gjøre.
+                    </p>
+                    <p class="ds-paragraph" data-size="sm">
+                        Ta kontakt med en administrator og oppgi elevens nummer, eller vent til eleven
+                        er registrert i VIS og opprett avtalen da.
+                    </p>
+                </DsAlert>
+            {:else if needsSchoolPicker}
                 <!--
                     The contract has a shelf life: updateStudentInfo stamps notFoundInFINT, and five
                     days later moves it out of kontrakter. Nothing warns anyone, so the admin decides
@@ -362,6 +394,9 @@
             {/if}
         </fieldset>
 
+        <!-- Everything below needs a school to hang off, so a blocked non-admin stops here rather
+             than filling in an ansvarlig and a PDF for a contract that cannot be created. -->
+        {#if !blockedForNonAdmin}
         <!-- ---- Ansvarlig ------------------------------------------------ -->
         <fieldset class="ds-fieldset">
             <legend class="ds-fieldset__legend ds-heading" data-size="xs">Ansvarlig (den som faktureres)</legend>
@@ -423,8 +458,8 @@
 
                 <div class="lookup-row">
                     <DsInput
-                        label="Fødselsnummer eller organisasjonsnummer"
-                        description="11 siffer for en person, 9 siffer for en virksomhet."
+                        label={isAdmin ? 'Fødselsnummer eller organisasjonsnummer' : 'Fødselsnummer'}
+                        description={isAdmin ? '11 siffer for en person, 9 siffer for en virksomhet.' : '11 siffer.'}
                         bind:value={ansvarligInput}
                         inputmode="numeric"
                         maxlength={11}
@@ -443,7 +478,13 @@
                     </DsButton>
                 </div>
 
-                {#if ansvarligInputType}
+                {#if ansvarligInputType === 'orgnr' && !isAdmin}
+                    <!-- Said while they type, rather than after a click that was always going to fail. -->
+                    <p class="ds-paragraph hint" data-size="sm">
+                        Dette ser ut som et organisasjonsnummer. Bare en administrator kan sette en
+                        virksomhet som ansvarlig.
+                    </p>
+                {:else if ansvarligInputType}
                     <p class="ds-paragraph hint" data-size="sm">
                         Tolkes som {ansvarligInputType === 'orgnr' ? 'organisasjonsnummer' : 'fødselsnummer'}
                     </p>
@@ -514,6 +555,7 @@
         </fieldset>
 
         <DsButton on:click={submit}>Opprett avtale</DsButton>
+        {/if}
     </div>
 {/if}
 
