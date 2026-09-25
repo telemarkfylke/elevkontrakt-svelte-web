@@ -84,6 +84,12 @@
     $: selfAnsvarlig = knownForesatte.find(a => a?.foedselsEllerDNummer === elevFnr) ?? null
     $: isSelfAnsvarlig = Boolean(selfAnsvarlig) && knownForesatte.length === 1
 
+    // A skoleadministrator may override too, for an under-18 elev with no foresatt who can be
+    // notified digitally - the old form's "Lås opp foresatt felt" rule. That is the paper-contract
+    // case, and the one who signed is not always a registered foreldreansvarlig. lookupAnsvarlig
+    // still keeps a non-admin to a personal fnr.
+    $: canOverrideAnsvarlig = isAdmin || (identity?.isUnder18 === true && (identity?.ansvarlig ?? []).length === 0)
+
     // Preselect the only candidate so the common cases need no input. Keyed on identity so it reruns
     // for a new elev without fighting the admin's own choice.
     let autoSelectedFor = null
@@ -438,7 +444,7 @@
                     {/if}
                 {/if}
 
-                {#if isAdmin}
+                {#if canOverrideAnsvarlig}
                     <div>
                         <DsButton variant="tertiary" on:click={startOverrideAnsvarlig}>
                             Bruk en annen ansvarlig
