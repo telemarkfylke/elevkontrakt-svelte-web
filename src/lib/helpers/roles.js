@@ -15,3 +15,13 @@ export const ELEVKONTRAKT_ADMIN = 'elevkontrakt.administrator-readwrite'
  * @returns {Boolean}
  */
 export const isElevkontraktAdmin = (token) => token?.roles?.includes(ELEVKONTRAKT_ADMIN) === true
+
+/** The roles /contract admits. */
+export const CONTRACT_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write']
+
+/**
+ * @param {Object} token - the decoded elevkontrakt token
+ * @param {String[]} roles
+ * @returns {Boolean}
+ */
+export const hasAnyRole = (token, roles) => token?.roles?.some((r) => roles.includes(r)) === true
