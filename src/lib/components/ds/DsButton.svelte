@@ -1,7 +1,7 @@
 <script>
     /**
      * Designsystemet button. Only beats app.css's bare `button {}` rule because that rule sits in
-     * @layer app.base, ordered before ds.components - see the layer declaration in app.css.
+     * @layer app-base, which the whole ds layer outranks - see the layer declaration in app.css.
      */
     import DsSpinner from './DsSpinner.svelte'
 

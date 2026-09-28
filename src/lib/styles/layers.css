@@ -1,15 +1,11 @@
 /**
- * The cascade layer order, on its own so it can be declared first from more than one entry point.
+ * Cascade layer order. The first @layer statement the browser sees fixes the order, so app.css and the
+ * /contract layout (before it imports @digdir/designsystemet-css) both declare it. Duplicates are harmless.
  *
- * Layer order is fixed by the FIRST @layer statement the browser sees, so whichever stylesheet loads
- * first decides it. app.css (root layout) declares this order, and so does the /contract layout
- * before it imports @digdir/designsystemet-css - otherwise a build that emitted the route's CSS
- * first would leave `app.base` unnamed until the end, and the bare `button {}` rule in app.css would
- * beat `.ds-button` on every Designsystemet button.
+ * Names are flat on purpose: `app.base` would sit wholly before or after `ds`, never between ds.base
+ * and ds.components. An earlier nested version let `* { padding: 0; margin: 0 }` flatten every
+ * Designsystemet component.
  *
- * Duplicate statements are harmless: they agree, and only the first one counts.
- *
- * app.base sits BETWEEN ds.base and ds.components on purpose - our element rules still win over
- * ds.base, so no existing route changes appearance, while the ds components win over them.
+ * app-base < ds < app-overrides: our defaults lose to Designsystemet; app-overrides gets the last word.
  */
-@layer ds.theme, ds.base, app.base, ds.components, app.overrides;
+@layer app-base, ds, app-overrides;
