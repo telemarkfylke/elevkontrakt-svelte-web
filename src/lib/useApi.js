@@ -474,3 +474,87 @@ export const deleteInvoices = async (userToken) => {
     return error
   }
 }
+
+/**
+ * Starts a bulk-invoicing run from an uploaded CSV.
+ *
+ * The caller supplies runId so it can poll from the moment it submits: this request does not return
+ * until the whole run is done, and Azure cuts the response at ~230 s long before that on a real
+ * file. On a live run, do NOT await this - fire it, catch, and follow getBulkRun(runId) instead.
+ *
+ * @param {File} file
+ * @param {Object} options - { runId, mode, collections, fnrColumn, dryRun, userToken }
+ * @returns {Object} - the report, or { ok: false, ... }
+ */
+export const startBulkInvoice = async (file, options = {}) => {
+  const { runId, mode, collections, fnrColumn, dryRun = true, userToken } = options
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/invoice/bulkFromFile`
+
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('mode', mode)
+  formData.append('dryRun', String(dryRun))
+  if (runId) formData.append('runId', runId)
+  if (fnrColumn) formData.append('fnrColumn', fnrColumn)
+  if (collections?.length) formData.append('collections', collections.join(','))
+
+  // Same shape sendInvoice builds, so an invoice records who asked for it either way.
+  if (userToken?.upn) {
+    try {
+      const extended = await getExtendedUserInfo(userToken.upn)
+      if (extended?.status === 200 && extended.data?.userPrincipalName === userToken.upn) {
+        formData.append('userInfo', JSON.stringify(extended.data))
+      }
+    } catch (error) {
+      console.warn('Kunne ikke hente utvidet brukerinfo, fortsetter uten', error)
+    }
+  }
+
+  try {
+    const { data } = await axios.post(url, formData, { headers: { Authorization: `Bearer ${token}` } })
+    return data
+  } catch (error) {
+    const status = error?.response?.status
+    // The 400 path returns the whole report, and fatal.reason is what the caller branches on.
+    if (error?.response?.data) return { ...error.response.data, ok: false, status }
+    return { ok: false, reason: 'request-failed', error: 'Faktureringen kunne ikke startes.', status }
+  }
+}
+
+/**
+ * Progress while a run is live, the full report once it has finished.
+ *
+ * @param {String} runId
+ * @returns {Object} - the record, or { ok: false, ... }
+ */
+export const getBulkRun = async (runId) => {
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/invoice/bulkRuns/${runId}`
+  try {
+    const { data } = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
+    return data
+  } catch (error) {
+    const status = error?.response?.status
+    if (error?.response?.data) return { ...error.response.data, ok: false, status }
+    return { ok: false, reason: 'lookup-failed', error: 'Kunne ikke hente kjøringen.', status }
+  }
+}
+
+/**
+ * The most recent runs, newest first.
+ *
+ * @param {Number} [limit]
+ * @returns {Array}
+ */
+export const listBulkRuns = async (limit = 25) => {
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/invoice/bulkRuns?limit=${limit}`
+  try {
+    const { data } = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
+    return data?.runs ?? []
+  } catch (error) {
+    console.error('Kunne ikke hente tidligere kjøringer', error)
+    return []
+  }
+}
