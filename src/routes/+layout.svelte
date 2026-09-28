@@ -100,6 +100,11 @@
         icon: 'receipt'
       })
       sideMenuItems.splice(5, 0, {
+        title: 'Fakturer fra fil',
+        href: '/fakturer-fra-fil',
+        icon: 'upload_file'
+      })
+      sideMenuItems.splice(6, 0, {
         title: 'Instillinger',
         href: '/config',
         icon: 'settings'

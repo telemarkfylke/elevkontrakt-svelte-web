@@ -3,16 +3,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
 /**
- * Cascade layer order. Unlayered CSS beats layered CSS regardless of specificity, so app.base sits
- * BETWEEN ds.base and ds.components: our element rules still win over ds.base (no route changes
- * appearance), while .ds-button beats the bare `button {}` rule on /contract.
+ * Cascade layer order: app-base < ds < app-overrides, so every Designsystemet rule beats the
+ * element defaults below. Flat names on purpose - see layers.css for why a dotted name cannot sit
+ * between ds.base and ds.components.
  *
  * Only bare element selectors are layered; everything else here stays unlayered.
  *
  * Kept in sync with src/lib/styles/layers.css, which declares the same order from the /contract
  * layout - whichever stylesheet loads first must name the same order. Change both together.
  */
-@layer ds.theme, ds.base, app.base, ds.components, app.overrides;
+@layer app-base, ds, app-overrides;
 
 /* COMMON CSS */
 body {
@@ -38,11 +38,10 @@ body:has(dialog[open]) {
 	-webkit-tap-highlight-color:  rgba(255, 255, 255, 0);
 }
 
-/* Layered, because an unlayered `* { padding: 0; margin: 0 }` flattens every Designsystemet
- * component - .ds-card's padding, .ds-alert's, the .ds-field spacing. `*` is the lowest specificity
- * so it already lost to everything else; layering only changes how it ranks against ds.components.
+/* In app-base so Designsystemet wins: this reset otherwise flattens .ds-card, .ds-alert, .ds-input,
+ * .ds-list and the rest. See layers.css for why the layer name has no dot in it.
  * box-sizing and the rendering hints stay unlayered. */
-@layer app.base {
+@layer app-base {
 	* {
 		padding: 0;
 		margin: 0;
@@ -123,9 +122,9 @@ body:has(dialog[open]) {
 }
 
 
-/* HTML element styling, layered so Designsystemet's .ds-* classes can win over it on /contract.
- * A plain <button> elsewhere is untouched - it never matches .ds-button. */
-@layer app.base {
+/* HTML element defaults, in app-base so every .ds-* class wins over them. A plain <button> outside
+ * Designsystemet is untouched - it never matches .ds-button. */
+@layer app-base {
 	input, select, textarea, button {
 		font-family: inherit;
 		font-size: inherit;

@@ -18,17 +18,58 @@
     export let onSelect = () => {}
 
     let inputEl
+    let rejected = ''
+
+    /**
+     * `accept` only filters the picker dialog - a drag-and-drop, or picking "all files", walks
+     * straight past it. Extension is checked as well as MIME because Windows reports .csv as
+     * application/vnd.ms-excel often enough that type alone would reject valid files.
+     */
+    const matchesAccept = (candidate) => {
+        if (!accept || !candidate) return true
+        const name = candidate.name.toLowerCase()
+        const type = (candidate.type || '').toLowerCase()
+        return accept.split(',').map(a => a.trim().toLowerCase()).filter(Boolean).some(pattern => {
+            if (pattern.startsWith('.')) return name.endsWith(pattern)
+            if (pattern.endsWith('/*')) return type.startsWith(pattern.slice(0, -1))
+            return type === pattern
+        })
+    }
+
+    const rejectionMessage = (candidate) => {
+        const wanted = (accept ?? '').split(',').map(a => a.trim()).filter(a => a.startsWith('.'))
+        const list = wanted.length === 0
+            ? 'en støttet filtype'
+            : wanted.length === 1
+                ? `en ${wanted[0]}-fil`
+                : `en fil av typen ${wanted.join(' eller ')}`
+        return `«${candidate.name}» kan ikke brukes. Velg ${list}.`
+    }
 
     const handleChange = (event) => {
-        file = event?.target?.files?.[0] ?? null
+        const picked = event?.target?.files?.[0] ?? null
+
+        if (picked && !matchesAccept(picked)) {
+            rejected = rejectionMessage(picked)
+            file = null
+            if (inputEl) inputEl.value = ''
+            onSelect(null)
+            return
+        }
+
+        rejected = ''
+        file = picked
         onSelect(file)
     }
 
     const clear = () => {
         file = null
+        rejected = ''
         if (inputEl) inputEl.value = ''
         onSelect(null)
     }
+
+    $: message = error || rejected
 
     const formatSize = (bytes) => {
         if (!bytes && bytes !== 0) return ''
@@ -50,7 +91,7 @@
             type="file"
             {accept}
             {disabled}
-            aria-invalid={error ? 'true' : undefined}
+            aria-invalid={message ? 'true' : undefined}
             on:change={handleChange}
         />
         <p class="ds-paragraph" data-size="sm" data-field="description">{description}</p>
@@ -78,8 +119,8 @@
         </ul>
     {/if}
 
-    {#if error}
-        <p class="ds-validation-message" data-size="sm">{error}</p>
+    {#if message}
+        <p class="ds-validation-message" data-size="sm" role="alert">{message}</p>
     {/if}
 </div>
 
@@ -126,7 +167,7 @@
 
     /**
      * Bare icon, matching .iv-action-btn in /invoices. `all: unset` is load-bearing: app.css still
-     * styles bare <button> in @layer app.base and there is no .ds-button class here to out-rank it.
+     * styles bare <button> in @layer app-base and there is no .ds-button class here to out-rank it.
      */
     .remove {
         all: unset;
