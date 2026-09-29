@@ -267,43 +267,43 @@
     "plomme": {
       "1": {
         "$type": "color",
-        "$value": "#1d151e"
+        "$value": "#1f1421"
       },
       "2": {
         "$type": "color",
-        "$value": "#261c28"
+        "$value": "#291a2c"
       },
       "3": {
         "$type": "color",
-        "$value": "#302333"
+        "$value": "#342137"
       },
       "4": {
         "$type": "color",
-        "$value": "#38293a"
+        "$value": "#3c263f"
       },
       "5": {
         "$type": "color",
-        "$value": "#412f44"
+        "$value": "#452c4a"
       },
       "6": {
         "$type": "color",
-        "$value": "#513b55"
+        "$value": "#56385b"
       },
       "7": {
         "$type": "color",
-        "$value": "#614766"
+        "$value": "#624666"
       },
       "8": {
         "$type": "color",
-        "$value": "#8e7b92"
+        "$value": "#8f7b92"
       },
       "9": {
         "$type": "color",
-        "$value": "#b1a3b4"
+        "$value": "#b1a4b3"
       },
       "10": {
         "$type": "color",
-        "$value": "#b1a3b4"
+        "$value": "#b1a4b3"
       },
       "11": {
         "$type": "color",
@@ -311,19 +311,19 @@
       },
       "12": {
         "$type": "color",
-        "$value": "#ae98b1"
+        "$value": "#b8a5bb"
       },
       "13": {
         "$type": "color",
-        "$value": "#9c82a0"
+        "$value": "#a68eaa"
       },
       "14": {
         "$type": "color",
-        "$value": "#8a6c90"
+        "$value": "#947899"
       },
       "15": {
         "$type": "color",
-        "$value": "#141114"
+        "$value": "#1d1a1e"
       },
       "16": {
         "$type": "color",
