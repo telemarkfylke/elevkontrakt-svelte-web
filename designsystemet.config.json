@@ -1,5 +1,5 @@
 {
-  "$schema": "https://cdn.jsdelivr.net/npm/@digdir/designsystemet@1.21.1/dist/config.schema.json",
+  "$schema": "https://cdn.jsdelivr.net/npm/@digdir/designsystemet@1.23.0/dist/config.schema.json",
   "outDir": "./design-tokens",
   "themes": {
     "telemark": {

@@ -8,10 +8,18 @@
      *
      * layers.css MUST stay first: layer order is decided by the first @layer statement loaded.
      * See layers.css.
+     *
+     * designsystemet-web is the behaviour half: dialog closedby, command/commandfor invokers,
+     * data-tooltip, popover, <ds-field>, <ds-pagination> and friends. Registered globally on first
+     * import; the app is ssr = false so it only ever runs in the browser.
      */
     import '$lib/styles/layers.css'
     import '@digdir/designsystemet-css'
     import '$lib/styles/designsystemet/telemark.css'
+    import '@digdir/designsystemet-web'
+
+    // Its deprecation and missing-attribute warnings are for us, not for users.
+    if (!import.meta.env.DEV) window.dsWarnings = false
 </script>
 
 <!-- Light only: the app has no dark mode. data-typography primary = Nunito Sans for body. -->
@@ -27,21 +35,18 @@
     }
 
     /**
-     * Primary buttons follow the rest of the app: himmel background, black label, black border.
-     * Designsystemet's own primary is the Vann accent with white text, which would make these pages
-     * the odd ones out. Set through its --dsc-button-* properties so sizing, focus and disabled
-     * handling stay.
-     *
-     * The background has to move with the label: #000 on himmel-20 is ~16:1, but on the dark Vann
-     * accent it would be ~1.9:1.
+     * Buttons follow telemarkfylke.no: pill shape and a bold label. Colours stay Designsystemet's,
+     * so primary is white on the Vann accent (#005260, ~9:1) - the same as the website.
+     * 700 rather than a --ds-font-weight-* token: the theme stops at semibold (600), and the site
+     * uses Nunito Sans bold, which app.css loads.
      */
-    .ds-scope :global(.ds-button[data-variant='primary']) {
-        --dsc-button-background: var(--himmel-20);
-        --dsc-button-background--hover: var(--himmel-30);
-        --dsc-button-background--active: var(--himmel-40);
-        --dsc-button-color: #000;
-        --dsc-button-color--hover: #000;
-        --dsc-button-color--active: #000;
-        --dsc-button-border-color: #000;
+    .ds-scope :global(.ds-button) {
+        --dsc-button-border-radius: var(--ds-border-radius-full);
+        font-weight: 700;
+    }
+
+    /* On the website these are links, and links are underlined. Action <button>s are not. */
+    .ds-scope :global(a.ds-button) {
+        text-decoration: underline;
     }
 </style>

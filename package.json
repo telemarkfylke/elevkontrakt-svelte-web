@@ -7,19 +7,26 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
-		"prepare": "svelte-kit sync || echo ''"
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check",
+		"tokens:create": "designsystemet tokens create --config designsystemet.config.json --clean -y",
+		"tokens:build": "designsystemet tokens build -t ./design-tokens -o ./src/lib/styles/designsystemet --clean",
+		"tokens": "npm run tokens:create && npm run tokens:build"
 	},
 	"devDependencies": {
-		"@digdir/designsystemet": "^1.21.1",
+		"@digdir/designsystemet": "^1.23.0",
 		"@sveltejs/adapter-auto": "^4.0.0",
 		"@sveltejs/kit": "^2.16.0",
 		"@sveltejs/vite-plugin-svelte": "^5.0.0",
+		"@types/node": "^26.6.3",
 		"svelte": "^5.0.0",
+		"svelte-check": "^4.7.6",
 		"vite": "^6.0.0"
 	},
 	"dependencies": {
 		"@azure/msal-browser": "^4.8.0",
-		"@digdir/designsystemet-css": "^1.21.1",
+		"@digdir/designsystemet-css": "^1.23.0",
+		"@digdir/designsystemet-web": "^1.23.0",
 		"axios": "^1.9.0",
 		"jsbarcode": "^3.11.6",
 		"jwt-decode": "^4.0.0"
