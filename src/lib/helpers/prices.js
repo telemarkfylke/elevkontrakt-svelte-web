@@ -4,6 +4,7 @@ import { calculateRestValuePC } from './calculateRestValuePC.js'
 export const MAX_PRODUCT_PRICE = 5000
 
 // Products whose price is worked out here, not taken from product.price.
+// A new one: create it under Innstillinger, add its _id here and its rule in productPrice().
 export const PRODUCT = {
   buyOutPC: '69bd4c20e7d203bdae952250',
   egenandel: '69d7d4c3d9ab0462f2ef38fb',

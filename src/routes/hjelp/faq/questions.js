@@ -1,5 +1,5 @@
 // FAQ content. roles: who sees the question (null = everyone). answer is trusted HTML written here.
-import { CONTRACT_ROLES, HISTORY_ROLES, BILLING_ROLES, DELIVERY_ROLES } from '$lib/helpers/roles.js'
+import { CONTRACT_ROLES, HISTORY_ROLES, BILLING_ROLES, DELIVERY_ROLES, ELEVKONTRAKT_ADMIN } from '$lib/helpers/roles.js'
 
 const tag = (text, color) => `<span class="ds-tag" data-color="${color}" data-size="sm">${text}</span>`
 
@@ -152,6 +152,14 @@ export const TOPICS = [
           <ul class="ds-list"><li><strong>Prisen blir kr 0.</strong> Det skjer for eksempel ved utkjøp når elevens trinn er ukjent.</li>
             <li><strong>Prisen er over kr 5 000.</strong> Sjekk beløpet, eller kontakt support hvis det skal være høyere.</li>
             <li><strong>Produktet er inaktivt,</strong> eller bare administratorer kan fakturere det. Det gjelder utkjøp av PC, egenandel og restverdi.</li></ul>`
+      },
+      {
+        q: 'Kan jeg lage et produkt med beregnet pris, for eksempel restverdi etter trinn?',
+        roles: [ELEVKONTRAKT_ADMIN],
+        who: 'Administrator',
+        answer: `
+          <p class="ds-paragraph">Nei, ikke selv. Produkter der prisen regnes ut, som utkjøp av PC, egenandel, restverdi og årlig leie, må settes opp av utviklerne. De er merket ${tag('Beregnet pris', 'brand1')} under Innstillinger.</p>
+          <p class="ds-paragraph">Du kan lage vanlige produkter med fast pris og ekstrafelt under <strong>Innstillinger → Produkter og tjenester</strong>. Trenger du et nytt produkt med beregnet pris, ta kontakt med den som forvalter Elevavtaler.</p>`
       },
       {
         q: 'Hva betyr statusene på ratene og fakturaene?',

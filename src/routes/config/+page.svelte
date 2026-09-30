@@ -1,1370 +1,962 @@
 <script>
-    import { goto } from "$app/navigation";
-    import { page } from "$app/stores";
-    import { onMount } from 'svelte';
-    import IconSpinner from "$lib/components/IconSpinner.svelte";
-    import Input from "$lib/components/Input.svelte"
-    import SearchStudentData from "$lib/components/searchStudentData.svelte";
-    import SelectionList from "$lib/components/selectionList.svelte";
-    import Alert from "$lib/components/alert.svelte";
-    import { formatFnr } from "$lib/helpers/formatFnr.js";
-    import { getElevkontraktToken, getProducts, getSettings, postProduct, searchContracts, updateSettings, deleteProduct, updateProduct } from '../../lib/useApi.js';
-    
-    let editPrices = false
-    let editPriceException = false
-    let editInvoiceFlowBlock = false
-    let editProducts = false
-    let addProducts = false
-    let removeProducts = false
-    let isProcessing = false
+    // Innstillinger (administrators): rate prices, the two exception lists, and products.
+    import DsScope from '$lib/components/ds/DsScope.svelte'
+    import DsAlert from '$lib/components/ds/DsAlert.svelte'
+    import DsButton from '$lib/components/ds/DsButton.svelte'
+    import DsCheckbox from '$lib/components/ds/DsCheckbox.svelte'
+    import DsDialog from '$lib/components/ds/DsDialog.svelte'
+    import DsDropdown from '$lib/components/ds/DsDropdown.svelte'
+    import DsInput from '$lib/components/ds/DsInput.svelte'
+    import DsPagination from '$lib/components/ds/DsPagination.svelte'
+    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
+    import DsTabs from '$lib/components/ds/DsTabs.svelte'
+    import DsTag from '$lib/components/ds/DsTag.svelte'
+    import DsTextarea from '$lib/components/ds/DsTextarea.svelte'
+    import { formatFnr } from '$lib/helpers/formatFnr.js'
+    import { formatShortDate } from '$lib/helpers/formatDate.js'
+    import { isCalculatedProduct, PRODUCT } from '$lib/helpers/prices.js'
+    import { isElevkontraktAdmin } from '$lib/helpers/roles.js'
+    import { getElevkontraktToken, getProducts, getSettings, updateSettings, postProduct, updateProduct, deleteProduct, searchContracts } from '$lib/useApi.js'
 
-    let errorMessage = ''
-    let errorArray = []
+    const STANDARD_FIELDS = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
+    // How each calculated product gets its price, shown instead of a price.
+    const CALCULATED = {
+        [PRODUCT.buyOutPC]: 'Restverdi etter trinn',
+        [PRODUCT.egenandel]: 'Beløpet fylles inn',
+        [PRODUCT.restverdi]: 'Beløpet fylles inn',
+        [PRODUCT.yearlyRent]: 'Pris fra Priser'
+    }
+    const LISTS = {
+        price: { key: 'exceptionsFromRegularPrices', title: 'Redusert pris', icon: 'sell' },
+        flow: { key: 'exceptionsFromInvoiceFlow', title: 'Unntatt fra fakturaflyten', icon: 'block' }
+    }
+    const validPrice = (value) => /^\d{1,4}$/.test(String(value).trim())
 
-    let responseMessage = ''
-    
-    // Success alert states
-    let showSuccessAlert = false
-    let successMessage = ''
-    let successTitle = ''
+    let token = null
+    let settings = null
+    let products = []
+    let loadState = 'loading' // loading | ready | error
+    let tab = 'prices'
+    let flash = { text: '', color: 'success' }
+    let saving = false
 
-    // Exceptions array
-    let priceExceptionsDataFromSettings = []
-    let invoiceExceptionsDataFromSettings = []
-
-    // Price exceptions to add/remove
-    let priceExceptionsToAdd = []
-    let priceExceptionsToRemove = []
-
-    // Invoice exceptions to add/remove
-    let invoiceExceptionsToAdd = []
-    let invoiceExceptionsToRemove = []
-    
     // Prices
-    let regularPrice = null
-    let reducedPrice = null
+    let editingPrices = false
+    let regular = ''
+    let reduced = ''
+    let priceError = ''
 
-    // Student data
-    let userData = null
+    // Exceptions: pending changes per list, and the search in each list
+    let pending = { price: { add: [], remove: [] }, flow: { add: [], remove: [] } }
+    let search = { price: { query: '', results: null, busy: false }, flow: { query: '', results: null, busy: false } }
 
-    // Add new product/edit existing product states
-    let originalProductData = null // This will hold the original data of the product being edited, used for comparison when saving edits
-    let newProductName = ''
-    let newProductPrice = null
-    let newProductDescription = ''
-    let newProductActive = ''
-    let newProductExtraInfo = {}
+    // The lists and the search results are paged, 10 at a time, since they sit in narrow columns.
+    const PER_PAGE = 10
+    let pages = { price: { people: 1, hits: 1 }, flow: { people: 1, hits: 1 } }
+    const pageCount = (items) => Math.max(1, Math.ceil(items.length / PER_PAGE))
+    const pageOf = (items, page) => items.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+    const range = (items, page) => `Viser ${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, items.length)} av ${items.length}`
 
-    // Dynamic extra fields state
-    let extraFields = []
-    let newFieldKey = ''
-    let newFieldValue = ''
+    // Everyone on a list, including the ones marked to be added.
+    const withPending = (students, changes) => [
+        ...students.map(student => ({ ...student, state: changes.remove.includes(student.fnr) ? 'removing' : '' })),
+        ...changes.add.map(student => ({ ...student, state: 'adding' }))
+    ]
 
-    let productId = null
+    // Products
+    let form = null // the product being added or edited
+    let formError = ''
+    let toDelete = null
+    let deleteError = ''
 
-    const addExtraField = () => {
-        if (newFieldKey.trim()) {
-            const trimmedKey = newFieldKey.trim()
-            const trimmedValue = newFieldValue.trim()
-            
-            const standardFields = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
-            if (standardFields.includes(trimmedKey)) {
-                errorMessage = 'Feltnavnet kan ikke være et av de reserverte navnene: ' + standardFields.join(', ')
-                return
-            }
-            
-            if (extraFields.some(field => field.key === trimmedKey)) {
-                errorMessage = 'Et felt med dette navnet eksisterer allerede.'
-                return
-            }
-            
-            extraFields = [...extraFields, { key: trimmedKey, value: trimmedValue }]
-            newProductExtraInfo = { ...newProductExtraInfo, [trimmedKey]: trimmedValue }
-            newFieldKey = ''
-            newFieldValue = ''
-            errorMessage = ''
+    const ready = getElevkontraktToken(true).then(async t => {
+        token = t
+        if (isElevkontraktAdmin(t)) await load()
+        return t
+    })
+
+    async function load () {
+        const [settingsResponse, productsResponse] = await Promise.all([getSettings(), getProducts()])
+        settings = settingsResponse?.data?.result?.[0] ?? null
+        products = productsResponse?.data?.result ?? []
+        loadState = settings ? 'ready' : 'error'
+    }
+
+    const say = (text, color = 'success') => { flash = { text, color } }
+    // The template reads these reactive values, so a reload after saving shows the new lists.
+    const studentsIn = (settings, list) => settings?.[LISTS[list].key]?.students ?? []
+    $: lists = { price: studentsIn(settings, 'price'), flow: studentsIn(settings, 'flow') }
+    $: everyoneIn = { price: withPending(lists.price, pending.price), flow: withPending(lists.flow, pending.flow) }
+    $: changes = pending.price.add.length + pending.price.remove.length + pending.flow.add.length + pending.flow.remove.length
+    $: tabs = [
+        { value: 'prices', label: 'Priser', icon: 'payments' },
+        { value: 'exceptions', label: 'Unntak', icon: 'person_alert', dot: changes ? 'Ulagrede endringer' : '' },
+        { value: 'products', label: 'Produkter og tjenester', icon: 'storefront', count: products.length }
+    ]
+
+    // ---------- Prices ----------
+    function startPrices () {
+        regular = String(settings.prices?.regularPrice ?? '')
+        reduced = String(settings.prices?.reducedPrice ?? '')
+        priceError = ''
+        editingPrices = true
+    }
+
+    async function savePrices () {
+        if (!validPrice(regular) || !validPrice(reduced)) {
+            priceError = 'Prisen må være hele kroner mellom 0 og 9 999, uten mellomrom eller komma.'
+            return
         }
-    }
-
-    const removeExtraField = (index, key) => {
-        extraFields = extraFields.filter((_, i) => i !== index)
-        const { [key]: removed, ...rest } = newProductExtraInfo
-        newProductExtraInfo = rest
-    }
-
-    const clearExtraFields = () => {
-        extraFields = []
-        newProductExtraInfo = {}
-        newFieldKey = ''
-        newFieldValue = ''
-    }
-
-    const populateExtraFieldsFromProduct = (product) => {
-        extraFields = []
-        newProductExtraInfo = {}
-        
-        const standardFields = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
-        
-        Object.keys(product).forEach(key => {
-            if (!standardFields.includes(key)) {
-                extraFields = [...extraFields, { key, value: product[key] }]
-                newProductExtraInfo = { ...newProductExtraInfo, [key]: product[key] }
-            }
+        saving = true
+        const now = new Date().toISOString()
+        const data = {
+            'prices.regularPrice': String(parseInt(regular, 10)),
+            'prices.reducedPrice': String(parseInt(reduced, 10)),
+            'prices.lastEditedBy': token.upn,
+            'prices.lastEditedAt': now
+        }
+        const response = await updateSettings({
+            data,
+            changeLog: { changedBy: token.upn, changedAt: now, changes: { regularPrice: data['prices.regularPrice'], reducedPrice: data['prices.reducedPrice'] } }
         })
+        saving = false
+        if (response?.status !== 200) {
+            priceError = 'Prisene ble ikke lagret. Prøv igjen om litt.'
+            return
+        }
+        editingPrices = false
+        await load()
+        say(`Prisene er lagret: ordinær kr ${data['prices.regularPrice']}, redusert kr ${data['prices.reducedPrice']}.`)
     }
 
-    // This functions will handle all the button clicks, 'Lagre' and 'Avbryt'
-    const handleButtonClicks = async (clickedButton, action, token) => {
-        errorMessage = '' // Reset error message
+    // ---------- Exceptions ----------
+    async function findStudents (list) {
+        const query = search[list].query.trim()
+        if (!query) return
+        search[list].busy = true
+        const response = await searchContracts(query, 'regular', token)
+        search[list] = { query, busy: false, results: Array.isArray(response) ? response : [] }
+        pages[list].hits = 1
+    }
+
+    const onList = (everyone, fnr) => everyone.some(s => s.fnr === fnr)
+
+    // Stored with the same fields as before; the per-contract list from the search is left out.
+    function addStudent (list, student) {
+        const { contracts, ...entry } = student
+        pending[list].add = [...pending[list].add, entry]
+        pages[list].people = pageCount(withPending(lists[list], pending[list])) // show the new one, at the end of the list
+    }
+
+    const removeStudent = (list, fnr) => { pending[list].remove = [...pending[list].remove, fnr] }
+    function undo (list, fnr) {
+        pending[list].add = pending[list].add.filter(s => s.fnr !== fnr)
+        pending[list].remove = pending[list].remove.filter(f => f !== fnr)
+        pages[list].people = Math.min(pages[list].people, pageCount(withPending(lists[list], pending[list])))
+    }
+
+    const discard = () => { pending = { price: { add: [], remove: [] }, flow: { add: [], remove: [] } } }
+
+    async function saveExceptions () {
+        saving = true
+        const data = {}
+        for (const list of Object.keys(LISTS)) {
+            if (!pending[list].add.length && !pending[list].remove.length) continue
+            data[`${LISTS[list].key}.students`] = [
+                ...lists[list].filter(s => !pending[list].remove.includes(s.fnr)),
+                ...pending[list].add
+            ]
+        }
+        const response = await updateSettings({ data })
+        saving = false
+        if (response?.status !== 200) {
+            say('Unntakene ble ikke lagret. Endringene står fortsatt markert, så du kan prøve igjen.', 'danger')
+            return
+        }
+        discard()
+        search = { price: { query: '', results: null, busy: false }, flow: { query: '', results: null, busy: false } }
+        pages = { price: { people: 1, hits: 1 }, flow: { people: 1, hits: 1 } }
+        await load()
+        say('Unntakene er lagret.')
+    }
+
+    // ---------- Products ----------
+    const extraFields = (product) => Object.keys(product).filter(key => !STANDARD_FIELDS.includes(key))
+    const lastChange = (product) => product.auditLog?.[product.auditLog.length - 1]
+
+    function openProduct (product = null) {
+        formError = ''
+        form = {
+            product,
+            name: product?.name ?? '',
+            price: product && !isCalculatedProduct(product._id) ? String(product.price ?? '') : '',
+            description: product?.description ?? '',
+            active: product ? Boolean(product.active) : true,
+            fields: product ? extraFields(product).map(key => ({ key, value: product[key] ?? '' })) : [],
+            newKey: '',
+            newValue: '',
+            keyError: ''
+        }
+    }
+
+    function addField () {
+        const key = form.newKey.trim()
+        if (STANDARD_FIELDS.includes(key)) {
+            form.keyError = `«${key}» er et reservert navn. Bruk et annet feltnavn.`
+        } else if (form.fields.some(f => f.key === key)) {
+            form.keyError = 'Et felt med dette navnet finnes allerede.'
+        } else {
+            form.fields = [...form.fields, { key, value: form.newValue.trim() }]
+            form.newKey = ''
+            form.newValue = ''
+            form.keyError = ''
+        }
+    }
+
+    async function saveProduct () {
+        const calculated = form.product && isCalculatedProduct(form.product._id)
+        if (!form.name.trim()) { formError = 'Produktet må ha et navn.'; return }
+        if (!calculated && !validPrice(form.price)) { formError = 'Prisen må være hele kroner mellom 0 og 9 999.'; return }
+        saving = true
+        formError = ''
+        const now = new Date().toISOString()
+        const fields = Object.fromEntries(form.fields.map(f => [f.key, f.value]))
         let response
-        isProcessing = true
 
-        if(clickedButton === 'Lagre priser') {
-            // Save prices
-            if (regularPrice !== null && !validatePrice(regularPrice)) {
-                errorArray.push('Ugyldig normal pris')
-                isProcessing = false
+        if (!form.product) {
+            const product = {
+                name: form.name.trim(),
+                price: parseInt(form.price, 10),
+                description: form.description,
+                ...fields,
+                active: form.active,
+                metadata: { createdBy: token.upn, createdAt: now, updatedAt: now, version: 1 },
+                auditLog: [{ upn: token.upn, action: 'created', timestamp: now, changes: { name: form.name.trim(), price: parseInt(form.price, 10), description: form.description, active: form.active } }]
             }
-            if (reducedPrice !== null && !validatePrice(reducedPrice)) {
-                errorArray.push('Ugyldig redusert pris')
-                isProcessing = false
-            }
-            if (errorArray.length > 0) {
-                errorMessage = errorArray.join('. ') + '.'
-                errorArray = [] // Reset error array after displaying errors
-                return
-            }
-            // Call API to save prices here
-            const updateObject = { data: {} }
-            if (regularPrice !== null) updateObject.data["prices.regularPrice"] = parseInt(regularPrice).toString()
-            if (reducedPrice !== null) updateObject.data["prices.reducedPrice"] = parseInt(reducedPrice).toString()
-            updateObject.data["prices.lastEditedBy"] = token.upn
-            updateObject.data["prices.lastEditedAt"] = new Date().toISOString()
-            updateObject.changeLog = { changedBy: token.upn, changedAt: new Date().toISOString(), changes: { regularPrice: updateObject.data["prices.regularPrice"], reducedPrice: updateObject.data["prices.reducedPrice"] } }
-
-            response = await updateSettings(updateObject)
-            if (response && response.status === 200) {
-                // Successfully updated settings
-                regularPrice = ''
-                reducedPrice = ''
-                errorMessage = ''
-                reloadPageWithSuccess('prices-updated') // Reload with success parameter
-            } else {
-                errorMessage = 'Noe gikk galt ved lagring av priser. Vennligst prøv igjen.'
-            }   
-            isProcessing = false
-            editPrices = false
-        } else if (clickedButton === 'Lagre unntak' && action === 'editPriceException') {
-            const updateObject = { data: { } }
-
-            if(priceExceptionsToAdd.length > 0) {
-                updateObject.data['exceptionsFromRegularPrices.students'] = [...priceExceptionsToAdd, ...priceExceptionsDataFromSettings]
-            }
-            if(priceExceptionsToRemove.length > 0) {
-                updateObject.data['exceptionsFromRegularPrices.students'] = [...priceExceptionsDataFromSettings.filter(s => !priceExceptionsToRemove.includes(s)), ...priceExceptionsToAdd]
-            }
-            response = await updateSettings(updateObject)
-
-            if (response && response.status === 200) {
-                // Successfully updated settings
-                reloadPageWithSuccess('exceptions-updated') // Reload with success parameter
-            } else {
-                errorMessage = 'Noe gikk galt ved lagring av nye unntak. Vennligst prøv igjen.'
-            }
-            isProcessing = false   
-            editPriceException = false
-        } else if (clickedButton === 'Lagre unntak' && action === 'editInvoiceFlowBlock') {
-            const updateObject = { data: { } }
-
-            if(invoiceExceptionsToAdd.length > 0) {
-                updateObject.data['exceptionsFromInvoiceFlow.students'] = [...invoiceExceptionsToAdd, ...invoiceExceptionsDataFromSettings]
-            }
-            if(invoiceExceptionsToRemove.length > 0) {
-                updateObject.data['exceptionsFromInvoiceFlow.students'] = [...invoiceExceptionsDataFromSettings.filter(s => !invoiceExceptionsToRemove.includes(s)), ...invoiceExceptionsToAdd]
-            }
-            response = await updateSettings(updateObject)
-
-            if (response && response.status === 200) {
-                // Successfully updated settings
-                reloadPageWithSuccess('exceptions-updated') // Reload with success parameter
-            } else {
-                errorMessage = 'Noe gikk galt ved lagring av nye unntak. Vennligst prøv igjen.'
-            }
-            isProcessing = false   
-            editPriceException = false
-        } else if (clickedButton === 'Lagre produkt' && action === 'addProduct') {
-            if (newProductName.trim() === '') {
-                errorMessage = 'Produktet må ha et navn.'
-                isProcessing = false
-                return
-            }
-            if (newProductPrice === null || !validatePrice(newProductPrice)) {
-                errorMessage = 'Produktet må ha en gyldig pris.'
-                isProcessing = false
-                return
-            }
-            const newProduct = {
-                name: newProductName,
-                price: parseInt(newProductPrice),
-                description: newProductDescription,
-                ...newProductExtraInfo,
-                active: newProductActive === 'ja' ? true : false,
-                metadata: {
-                    createdBy: token.upn,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    version: 1
-                },
-                auditLog: [
-                    {
-                        upn: token.upn,
-                        action: 'created',
-                        timestamp: new Date().toISOString(),
-                        changes: {
-                            name: newProductName,
-                            price: parseInt(newProductPrice),
-                            description: newProductDescription,
-                            active: newProductActive === 'ja' ? true : false
-                        }
-                    }
-                ]
-            }
-            response = await postProduct(newProduct)
-
-            if (response && response.status === 201) {
-                // Successfully added new product
-                responseMessage = 'Produktet/tjenesten har blitt lagt til.'
-                reloadPageWithSuccess('product-created') // Reload with success parameter
-            } else {
-                errorMessage = 'Noe gikk galt ved lagring av nytt produkt. Vennligst prøv igjen.'
-            }
-            isProcessing = false
-  
-
-        } else if (clickedButton === 'Fjern produkt' && action === 'removeProduct') {
-            response = await handleDeleteProduct(productId)
-
-            if (response && response.status === 200) {
-                // Successfully deleted product
-                responseMessage = 'Produktet/tjenesten har blitt fjernet.'
-                productId = null
-                reloadPageWithSuccess('product-deleted') // Reload with success parameter
-            } else {
-                errorMessage = 'Noe gikk galt ved fjerning av produkt. Vennligst prøv igjen.'
-                productId = null
-            }
-            isProcessing = false
-
-        } else if (clickedButton === 'Lagre endringer' && action === 'editProduct') {
-
-            if (newProductPrice !== null && !validatePrice(newProductPrice)) {
-                errorMessage = 'Ugyldig pris'
-                isProcessing = false
-                return
-            }
-
-            const updateObject = { data: {}, auditLog: originalProductData.auditLog ? [...originalProductData.auditLog] : [] }
+            response = await postProduct(product)
+            if (response?.status !== 201) response = null
+        } else {
+            const original = form.product
             const changes = {}
-
-            // Product name
-            if (newProductName.trim() !== '' && newProductName !== originalProductData.name) {
-                updateObject.data['name'] = newProductName
-                changes.name = newProductName
+            if (form.name.trim() !== original.name) changes.name = form.name.trim()
+            if (!calculated && parseInt(form.price, 10) !== original.price) changes.price = parseInt(form.price, 10)
+            if (form.description !== (original.description ?? '')) changes.description = form.description
+            if (form.active !== Boolean(original.active)) changes.active = form.active
+            for (const key of new Set([...extraFields(original), ...Object.keys(fields)])) {
+                if ((fields[key] ?? null) !== (original[key] ?? null)) changes[key] = key in fields ? fields[key] : null
             }
-
-            // Product price
-            if (newProductPrice !== null && parseInt(newProductPrice) !== originalProductData.price) {
-                updateObject.data['price'] = parseInt(newProductPrice)
-                changes.price = parseInt(newProductPrice)
-            }
-
-            // Product description
-            if (newProductDescription.trim() !== '' && newProductDescription !== originalProductData.description) {
-                updateObject.data['description'] = newProductDescription
-                changes.description = newProductDescription
-            }
-
-            // Product active status
-            if (newProductActive !== '' && ((newProductActive === 'ja' && !originalProductData.active) || (newProductActive === 'nei' && originalProductData.active))) {
-                updateObject.data['active'] = newProductActive === 'ja' ? true : false
-                changes.active = newProductActive === 'ja' ? true : false
-            }
-
-            const standardFields = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
-            const currentExtraFields = {}
-            const originalExtraFields = {}
-            
-            extraFields.forEach(field => {
-                currentExtraFields[field.key] = field.value
-            })
-            
-            Object.keys(originalProductData).forEach(key => {
-                if (!standardFields.includes(key)) {
-                    originalExtraFields[key] = originalProductData[key]
-                }
-            })
-            
-            const allExtraFieldKeys = new Set([...Object.keys(currentExtraFields), ...Object.keys(originalExtraFields)])
-            allExtraFieldKeys.forEach(key => {
-                if (currentExtraFields[key] !== originalExtraFields[key]) {
-                    if (currentExtraFields[key]) {
-                        updateObject.data[key] = currentExtraFields[key]
-                        changes[key] = currentExtraFields[key]
-                    } else {
-                        updateObject.data[key] = null
-                        changes[key] = null
-                    }
-                }
-            })
-
-            if (Object.keys(changes).length === 0) {
-                errorMessage = 'Ingen endringer å lagre.'
-                isProcessing = false
+            if (!Object.keys(changes).length) {
+                saving = false
+                formError = 'Ingen endringer å lagre.'
                 return
             }
-            updateObject.data['metadata.updatedAt'] = new Date().toISOString()
-            updateObject.data['metadata.version'] = originalProductData.metadata.version + 1
-            updateObject.auditLog.push({
-                upn: token.upn,
-                action: 'updated',
-                timestamp: new Date().toISOString(),
-                changes: changes
+            response = await updateProduct(original._id, {
+                data: { ...changes, 'metadata.updatedAt': now, 'metadata.version': (original.metadata?.version ?? 1) + 1 },
+                auditLog: [...(original.auditLog ?? []), { upn: token.upn, action: 'updated', timestamp: now, changes }]
             })
-
-            response = await updateProduct(productId, updateObject)
-
-            if (response && response.status === 200) {
-                // Successfully updated product
-                responseMessage = 'Produktet/tjenesten har blitt redigert.'
-                originalProductData = null
-                reloadPageWithSuccess('product-edited') // Reload with success parameter
-            } else {
-                errorMessage = 'Noe gikk galt ved redigering av produkt. Vennligst prøv igjen.'
-                originalProductData = null
-            }
-            isProcessing = false
-
-        } else if (clickedButton === 'Avbryt') {
-            if(action === 'editPrices') {
-                editPrices = false
-            } else if (action === 'editPriceException') {
-                editPriceException = false
-            } else if (action === 'editInvoiceException') {
-                editInvoiceFlowBlock = false
-            } else if (action === 'addProduct') {
-                newProductName = ''
-                newProductPrice = null
-                newProductDescription = ''
-                newProductActive = ''
-                clearExtraFields()
-                addProducts = false
-            } else if (action === 'editProduct') {
-                newProductName = ''
-                newProductPrice = null
-                newProductDescription = ''
-                newProductActive = ''
-                clearExtraFields()
-                originalProductData = null
-                productId = null
-            } else if (action === 'removeProduct') {
-                removeProducts = false
-            }
-            isProcessing = false
+            if (response?.status !== 200) response = null
         }
-    }
 
-    const validatePrice = (price) => {
-        /**
-         * Validate that the price is a number with minumum length of 1 and maximum length of 4.
-         * No letters or special characters allowed.
-         * Examples of valid prices: 0, 50, 100, 999, 1000
-         * Examples of invalid prices: -50, 10000, 50.5, 50,00, abc, 50abc, $50
-         */
-        const regex = /^\d{1,4}$/
-        return regex.test(price)
-    }
-    // Check for success parameters on page load
-    onMount(() => {
-        const urlParams = new URLSearchParams($page.url.search);
-        if (urlParams.get('success') === 'product-created') {
-            showSuccessAlert = true
-            successTitle = 'Produkt opprettet!'
-            successMessage = 'Produktet/tjenesten har blitt lagt til.'
-            
-            // Clean up URL by removing the success parameter
-            const newUrl = new URL($page.url)
-            newUrl.searchParams.delete('success')
-            window.history.replaceState(null, '', newUrl)
-        } else if (urlParams.get('success') === 'prices-updated') {
-            showSuccessAlert = true
-            successTitle = 'Priser oppdatert!'
-            successMessage = 'Prisene har blitt oppdatert.'
-            
-            // Clean up URL
-            const newUrl = new URL($page.url)
-            newUrl.searchParams.delete('success')
-            window.history.replaceState(null, '', newUrl)
-        } else if (urlParams.get('success') === 'exceptions-updated') {
-            showSuccessAlert = true
-            successTitle = 'Unntak oppdatert!'
-            successMessage = 'Unntakene har blitt oppdatert.'
-            
-            // Clean up URL
-            const newUrl = new URL($page.url)
-            newUrl.searchParams.delete('success')
-            window.history.replaceState(null, '', newUrl)
-        } else if (urlParams.get('success') === 'product-deleted') {
-            showSuccessAlert = true
-            successTitle = 'Produkt fjernet!'
-            successMessage = 'Produktet/tjenesten har blitt fjernet.'
-            
-            // Clean up URL
-            const newUrl = new URL($page.url)
-            newUrl.searchParams.delete('success')
-            window.history.replaceState(null, '', newUrl)
-        } else if (urlParams.get('success') === 'product-edited') {
-            showSuccessAlert = true
-            successTitle = 'Produkt redigert!'
-            successMessage = 'Produktet/tjenesten har blitt redigert.'
-            
-            // Clean up URL
-            const newUrl = new URL($page.url)
-            newUrl.searchParams.delete('success')
-            window.history.replaceState(null, '', newUrl)
+        saving = false
+        if (!response) {
+            formError = 'Produktet ble ikke lagret. Prøv igjen om litt.'
+            return
         }
-    });
-
-    const reloadPageWithSuccess = (successType) => {
-        const currentUrl = new URL(window.location);
-        currentUrl.searchParams.set('success', successType);
-        window.location.href = currentUrl.toString();
+        const name = form.name.trim()
+        const added = !form.product
+        form = null
+        await load()
+        say(added ? `«${name}» er lagt til.` : `Endringene på «${name}» er lagret.`)
     }
 
-    const handleSuccessAlertClose = () => {
-        showSuccessAlert = false;
-        successMessage = '';
-        successTitle = '';
-    }
-
-    const reloadPage = () => {
-        const thisPage = window.location.pathname;
-        // Check if the current page is the same as the one we want to go to
-        if (thisPage === '/') {
-            // If the current page is the same, reload the page
-            window.location.reload();
-            return;
+    async function toggleActive (product) {
+        const now = new Date().toISOString()
+        const active = !product.active
+        const response = await updateProduct(product._id, {
+            data: { active, 'metadata.updatedAt': now, 'metadata.version': (product.metadata?.version ?? 1) + 1 },
+            auditLog: [...(product.auditLog ?? []), { upn: token.upn, action: 'updated', timestamp: now, changes: { active } }]
+        })
+        if (response?.status !== 200) {
+            say(`«${product.name}» ble ikke endret. Prøv igjen om litt.`, 'danger')
+            return
         }
-        // If the current page is different, use goto to navigate to the new page
-        // This will also reload the page
-        goto('/').then(
-            () => goto(thisPage)
-        )
+        toDelete = null
+        await load()
+        say(`«${product.name}» er ${active ? 'aktiv igjen' : 'gjort inaktiv'}.`)
     }
 
-    const getSettingsData = async () => {
-        const settings = await getSettings()
-        priceExceptionsDataFromSettings.push(...settings.data.result[0].exceptionsFromRegularPrices.students)
-        invoiceExceptionsDataFromSettings.push(...settings.data.result[0].exceptionsFromInvoiceFlow.students)
-        return settings
-    }
-
-    const getProductsData = async () => {
-        const products = await getProducts()
-        if(products && products.data && products.data.result) {
-            return products
-        } else {
-            errorMessage = 'Noe gikk galt ved innhenting av produkter. Vennligst prøv igjen.'
+    async function confirmDelete () {
+        saving = true
+        deleteError = ''
+        const response = await deleteProduct(toDelete._id)
+        saving = false
+        if (response?.status !== 200) {
+            deleteError = 'Produktet ble ikke slettet. Prøv igjen om litt.'
+            return
         }
-    }
-
-    const handleDeleteProduct = async (productId) => {
-        const response = await deleteProduct(productId)
-        if (response && response.status === 200) {
-            // Successfully deleted product
-            responseMessage = 'Produktet/tjenesten har blitt fjernet.'
-            reloadPageWithSuccess('product-deleted') // Reload with success parameter
-        } else {
-            errorMessage = 'Noe gikk galt ved fjerning av produkt. Vennligst prøv igjen.'
-        }
-    }
-
-    const handleEditProductVisibility = (product) => {
-        if (originalProductData && originalProductData._id === product._id) {
-            // If the same product is clicked again, toggle visibility
-            originalProductData = null
-            productId = null
-        } else {
-            // If a different product is clicked, show that product's data
-            productId = product._id
-            originalProductData = product
-            populateExtraFieldsFromProduct(product)
-        }
+        const name = toDelete.name
+        toDelete = null
+        await load()
+        say(`«${name}» er slettet.`)
     }
 </script>
 
-<main>
-    {#await getElevkontraktToken(true)}
-        <div class="loading">
-            <IconSpinner width={"32px"} />
-        </div>
-    {:then token}
-        <!-- Page header -->
-        <h1>Instillinger</h1>
-        <!-- Add 2nd role for invoicing -->
-        {#if !token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-            <div class="error">
-                <h2>Du har ikke tilgang til å endre innstillinger</h2>
-                <p>Vennligst ta kontakt med din administrator for å få tilgang.</p>
-            </div>
-        {:else}
-            {#if errorMessage}
-                <Alert type="error" title="Feil" message={errorMessage} dismissible={true} on:close={() => errorMessage = ''} autoClose={true} autoCloseDelay={10000} position="fixed-top"/>
-            {/if}
-            {#if responseMessage}
-                <Alert type="success" title="Suksess" message={responseMessage} dismissible={true} on:close={() => responseMessage = ''} autoClose={true} autoCloseDelay={10000} position="fixed-top"/>
-            {/if}
-            {#if showSuccessAlert}
-                <Alert type="success" title={successTitle} message={successMessage} dismissible={true} on:close={handleSuccessAlertClose} autoClose={true} autoCloseDelay={8000} position="fixed-top"/>
-            {/if}
-            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                {#await getSettingsData()}
-                    <div class="loading">
-                        <IconSpinner width={"32px"} />
-                    </div>
-                {:then settings}
-                    {#if isProcessing}
-                        <div class="loading">
-                            <IconSpinner width={"32px"} />
-                        </div>
-                    {:else}
-                        <!-- Prices Overview -->
-                        <div class="overview">
-                            <h2>
-                                <div class="header-with-buttons">
-                                    <div class="header-title">
-                                        <span class="material-symbols-outlined">payments</span>
-                                        Priser {#if editPrices} (redigeringsmodus){/if}
-                                    </div>
-                                    <div class="button-group">
-                                        <button class="toggle-button" on:click={() => editPrices = !editPrices}>
-                                            <span class="material-symbols-outlined">
-                                                {editPrices ? 'edit_off' : 'edit'}
-                                            </span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </h2>
-                            <div class="info-section">
-                                <div class="textBox">
-                                    <p>Her kan du endre priser for leieavtaler.</p>
-                                    <p>Prisen som settes her vil gjelde for alle leieavtaler på det tidspunktet de blir fakturert.</p>
-                                    <p>Husk at endringer i prisene må lagres for å tre i kraft.</p>
-                                </div>
-                            </div>
-                            <h3>
-                                <div class="header-title">
-                                    <span class="material-symbols-outlined">payments</span>
-                                    Gjeldende priser
-                                </div>
-                            </h3>
-                            <div class="info-section">
-                                <div class="info-grid">
-                                    <div class="info-item">
-                                        <label>Ordinær pris:</label>
-                                        <span class="value">{settings ? settings.data.result[0].prices.regularPrice : 'Henter...'} Kr</span>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Redusert pris:</label>
-                                        <span class="value">{settings ? settings.data.result[0].prices.reducedPrice : 'Henter...'} Kr</span>
-                                    </div>
-                                </div>
-                            </div>
+<DsScope>
+    <main>
+        <header>
+            <h1 class="ds-heading" data-size="lg">Innstillinger</h1>
+            <p class="ds-paragraph lead" data-size="sm">Priser, unntak og produkter som brukes når elevavtaler faktureres.</p>
+        </header>
 
-                            <!-- Edit Prices Section -->
-                            {#if editPrices}
-                                <div class="info-section">
-                                    <div class="input-group">
-                                        <div class="input">
-                                            <label>Normal pris: </label>
-                                            <Input
-                                                type="number"
-                                                placeholder="Normal pris"
-                                                bind:value={regularPrice}
-                                            />
-                                        </div>
-                                        <div class="input">
-                                            <label>Redusert pris: </label>
-                                            <Input
-                                                type="number"
-                                                placeholder="Redusert pris"
-                                                bind:value={reducedPrice}
-                                            /> 
-                                        </div>
-                                    </div>
-                                    <div class="button-group">
-                                        {#if reducedPrice === null && regularPrice === null}
-                                            <button disabled on:click={() => handleButtonClicks('Lagre priser', 'editPrices', token)}>Lagre priser</button>
-                                            <button class="button-remove" on:click={() => handleButtonClicks('Avbryt', 'editPrices', token)}>Avbryt</button>
+        {#await ready}
+            <div class="center"><DsSpinner size="sm" title="Laster" /></div>
+        {:then}
+            {#if !isElevkontraktAdmin(token)}
+                <DsAlert color="warning" heading="Du har ikke tilgang til innstillingene">
+                    <p class="ds-paragraph" data-size="sm">Innstillingene er bare for administratorer. Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang.</p>
+                </DsAlert>
+            {:else if loadState === 'error'}
+                <DsAlert color="danger" heading="Innstillingene kunne ikke hentes">
+                    <p class="ds-paragraph" data-size="sm">Last inn siden på nytt. Kontakt servicedesk hvis feilen fortsetter.</p>
+                </DsAlert>
+            {:else}
+                {#if flash.text}
+                    <DsAlert color={flash.color} dismissible on:dismiss={() => (flash = { text: '', color: 'success' })}>
+                        <p class="ds-paragraph" data-size="sm">{flash.text}</p>
+                    </DsAlert>
+                {/if}
+
+                <DsTabs {tabs} bind:value={tab} label="Innstillinger" let:value>
+                    {#if value === 'prices'}
+                        <section class="section" aria-labelledby="h-prices">
+                            <div class="section-head">
+                                <div>
+                                    <h2 class="ds-heading" data-size="xs" id="h-prices"><span class="material-symbols-outlined" aria-hidden="true">payments</span>Priser for leieavtaler</h2>
+                                    <p class="ds-paragraph lead" data-size="sm">Prisen på en rate settes når fakturaen sendes til Xledger kl. 01.00. En endring gjelder derfor også rater som ligger på en faktura som ikke er sendt ennå. Fakturaer som alt er sendt, og priser på tilleggstjenester, endres ikke.</p>
+                                </div>
+                                {#if !editingPrices}
+                                    <DsButton variant="secondary" size="sm" on:click={startPrices}><span class="material-symbols-outlined" aria-hidden="true">edit</span>Endre priser</DsButton>
+                                {/if}
+                            </div>
+                            <div class="prices">
+                                {#each [['regular', 'Ordinær pris', 'Per rate, for de fleste elever'], ['reduced', 'Redusert pris', 'For elever på listen under Unntak']] as [key, label, help]}
+                                    <div class="price-card">
+                                        <span class="price-label">{label}</span>
+                                        {#if editingPrices}
+                                            {#if key === 'regular'}
+                                                <DsInput label={label} inputmode="numeric" maxlength={4} bind:value={regular} />
+                                            {:else}
+                                                <DsInput label={label} inputmode="numeric" maxlength={4} bind:value={reduced} />
+                                            {/if}
                                         {:else}
-                                            <button on:click={() => handleButtonClicks('Lagre priser', 'editPrices', token)}>Lagre priser</button>
-                                            <button class="button-remove" on:click={() => handleButtonClicks('Avbryt', 'editPrices', token)}>Avbryt</button>
+                                            <span class="price-value">kr {settings.prices?.[`${key}Price`] ?? '–'}</span>
                                         {/if}
-                                    </div>
-                                    <h3>
-                                        <div class="header-title">
-                                            <span class="material-symbols-outlined">person_edit</span>
-                                            Sist redigert av
-                                        </div>
-                                    </h3>
-                                    <div class="info-section">
-                                        <div class="info-grid">
-                                            <div class="info-item">
-                                                <label>UPN:</label>
-                                                <span class="value">{settings ? settings.data.result[0].prices.lastEditedBy : 'Henter...'}</span>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Dato:</label>
-                                                <span class="value">{settings ? new Date(settings.data.result[0].prices.lastEditedAt).toLocaleString('no-NO', { dateStyle: 'full', timeStyle: 'short' }) : 'Henter...'}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            {/if}
-                        </div>
-
-                        <br>
-
-                        <!-- Current students with price exceptions -->
-                        <div class="overview">
-                            <h2>
-                                <div class="header-with-buttons">
-                                    <div class="header-title">
-                                        <span class="material-symbols-outlined">person</span>
-                                        Unntak fra ordinær pris {#if editPriceException} (redigeringsmodus){/if}
-                                    </div>
-                                    <div class="button-group">
-                                        <button class="toggle-button" on:click={() => editPriceException = !editPriceException}>
-                                            <span class="material-symbols-outlined">
-                                                {editPriceException ? 'edit_off' : 'edit'}
-                                            </span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </h2>
-                            <div class="info-section">
-                                <div class="textBox">
-                                    <p>Her kan du legge til elever som skal få unntak fra ordinær pris. Disse vil bli fakturert til redusert pris.</p>
-                                    <p>Søk opp eleven ved navn, velg eleven fra listen og trykk "Legg til".</p>
-                                    <p>Du kan også fjerne unntak ved å klikke på "Fjern" knappen ved siden av elevens navn.</p>
-                                    <p>Husk at endringer i unntakene må lagres for å tre i kraft.</p>
-                                </div>
-                            </div>
-
-                            <!-- SelectionList, only shown if editPriceException === true -->
-                            <SelectionList addExceptionFlag={true} removeExceptionFlag={true} editException={editPriceException} userData={userData} studentDataFromSettings={priceExceptionsDataFromSettings} bind:exceptionsToRemove={priceExceptionsToRemove} bind:exceptionsToAdd={priceExceptionsToAdd} />
-                            
-                            <!-- Buttons -->
-                            {#if editPriceException}
-                                <div class="center">
-                                    <div class="button-group">
-                                        <button disabled={(priceExceptionsToAdd.length === 0 && priceExceptionsToRemove.length === 0) ? true : false} on:click={() => handleButtonClicks('Lagre unntak', 'editPriceException', token)}>Lagre unntak</button>
-                                        <button class="button-remove" on:click={() => handleButtonClicks('Avbryt', 'editPriceException', token)}>Avbryt</button>
-                                    </div>
-                                </div>
-                            {/if}
-                        </div>
-
-                        <br>
-
-                        <!-- Students blocked from normal invoice flow -->
-                        <div class="overview">
-                            <h2>
-                                <div class="header-with-buttons">
-                                    <div class="header-title">
-                                        <span class="material-symbols-outlined">person</span>
-                                        Unntak fra ordinær fakturaflyt {#if editInvoiceFlowBlock} (redigeringsmodus){/if}
-                                    </div>
-                                    <div class="button-group">
-                                        <button class="toggle-button" on:click={() => editInvoiceFlowBlock = !editInvoiceFlowBlock}>
-                                            <span class="material-symbols-outlined">
-                                                {editInvoiceFlowBlock ? 'edit_off' : 'edit'}
-                                            </span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </h2>
-
-
-                        <div class="info-section">
-                                <div class="textBox">
-                                    <p>Her kan du legge til elever som skal få unntak fra ordinær fakturaflyt. Disse vil ikke bli fakturert via den ordinære flyten og må faktureres manuelt.</p>
-                                    <p>Søk opp eleven ved navn, velg eleven fra listen og trykk "Legg til".</p>
-                                    <p>Du kan også fjerne unntak ved å klikke på "Fjern" knappen ved siden av elevens navn.</p>
-                                    <p>Husk at endringer i unntakene må lagres for å tre i kraft.</p>
-                                </div>
-                            </div>
-
-                            <!-- SelectionList, only shown if editInvoiceFlowBlock === true -->
-                            <SelectionList addExceptionFlag={true} removeExceptionFlag={true} editException={editInvoiceFlowBlock} userData={userData} studentDataFromSettings={invoiceExceptionsDataFromSettings} bind:exceptionsToRemove={invoiceExceptionsToRemove} bind:exceptionsToAdd={invoiceExceptionsToAdd} />
-
-                            <!-- Buttons -->
-                            {#if editInvoiceFlowBlock}
-                                <div class="center">
-                                    <div class="button-group">
-                                        <button disabled={(invoiceExceptionsToRemove.length === 0 && invoiceExceptionsToAdd.length === 0) ? true : false} on:click={() => handleButtonClicks('Lagre unntak', 'editInvoiceFlowBlock', token)}>Lagre unntak</button>
-                                        <button class="button-remove" on:click={() => handleButtonClicks('Avbryt', 'editInvoiceFlowBlock', token)}>Avbryt</button>
-                                    </div>
-                                </div>
-                            {/if}
-                        </div>
-                    {/if}
-                {/await}
-            {/if}
-            <!-- Add 2nd role for invoicing -->
-            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                {#await getProductsData()}
-                    <div class="loading">
-                        <IconSpinner width={"32px"} />
-                    </div>
-                {:then products}
-                    {#if isProcessing}
-                        <div class="loading">
-                            <IconSpinner width={"32px"} />
-                        </div>
-                    {:else}
-                         <!-- Products overview -->
-                        <div class="overview">
-                            <h2>
-                                <div class="header-with-buttons">
-                                    <div class="header-title">
-                                        <span class="material-symbols-outlined">storefront</span>
-                                        Produkter/Tjenester {#if editProducts} (redigeringsmodus) {:else if addProducts} (legg til modus) {:else if removeProducts} (fjern modus){/if}
-                                    </div>
-                                    <div class="button-group">
-                                        <button class="toggle-button" on:click={() => { addProducts = !addProducts; if (editProducts) editProducts = false; if (removeProducts) removeProducts = false; if (addProducts) clearExtraFields(); }}>
-                                            <span class="material-symbols-outlined">
-                                                {addProducts ? 'shopping_cart_off' : 'add_shopping_cart'}
-                                            </span>
-                                        </button>
-                                        <button class="toggle-button" on:click={() => { removeProducts = !removeProducts; if (editProducts) editProducts = false; if (addProducts) addProducts = false; if (removeProducts) clearExtraFields(); }}>
-                                            <span class="material-symbols-outlined">
-                                                {removeProducts ? 'shopping_cart_off' : 'remove_shopping_cart'}
-                                            </span>
-                                        </button>
-                                        <button class="toggle-button" on:click={() => { editProducts = !editProducts; if (addProducts) addProducts = false; if (removeProducts) removeProducts = false; if (editProducts) clearExtraFields(); }}>
-                                            <span class="material-symbols-outlined">
-                                                {editProducts ? 'edit_off' : 'edit'}
-                                            </span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </h2>
-                            <div class="info-section">
-                                <div class="textBox">
-                                    <p>Her kan du administrere produkter og tjenester.</p>
-                                    <p>Produktene og Tjenestene som blir lagt til her vil være tilgjengelige for fakturering.</p>
-                                    <br>
-                                    <p>Trykk på <span class="material-symbols-outlined">add_shopping_cart</span> for å legge til et nytt produkt eller en ny tjeneste.</p>
-                                    <br>
-                                    <p>Trykk på <span class="material-symbols-outlined">remove_shopping_cart</span> så trykker du på <span class="material-symbols-outlined">remove_shopping_cart</span> i navnet på produktet eller tjenesten for å fjerne et eksisterende produkt eller en eksisterende tjeneste.</p>
-                                    <br>
-                                    <p>Trykk på <span class="material-symbols-outlined">edit</span> så trykker du på <span class="material-symbols-outlined">edit</span> i navnet på produktet eller tjenesten for å redigere et eksisterende produkt eller en eksisterende tjeneste.</p>
-                                    <br>
-                                    <p><strong>Husk:</strong> Endringer må lagres for at de skal tre i kraft.</p>
-                                    <br>
-                                    <p><strong>Merk:</strong> Et produkt eller en tjeneste må ha en gyldig pris for å kunne faktureres. Gyldig pris er en pris som er større enn null eller lavere enn 9999</p>
-                                    <p>Produkter kan være aktive og innaktive, og kun aktive produkter kan faktureres. Du vil kunne se statusen for hvert produkt i oversikten.</p>
-                                </div>
-                            </div>
-                            {#if products && products.data && products.data.result && products.data.result.length > 0}
-                                {#each products.data.result as product, i}
-                                    <div class="info-section">
-                                        <div class="info-grid">
-                                            <h4>
-                                                <div class="header-with-buttons">
-                                                    {#if editProducts && product._id === productId}
-                                                        <Input
-                                                            type="text"
-                                                            placeholder="Produktnavn"
-                                                            bind:value={newProductName}
-                                                        />
-                                                    {/if}
-                                                    {#if !editProducts || product._id !== productId}
-                                                        <span>{product.name}</span>
-                                                    {/if}
-                                                    {#if editProducts}
-                                                        {#if productId === null}
-                                                            <button class="button" on:click={() => { handleEditProductVisibility(product) }}>
-                                                                <span class="material-symbols-outlined">
-                                                                    edit
-                                                                </span>
-                                                            </button>
-                                                        {:else if product._id === productId}
-                                                            <button class="button" on:click={() => { handleEditProductVisibility(product) }}>
-                                                                <span class="material-symbols-outlined">
-                                                                    edit_off
-                                                                </span>
-                                                            </button>
-                                                        {/if}
-                                                    {/if}
-                                                    {#if removeProducts}
-                                                        <button class="button" on:click={() => {  productId = product._id; handleButtonClicks('Fjern produkt', 'removeProduct', token); }}>
-                                                            <span class="material-symbols-outlined">
-                                                                remove_shopping_cart
-                                                            </span>
-                                                        </button>
-                                                    {/if}
-                                                </div>
-                                            </h4>
-                                            <div class="info-item">
-                                                <label>Pris:</label>
-                                                <span class="value">{product.price !== null ? product.price + ' Kr' : 'Ingen pris satt'}</span>
-                                            </div>
-                                            <div class="info-item"> 
-                                                <label>Status:</label>
-                                                <span class="value">{product.active ? 'Aktiv' : 'Inaktiv'}</span>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Beskrivelse:</label>
-                                                <span class="value">{product.description ? product.description : 'Ingen beskrivelse'}</span>
-                                            </div>
-
-                                            <!-- Display existing extra fields -->
-                                            {#each Object.keys(product).filter(key => !['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog'].includes(key)) as key}
-                                                <div class="info-item">
-                                                    <label>{key}:</label>
-                                                    <span class="value {product[key] ? '' : 'empty-value'}">{product[key] || '(tom - utfylles ved fakturering)'}</span>
-                                                </div>
-                                            {/each}
-
-                                            <!-- Field to edit -->
-                                            {#if editProducts && product._id === productId}
-                                                 <div class="info-item">
-                                                    <label>Ny pris: </label>
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="Pris i kroner"
-                                                        bind:value={newProductPrice}
-                                                    />
-                                                </div>
-                                            {/if}
-                                            <!-- Field to edit -->
-                                            {#if editProducts && product._id === productId}
-                                                 <div class="info-item">
-                                                    <label>Ny status: </label>
-                                                    <select bind:value={newProductActive}>
-                                                        <option value="ja">Aktiv</option>
-                                                        <option value="nei">Inaktiv</option>
-                                                    </select>
-                                                </div>
-                                            {/if}
-                                            <!-- Field to edit -->
-                                            {#if editProducts && product._id === productId}
-                                                 <div class="info-item">
-                                                    <label>Ny beskrivelse: </label>
-                                                    <Input
-                                                        type="text"
-                                                        placeholder="Beskrivelse"
-                                                        bind:value={newProductDescription}
-                                                    />
-                                                </div>
-                                            {/if}
-
-                                            <!-- Edit extra fields -->
-                                            {#if editProducts && product._id === productId}
-                                                <div class="info-item extra-fields-section">
-                                                    <label>Ekstra felter:</label>
-                                                    <div class="extra-fields-container">
-                                                        <!-- Display existing extra fields for editing -->
-                                                        {#if extraFields.length > 0}
-                                                            <div class="extra-fields-list">
-                                                                {#each extraFields as field, index}
-                                                                    <div class="extra-field-item">
-                                                                        <span class="field-name">{field.key}:</span>
-                                                                        <span class="field-value {field.value ? '' : 'empty-value'}">{field.value || '(tom - utfylles ved fakturering)'}</span>
-                                                                        <button type="button" class="remove-field-btn" on:click={() => removeExtraField(index, field.key)}>
-                                                                            <span class="material-symbols-outlined">delete</span>
-                                                                        </button>
-                                                                    </div>
-                                                                {/each}
-                                                            </div>
-                                                        {/if}
-                                                        
-                                                        <!-- Add new extra field -->
-                                                        <div class="add-extra-field">
-                                                            <div class="field-inputs">
-                                                                <Input
-                                                                    type="text"
-                                                                    placeholder="Feltnavn"
-                                                                    bind:value={newFieldKey}
-                                                                    maxlength="50"
-                                                                />
-                                                                <Input
-                                                                    type="text"
-                                                                    placeholder="Verdi (kan være tom)"
-                                                                    bind:value={newFieldValue}
-                                                                    maxlength="100"
-                                                                />
-                                                                <button type="button" class="add-field-btn" on:click={addExtraField} disabled={!newFieldKey.trim()}>
-                                                                    <span class="material-symbols-outlined">add</span>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            {/if}
-
-                                            <div class="info-item">
-                                                <label>Opprettet av:</label>
-                                                <span class="value">{product.metadata.createdBy}</span>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Oppdatert:</label>
-                                                <span class="value">{product.metadata.updatedAt}</span>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Sist oppdatert av:</label>
-                                                <span class="value">{product.auditLog.length > 0 ? product.auditLog[product.auditLog.length - 1].upn : 'Ukjent'}</span>
-                                            </div>
-                                        </div>
-                                        <br>
-                                        <!-- Buttons -->
-                                            {#if editProducts && product._id === productId}
-                                                <div class="center">
-                                                    <div class="button-group">
-                                                        <button on:click={() => handleButtonClicks('Lagre endringer', 'editProduct', token)}>Lagre</button>
-                                                        <button class="button-remove" on:click={() => handleButtonClicks('Avbryt', 'editProduct', token)}>Avbryt</button>
-                                                    </div>
-                                                </div>
-                                            {/if}
+                                        <small>{help}</small>
                                     </div>
                                 {/each}
-                            {:else}
-                                {#if !addProducts}
-                                    <div class="info-section">
-                                        <div class="textBox">
-                                            <p>Ingen produkter eller tjenester funnet. Legg til et nytt produkt eller en ny tjeneste.</p>
-                                        </div>
-                                    </div>
+                            </div>
+                            {#if editingPrices}
+                                {#if priceError}
+                                    <p class="ds-validation-message" data-size="sm">{priceError}</p>
+                                {:else}
+                                    <p class="ds-paragraph muted" data-size="xs">Hele kroner fra 0 til 9 999.</p>
                                 {/if}
+                                <div class="actions">
+                                    <DsButton loading={saving} loadingText="Lagrer …" on:click={savePrices}>Lagre priser</DsButton>
+                                    <DsButton variant="secondary" disabled={saving} on:click={() => (editingPrices = false)}>Avbryt</DsButton>
+                                </div>
                             {/if}
-                            {#if addProducts}
-                                    <div class="info-section">
-                                        <div class="textBox">
-                                            <p>Du er i legg til modus.</p>
-                                            <p>Fyll inn informasjonen for det nye produktet eller tjenesten og trykk "Lagre".</p>
-                                        </div>
+                            {#if settings.prices?.lastEditedBy}
+                                <p class="edited-by"><span class="material-symbols-outlined" aria-hidden="true">history</span>Sist endret av {settings.prices.lastEditedBy}{settings.prices.lastEditedAt ? `, ${new Date(settings.prices.lastEditedAt).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' })}` : ''}</p>
+                            {/if}
+                        </section>
+                    {:else if value === 'exceptions'}
+                        <div class="exc-grid">
+                            {#each Object.entries(LISTS) as [list, meta] (list)}
+                                {@const everyone = everyoneIn[list]}
+                                {@const peoplePages = pageCount(everyone)}
+                                <section class="section" aria-labelledby="h-{list}">
+                                    <div>
+                                        <h2 class="ds-heading" data-size="xs" id="h-{list}">
+                                            <span class="material-symbols-outlined" aria-hidden="true">{meta.icon}</span>{meta.title} <span class="count">{lists[list].length}</span>
+                                        </h2>
+                                        <p class="ds-paragraph lead" data-size="sm">
+                                            {#if list === 'price'}Elevene her faktureres med redusert pris (kr {settings.prices?.reducedPrice}) i stedet for ordinær pris.{:else}Elevene her faktureres ikke automatisk. De må faktureres manuelt under Fakturering.{/if}
+                                        </p>
                                     </div>
-                                    <div class="info-section">
-                                        <div class="input-group">
-                                            <div class="input">
-                                                <label>Navn {newProductName.length}/50: </label>
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Navn på produkt eller tjeneste"
-                                                    maxlength="50"
-                                                    bind:value={newProductName}
-                                                />
-                                            </div>
-                                            <div class="input">
-                                                <label>Pris: </label>
-                                                <Input
-                                                    type="number"
-                                                    placeholder="Pris i kroner"
-                                                    bind:value={newProductPrice}
-                                                />
-                                            </div>
-                                            <div class="input">
-                                                <label>Beskrivelse {newProductDescription.length}/200: </label>
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Beskrivelse av produkt eller tjeneste"
-                                                    maxlength="200"
-                                                    bind:value={newProductDescription}
-                                                />
-                                            </div>
-                                            <div class="input">
-                                                <label>Skal produktet være tilgjengelig:</label>
-                                                <select bind:value={newProductActive}>
-                                                    <option value="ja">Ja</option>
-                                                    <option value="nei">Nei</option>
-                                                </select>
-                                            </div>
-                                            <div class="input">
-                                                <label>Ekstra informasjon (valgfritt): </label>
-                                                <p style="font-size: 0.9em; color: var(--vann-70); margin-bottom: 1rem;">
-                                                    Du kan legge til egendefinerte felter som for eksempel "Garanti", "Leveringstid", "Kategori", etc. Verdien kan være tom og fylles ut senere ved fakturering.
-                                                </p>
-                                                
-                                                <!-- Display existing extra fields -->
-                                                {#if extraFields.length > 0}
-                                                    <div class="extra-fields-list">
-                                                        {#each extraFields as field, index}
-                                                            <div class="extra-field-item">
-                                                                <span class="field-name">{field.key}:</span>
-                                                                <span class="field-value {field.value ? '' : 'empty-value'}">{field.value || '(tom - utfylles ved fakturering)'}</span>
-                                                                <button type="button" class="remove-field-btn" on:click={() => removeExtraField(index, field.key)}>
-                                                                    <span class="material-symbols-outlined">delete</span>
-                                                                </button>
-                                                            </div>
-                                                        {/each}
-                                                    </div>
+                                    <ul class="people" aria-label={meta.title}>
+                                        {#each pageOf(everyone, Math.min(pages[list].people, peoplePages)) as student (student.fnr)}
+                                            <li class:removing={student.state === 'removing'} class:adding={student.state === 'adding'}>
+                                                <span class="who">
+                                                    <strong>
+                                                        {student.name}
+                                                        {#if student.state === 'removing'}<DsTag color="danger">Fjernes</DsTag>{:else if student.state === 'adding'}<DsTag color="success">Legges til</DsTag>{/if}
+                                                    </strong>
+                                                    <small>{formatFnr(student.fnr)}</small>
+                                                </span>
+                                                {#if student.state}
+                                                    <DsButton variant="tertiary" size="sm" on:click={() => undo(list, student.fnr)}><span class="material-symbols-outlined" aria-hidden="true">undo</span>Angre</DsButton>
+                                                {:else}
+                                                    <DsButton variant="tertiary" color="danger" size="sm" on:click={() => removeStudent(list, student.fnr)}>
+                                                        <span class="material-symbols-outlined" aria-hidden="true">person_remove</span>Fjern<span class="ds-sr-only"> {student.name} fra listen</span>
+                                                    </DsButton>
                                                 {/if}
-                                                
-                                                <!-- Add new extra field -->
-                                                <div class="add-extra-field">
-                                                    <div class="field-inputs">
-                                                        <Input
-                                                            type="text"
-                                                            placeholder="Feltnavn (f.eks. Garanti)"
-                                                            bind:value={newFieldKey}
-                                                            maxlength="50"
-                                                        />
-                                                        <Input
-                                                            type="text"
-                                                            placeholder="Verdi (kan være tom)"
-                                                            bind:value={newFieldValue}
-                                                            maxlength="100"
-                                                        />
-                                                        <button type="button" class="add-field-btn" on:click={addExtraField} disabled={!newFieldKey.trim()}>
-                                                            <span class="material-symbols-outlined">add</span>
-                                                        </button>
-                                                    </div>
+                                            </li>
+                                        {:else}
+                                            <li><span class="empty">Ingen elever på listen.</span></li>
+                                        {/each}
+                                    </ul>
+                                    {#if everyone.length > PER_PAGE}
+                                        <div class="list-foot">
+                                            <p class="ds-paragraph muted" data-size="xs">{range(everyone, Math.min(pages[list].people, peoplePages))}</p>
+                                            <DsPagination bind:current={pages[list].people} total={peoplePages} label="Sider i {meta.title.toLowerCase()}" />
+                                        </div>
+                                    {/if}
+                                    <form class="add-box" role="search" on:submit|preventDefault={() => findStudents(list)}>
+                                        <div class="add-row">
+                                            <DsInput label="Legg til elev" type="search" placeholder="Fornavn, etternavn eller begge" autocomplete="off" bind:value={search[list].query} />
+                                            <DsButton type="submit" variant="secondary" size="sm" loading={search[list].busy} loadingText="Søker …">
+                                                <span class="material-symbols-outlined" aria-hidden="true">search</span>Søk
+                                            </DsButton>
+                                        </div>
+                                        {#if search[list].results?.length === 0}
+                                            <p class="ds-paragraph muted" data-size="sm">Fant ingen elever for «{search[list].query}».</p>
+                                        {:else if search[list].results}
+                                            {@const hits = search[list].results}
+                                            <ul class="hits">
+                                                {#each pageOf(hits, pages[list].hits) as student (student.fnr)}
+                                                    <li>
+                                                        <span class="who"><strong>{student.name}</strong><small>{formatFnr(student.fnr)}</small></span>
+                                                        {#if onList(everyoneIn[list], student.fnr)}
+                                                            <span class="muted small">På listen</span>
+                                                        {:else}
+                                                            <DsButton variant="secondary" size="sm" on:click={() => addStudent(list, student)}><span class="material-symbols-outlined" aria-hidden="true">person_add</span>Legg til</DsButton>
+                                                        {/if}
+                                                    </li>
+                                                {/each}
+                                            </ul>
+                                            {#if hits.length > PER_PAGE}
+                                                <div class="list-foot">
+                                                    <p class="ds-paragraph muted" data-size="xs">{range(hits, pages[list].hits)} treff</p>
+                                                    <DsPagination bind:current={pages[list].hits} total={pageCount(hits)} label="Sider i søkeresultatet" />
                                                 </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div div class="center">
-                                        <div class="button-group">
-                                            <button on:click={() => handleButtonClicks('Lagre produkt', 'addProduct', token)}>Lagre</button>
-                                            <button class="button-remove" on:click={() => handleButtonClicks('Avbryt', 'addProduct', token)}>Avbryt</button>
-                                        </div>
-                                    </div>
-                                {/if}
+                                            {/if}
+                                        {/if}
+                                    </form>
+                                </section>
+                            {/each}
                         </div>
+                    {:else}
+                        <section class="section" aria-labelledby="h-products">
+                            <div class="section-head">
+                                <div>
+                                    <h2 class="ds-heading" data-size="xs" id="h-products"><span class="material-symbols-outlined" aria-hidden="true">storefront</span>Produkter og tjenester</h2>
+                                    <p class="ds-paragraph lead" data-size="sm">Aktive produkter kan legges på en faktura under Fakturering. Tomme ekstrafelt fylles ut når fakturaen lages.</p>
+                                </div>
+                                <DsButton size="sm" on:click={() => openProduct()}><span class="material-symbols-outlined" aria-hidden="true">add</span>Nytt produkt</DsButton>
+                            </div>
+                            <div class="table-wrap">
+                                <table class="ds-table" data-size="sm" data-border>
+                                    <thead><tr><th>Produkt</th><th class="num">Pris</th><th>Status</th><th>Ekstrafelt</th><th>Sist endret</th><th><span class="ds-sr-only">Handlinger</span></th></tr></thead>
+                                    <tbody>
+                                        {#each products as product (product._id)}
+                                            {@const change = lastChange(product)}
+                                            <tr>
+                                                <td>
+                                                    <span class="p-name">{product.name}{#if isCalculatedProduct(product._id)}<DsTag color="brand1">Beregnet pris</DsTag>{/if}</span>
+                                                    <span class="p-desc">{product.description ?? ''}</span>
+                                                </td>
+                                                <td class="num">{#if isCalculatedProduct(product._id)}<span class="muted small">{CALCULATED[product._id]}</span>{:else}kr {product.price}{/if}</td>
+                                                <td><DsTag color={product.active ? 'success' : 'neutral'}>{product.active ? 'Aktiv' : 'Inaktiv'}</DsTag></td>
+                                                <td>
+                                                    <span class="chips">
+                                                        {#each extraFields(product) as key}
+                                                            {#if String(product[key] ?? '').trim()}
+                                                                <span class="chip">{key}: <strong>{product[key]}</strong></span>
+                                                            {:else}
+                                                                <span class="chip empty" title="Fylles ut ved fakturering">{key}</span>
+                                                            {/if}
+                                                        {:else}
+                                                            <span class="muted">–</span>
+                                                        {/each}
+                                                    </span>
+                                                </td>
+                                                <td><span class="changed">{formatShortDate(product.metadata?.updatedAt) || '–'}<small>{change?.upn ?? product.metadata?.createdBy ?? ''}</small></span></td>
+                                                <td class="act">
+                                                    <DsButton variant="secondary" size="sm" on:click={() => openProduct(product)}><span class="material-symbols-outlined" aria-hidden="true">edit</span>Rediger</DsButton>
+                                                    <DsDropdown label="Flere handlinger for {product.name}">
+                                                        <li><button class="ds-button" data-variant="tertiary" type="button" on:click={() => toggleActive(product)}>
+                                                            <span class="material-symbols-outlined" aria-hidden="true">{product.active ? 'visibility_off' : 'visibility'}</span>{product.active ? 'Gjør inaktiv' : 'Gjør aktiv'}
+                                                        </button></li>
+                                                        <li><button class="ds-button" data-variant="tertiary" data-color="danger" type="button" on:click={() => { deleteError = ''; toDelete = product }}>
+                                                            <span class="material-symbols-outlined" aria-hidden="true">delete</span>Slett
+                                                        </button></li>
+                                                    </DsDropdown>
+                                                </td>
+                                            </tr>
+                                        {:else}
+                                            <tr><td colspan="6" class="muted">Ingen produkter ennå.</td></tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
                     {/if}
-                {/await}
+                </DsTabs>
+
+                {#if changes}
+                    <div class="save-bar" role="region" aria-label="Ulagrede endringer">
+                        <div class="inner">
+                            <span class="msg"><span class="material-symbols-outlined" aria-hidden="true">edit_note</span><span><strong>{changes} {changes === 1 ? 'endring' : 'endringer'}</strong> i unntakene er ikke lagret</span></span>
+                            <span class="btns">
+                                <DsButton variant="secondary" size="sm" disabled={saving} on:click={discard}>Forkast</DsButton>
+                                <DsButton size="sm" loading={saving} loadingText="Lagrer …" on:click={saveExceptions}>Lagre endringer</DsButton>
+                            </span>
+                        </div>
+                    </div>
+                {/if}
+
+                <DsDialog open={Boolean(form)} on:close={() => (form = null)} width="40rem" labelledby="product-title" closedby={saving ? 'none' : 'any'}>
+                    {#if form}
+                        {@const calculated = form.product && isCalculatedProduct(form.product._id)}
+                        <h2 class="ds-heading" data-size="sm" id="product-title">{form.product ? 'Rediger produkt' : 'Nytt produkt eller ny tjeneste'}</h2>
+                        {#if calculated}
+                            <DsAlert color="info"><p class="ds-paragraph" data-size="sm">Prisen på dette produktet regnes ut når fakturaen lages ({CALCULATED[form.product._id].toLowerCase()}). Du kan endre navn, beskrivelse, status og ekstrafelt.</p></DsAlert>
+                        {/if}
+                        <div class="form-grid">
+                            <DsInput label="Navn" maxlength={50} bind:value={form.name} />
+                            {#if !calculated}
+                                <DsInput label="Pris (kr)" inputmode="numeric" maxlength={4} bind:value={form.price} />
+                            {/if}
+                            <div class="full"><DsTextarea label="Beskrivelse" rows={2} maxlength={200} bind:value={form.description} /></div>
+                            <div class="full"><DsCheckbox type="switch" label="Aktiv, kan legges på fakturaer" bind:checked={form.active} /></div>
+                            <fieldset class="ds-fieldset full">
+                                <legend class="ds-label">Ekstrafelt <span class="muted">(valgfritt)</span></legend>
+                                <p class="ds-paragraph muted" data-size="xs">For eksempel «Saksnummer» eller «Garanti». Står verdien tom, fyller den som fakturerer den inn.</p>
+                                {#each form.fields as field, i (field.key)}
+                                    <div class="field-row">
+                                        <span class="field-key">{field.key}</span>
+                                        <DsInput label="Verdi for {field.key}" placeholder="Tom: fylles ut ved fakturering" maxlength={100} bind:value={field.value} />
+                                        <DsButton variant="tertiary" color="danger" size="sm" on:click={() => { form.fields = form.fields.filter((_, n) => n !== i) }}>
+                                            <span class="material-symbols-outlined" aria-hidden="true">delete</span><span class="ds-sr-only">Fjern feltet {field.key}</span>
+                                        </DsButton>
+                                    </div>
+                                {/each}
+                                <div class="field-row new">
+                                    <DsInput label="Nytt felt" placeholder="Feltnavn" maxlength={50} error={form.keyError} bind:value={form.newKey} />
+                                    <DsInput label="Verdi" placeholder="Kan være tom" maxlength={100} bind:value={form.newValue} />
+                                    <DsButton variant="secondary" size="sm" disabled={!form.newKey.trim()} on:click={addField}><span class="material-symbols-outlined" aria-hidden="true">add</span>Legg til</DsButton>
+                                </div>
+                            </fieldset>
+                        </div>
+                        {#if formError}
+                            <DsAlert color="danger"><p class="ds-paragraph" data-size="sm">{formError}</p></DsAlert>
+                        {/if}
+                    {/if}
+                    <svelte:fragment slot="footer">
+                        <DsButton loading={saving} loadingText="Lagrer …" on:click={saveProduct}>{form?.product ? 'Lagre endringer' : 'Legg til produkt'}</DsButton>
+                        <DsButton variant="secondary" disabled={saving} on:click={() => (form = null)}>Avbryt</DsButton>
+                    </svelte:fragment>
+                </DsDialog>
+
+                <DsDialog open={Boolean(toDelete)} on:close={() => (toDelete = null)} width="32rem" labelledby="delete-title" closedby={saving ? 'none' : 'any'}>
+                    {#if toDelete}
+                        {#if isCalculatedProduct(toDelete._id)}
+                            <h2 class="ds-heading" data-size="sm" id="delete-title">«{toDelete.name}» kan ikke slettes</h2>
+                            <p class="ds-paragraph" data-size="sm">Prisen på produktet regnes ut i koden, og fakturasiden er avhengig av det. Vil du at det ikke skal kunne brukes, kan du gjøre det inaktivt.</p>
+                        {:else}
+                            <h2 class="ds-heading" data-size="sm" id="delete-title">Slette «{toDelete.name}»?</h2>
+                            <p class="ds-paragraph" data-size="sm">Produktet kan ikke lenger legges på nye fakturaer, og slettingen kan ikke angres. Vil du bare skjule det for en periode, gjør det inaktivt i stedet.</p>
+                            {#if deleteError}
+                                <DsAlert color="danger"><p class="ds-paragraph" data-size="sm">{deleteError}</p></DsAlert>
+                            {/if}
+                        {/if}
+                    {/if}
+                    <svelte:fragment slot="footer">
+                        {#if toDelete && !isCalculatedProduct(toDelete._id)}
+                            <DsButton color="danger" loading={saving} loadingText="Sletter …" on:click={confirmDelete}><span class="material-symbols-outlined" aria-hidden="true">delete</span>Slett produktet</DsButton>
+                        {/if}
+                        {#if toDelete?.active}
+                            <DsButton variant="secondary" disabled={saving} on:click={() => toggleActive(toDelete)}>{isCalculatedProduct(toDelete._id) ? 'Gjør inaktiv' : 'Gjør inaktiv i stedet'}</DsButton>
+                        {/if}
+                        <DsButton variant="tertiary" disabled={saving} on:click={() => (toDelete = null)}>Avbryt</DsButton>
+                    </svelte:fragment>
+                </DsDialog>
             {/if}
-        {/if}
-    {/await}
-</main>
+        {/await}
+    </main>
+</DsScope>
 
 <style>
     main {
-        padding: 1rem;
-    }
-    
-    h4 {
-        grid-column: 1 / -1; 
-        margin-top: 0;
-        gap: 0.5rem;
-    }
-
-    .textBox {
-        border: 1px solid var(--vann-10);
-        background-color: var(--vann-20);
-        padding: 1rem;
-        border-radius: 8px;
-        max-width: 600px;
-        margin: 1rem 0;
-        font-size: large;
-    }
-
-    .error {
-        border: 1px solid var(--nype);
-        background-color: var(--nype-10);
-        padding: 1rem;
-        border-radius: 8px;
-        max-width: 600px;
-        margin: 1rem 0;
-        font-size: large;
-    }
-
-     button {
-        padding: 0.75rem 1.5rem;
-        background-color: var(--vann-60);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .button-remove {
-        padding: 0.75rem 1.5rem;
-        background-color: var(--nype-60);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .button-remove:hover:not(:disabled) {
-        background-color: var(--nype-70);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    button:hover:not(:disabled) {
-        background-color: var(--vann-70);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    button:disabled {
-        background-color: #ccc;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-    }
-
-    .button-group {
-        display: flex;
-        gap: 1rem;
-    }
-
-    .toggle-button {
-        background-color: transparent;
-        padding: 0.5rem 1rem;
-        border: none;
-        border-radius: 6px;
-    }
-
-    .info-section {
-        border-bottom: 1px solid var(--gress-10);
-        padding: 2rem;
-    }
-
-    .info-section:last-child {
-        border-bottom: none;
-    }
-    
-    .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .info-item {
+        padding: var(--ds-size-4, 1rem) var(--ds-size-4, 1rem) 8rem;
+        max-width: 72rem;
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .info-item label {
-        font-weight: 600;
-        color: var(--gress-70);
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .info-item .value {
-        padding: 0.75rem;
-        background-color: var(--gress-5, #f8fffe);
-        border-radius: 6px;
-        border-left: 3px solid var(--gress-30);
-        font-size: 1rem;
-        min-height: 1.2rem;
-    }
-
-    .overview {
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        overflow: hidden;
-    }
-
-    .overview h2 {
-        background: linear-gradient(135deg, var(--vann-60), var(--vann-70));
-        color: white;
-        padding: 2rem;
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-    }
-
-    .overview h3 {
-        padding: 1.5rem;
-        margin: 0;
-        font-size: 1.25rem;
-        font-weight: 500;
-    }
-
-    .header-with-buttons {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .header-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-    }
-    .input-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .input {
-        padding-bottom: 1rem;
-        font-size: 1rem;
-    }
-
-    .search-result {
-        border: 2px solid var(--gress-50);
-        scroll-behavior: auto;
-        margin: 0rem 1rem 1rem 1rem;
-        border-radius: 17px;
-        max-height: 50vh;
-        overflow-x: hidden;
-        overflow-y: scroll;
+        gap: var(--ds-size-5);
     }
 
     .center {
-        display: flex;
-        justify-content: center;
-        margin: 1rem;
+        display: grid;
+        place-items: center;
+        padding: 2rem;
     }
 
-    .loading {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
+    .lead,
+    .muted {
+        color: var(--ds-color-neutral-text-subtle);
     }
 
-    /* Responsive design */
-    @media (max-width: 768px) {
-        main {
-            padding: 1rem;
-        }
+    .small { font-size: 0.85rem; }
 
-        .info-grid {
-            grid-template-columns: 1fr;
-        }
-
-    }
-
-    /* Extra Fields Styling */
-    .extra-fields-section {
-        grid-column: 1 / -1;
-        margin-top: 1rem;
-    }
-
-    .extra-fields-container {
-        margin-top: 0.5rem;
-    }
-
-    .extra-fields-list {
+    .section {
+        border: 1px solid var(--ds-color-neutral-border-subtle);
+        border-radius: var(--ds-border-radius-lg);
+        padding: var(--ds-size-5);
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
+        gap: var(--ds-size-4);
     }
 
-    .extra-field-item {
+    .section-head {
         display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: var(--ds-size-3);
+    }
+
+    .section h2 {
+        display: inline-flex;
         align-items: center;
         gap: 0.5rem;
-        padding: 0.5rem;
-        background-color: var(--vann-10);
-        border-radius: 6px;
-        border: 1px solid var(--vann-30);
     }
 
-    .field-name {
-        font-weight: 600;
-        color: var(--vann-70);
-        min-width: 100px;
+    .section h2 .material-symbols-outlined { color: var(--ds-color-accent-text-subtle); }
+
+    .section .lead {
+        max-width: 60ch;
+        margin-top: var(--ds-size-1);
     }
 
-    .field-value {
-        flex: 1;
-        color: var(--vann-90);
+    .count {
+        font-variant-numeric: tabular-nums;
+        font-size: 0.78rem;
+        font-weight: 700;
+        padding: 0 0.45rem;
+        border-radius: var(--ds-border-radius-full);
+        background: var(--ds-color-neutral-surface-tinted);
     }
 
-    .empty-value {
-        color: var(--vann-60);
-        font-style: italic;
+    .prices {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+        gap: var(--ds-size-4);
     }
 
-    .remove-field-btn {
-        padding: 0.25rem;
-        background-color: var(--nype-50);
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
+    .price-card {
+        border-radius: var(--ds-border-radius-md);
+        background: var(--ds-color-accent-background-tinted);
+        padding: var(--ds-size-4) var(--ds-size-5);
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-2);
+    }
+
+    .price-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ds-color-accent-text-subtle);
+    }
+
+    .price-card :global(.ds-label) {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+    }
+
+    .price-value {
+        font-family: 'Nunito', 'Nunito Sans', sans-serif;
+        font-size: 2rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.1;
+    }
+
+    .price-card small { color: var(--ds-color-neutral-text-subtle); }
+
+    .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ds-size-2);
+    }
+
+    .edited-by {
         display: flex;
         align-items: center;
-        justify-content: center;
-        min-width: auto;
-        height: 32px;
-        width: 32px;
+        gap: 0.4rem;
+        font-size: 0.88rem;
+        color: var(--ds-color-neutral-text-subtle);
     }
 
-    .remove-field-btn:hover {
-        background-color: var(--nype-70);
+    .exc-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+        gap: var(--ds-size-5);
+        align-items: start;
     }
 
-    .add-extra-field {
-        border: 1px dashed var(--vann-40);
-        border-radius: 6px;
-        padding: 1rem;
-        background-color: var(--vann-5);
+    .people,
+    .hits {
+        list-style: none;
+        margin: 0;
+        padding: 0;
     }
 
-    .field-inputs {
+    .people {
+        border: 1px solid var(--ds-color-neutral-border-subtle);
+        border-radius: var(--ds-border-radius-md);
+        overflow: hidden;
+    }
+
+    .people li,
+    .hits li {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: var(--ds-size-2) var(--ds-size-3);
+        padding: var(--ds-size-2) var(--ds-size-3);
+    }
+
+    .people li { border-top: 1px solid var(--ds-color-neutral-border-subtle); }
+    .people li:first-child { border-top: 0; }
+
+    .people li.adding {
+        background: var(--ds-color-success-surface-tinted);
+        box-shadow: inset 4px 0 0 var(--ds-color-success-base-default);
+    }
+
+    .people li.removing {
+        background: var(--ds-color-danger-surface-tinted);
+        box-shadow: inset 4px 0 0 var(--ds-color-danger-base-default);
+    }
+
+    .who {
         display: flex;
-        gap: 0.5rem;
+        flex-direction: column;
+        line-height: 1.3;
+    }
+
+    .who strong {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--ds-size-2);
+    }
+
+    .removing .who strong { text-decoration: line-through; }
+
+    .who small {
+        color: var(--ds-color-neutral-text-subtle);
+        font-size: 0.8rem;
+    }
+
+    .empty {
+        grid-column: 1 / -1;
+        text-align: center;
+        color: var(--ds-color-neutral-text-subtle);
+        padding: var(--ds-size-3);
+    }
+
+    .add-box {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-2);
+        padding: var(--ds-size-3);
+        border-radius: var(--ds-border-radius-md);
+        background: var(--ds-color-neutral-background-tinted);
+    }
+
+    .add-row {
+        display: flex;
+        gap: var(--ds-size-2);
         align-items: flex-end;
     }
 
-    .field-inputs :global(input) {
-        flex: 1;
+    .add-row > :global(.ds-field) { flex: 1; }
+
+    .hits {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-1);
     }
 
-    .add-field-btn {
-        padding: 0.5rem;
-        background-color: var(--gress-50);
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
+    .list-foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--ds-size-2);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .hits li {
+        background: var(--ds-color-neutral-background-default);
+        border: 1px solid var(--ds-color-neutral-border-subtle);
+        border-radius: var(--ds-border-radius-md);
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--ds-color-neutral-border-subtle);
+        border-radius: var(--ds-border-radius-lg);
+    }
+
+    .ds-table {
+        --dsc-table-padding: 0.7rem 0.85rem;
+        min-width: 100%;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ds-table > thead > tr > :global(*) {
+        background: var(--ds-color-accent-background-tinted);
+        white-space: nowrap;
+    }
+
+    .ds-table td { vertical-align: top; }
+
+    .p-name {
+        font-weight: 700;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--ds-size-2);
+    }
+
+    .p-desc {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--ds-color-neutral-text-subtle);
+        margin-top: 2px;
+        max-width: 34ch;
+    }
+
+    .num {
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+    }
+
+    .chip {
+        display: inline-flex;
+        gap: 0.3rem;
+        align-items: center;
+        font-size: 0.8rem;
+        padding: 0.1rem 0.5rem;
+        border-radius: var(--ds-border-radius-sm);
+        background: var(--ds-color-neutral-surface-tinted);
+    }
+
+    .chip.empty {
+        background: transparent;
+        border: 1px dashed var(--ds-color-neutral-border-default);
+        color: var(--ds-color-neutral-text-subtle);
+    }
+
+    .changed {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .changed small {
+        color: var(--ds-color-neutral-text-subtle);
+        font-size: 0.8rem;
+    }
+
+    .act {
+        white-space: nowrap;
+        text-align: right;
+    }
+
+    .save-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 30;
+        display: flex;
+        justify-content: center;
+        padding: var(--ds-size-3) 16px calc(var(--ds-size-3) + env(safe-area-inset-bottom, 0px));
+        pointer-events: none;
+    }
+
+    .save-bar .inner {
+        pointer-events: auto;
+        width: min(64rem, 100%);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--ds-size-3);
+        padding: var(--ds-size-3) var(--ds-size-5);
+        background: var(--ds-color-neutral-background-default);
+        border: 1px solid var(--ds-color-warning-border-default);
+        border-radius: var(--ds-border-radius-lg);
+        box-shadow: 0 10px 30px rgb(0 40 48 / 0.18);
+    }
+
+    .msg,
+    .btns {
         display: flex;
         align-items: center;
-        justify-content: center;
-        min-width: auto;
-        height: 40px;
-        width: 40px;
+        gap: var(--ds-size-2);
     }
 
-    .add-field-btn:hover:not(:disabled) {
-        background-color: var(--gress-70);
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 10rem;
+        gap: var(--ds-size-4);
     }
 
-    .add-field-btn:disabled {
-        background-color: var(--gress-20);
-        cursor: not-allowed;
+    @media (max-width: 520px) {
+        .form-grid { grid-template-columns: 1fr; }
     }
 
-    /* Material Icons */
-    .material-symbols-outlined {
-        font-variation-settings:
-        'FILL' 0,
-        'wght' 400,
-        'GRAD' 0,
-        'opsz' 24;
+    .form-grid .full,
+    .form-grid fieldset { grid-column: 1 / -1; }
+
+    fieldset {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-2);
+    }
+
+    .field-row {
+        display: grid;
+        grid-template-columns: 10rem 1fr auto;
+        gap: var(--ds-size-2);
+        align-items: flex-end;
+    }
+
+    .field-row.new { grid-template-columns: 1fr 1fr auto; }
+
+    .field-key {
+        font-weight: 600;
+        padding-bottom: 0.6rem;
+        overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 520px) {
+        .field-row,
+        .field-row.new { grid-template-columns: 1fr; }
     }
 </style>
