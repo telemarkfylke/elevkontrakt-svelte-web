@@ -53,6 +53,18 @@
         setTimeout(() => { if (copiedId === id) copiedId = '' }, 1500)
     }
 
+    // Back from an elev re-runs the search. Only the text and page are kept: snapshots go to
+    // sessionStorage, and the results contain fødselsnummer.
+    export const snapshot = {
+        capture: () => ({ searched, page }),
+        restore: async (saved) => {
+            if (!saved?.searched) return
+            query = saved.searched
+            await search(await tokenPromise)
+            page = saved.page
+        }
+    }
+
     const historyHref = (student) => `/history/${student.id.join(',')}`
     const fromDigiTroll = (student) => student.contracts?.some(c => c.isImportedFromDigiTroll)
     const latest = (student) => student.contracts?.[0]

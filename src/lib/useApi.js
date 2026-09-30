@@ -3,6 +3,7 @@ import { getMsalClient, login } from '../lib/auth/msal-auth'
 import { jwtDecode } from 'jwt-decode'
 import { returnLatestKnownContractInfo } from './helpers/latestKnownContractInfo'
 import { formatDate } from './helpers/formatDate'
+import { contractTime } from './helpers/contractDate'
 
 /**
  *
@@ -85,13 +86,6 @@ export const getSearchScope = async (userToken) => {
     officeLocation = 'Nome videregående skole'
   }
   return { school: officeLocation }
-}
-
-// DigiTroll dates are dd.mm.yyyy, ours are ISO. Used only to sort newest first.
-const contractTime = (value) => {
-  const nb = /^(\d{2})\.(\d{2})\.(\d{4})/.exec(value || '')
-  const time = nb ? new Date(`${nb[3]}-${nb[2]}-${nb[1]}`).getTime() : new Date(value).getTime()
-  return Number.isFinite(time) ? time : 0
 }
 
 export const searchContracts = async (searchName, targetCollection, userToken) => {
