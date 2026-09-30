@@ -33,6 +33,15 @@ export const ratePrice = (settings, elevInfo) => {
   return parseInt(hasReducedPrice(settings, elevInfo) ? prices.reducedPrice : prices.regularPrice, 10)
 }
 
+// An unsent rate invoice: its price is set when it is sent, so it shows what the backend will use.
+export const isPreliminaryInvoice = (invoice, settings) => invoice.type === 'buyOut' && invoice.status === 'Ikke Fakturert' && Boolean(settings)
+
+export const invoiceTotal = (invoice, settings) => {
+  const items = invoice.itemsFromCart ?? []
+  if (isPreliminaryInvoice(invoice, settings)) return items.length * ratePrice(settings, invoice.student)
+  return items.reduce((sum, item) => sum + (parseInt(item.sum ?? item.price, 10) || 0), 0)
+}
+
 const toNumber = (value) => {
   if (value === undefined || value === null || String(value).trim() === '') return null
   return parseInt(String(value).replace(/\s/g, ''), 10)

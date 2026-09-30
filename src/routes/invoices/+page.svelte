@@ -12,7 +12,7 @@
     import StatusTag from '$lib/components/StatusTag.svelte'
     import { formatShortDate } from '$lib/helpers/formatDate'
     import { formatTimeUntilExport } from '$lib/helpers/xledgerExport.js'
-    import { ratePrice } from '$lib/helpers/prices.js'
+    import { ratePrice, isPreliminaryInvoice, invoiceTotal } from '$lib/helpers/prices.js'
     import { hasAnyRole, isElevkontraktAdmin, BILLING_ROLES } from '$lib/helpers/roles.js'
     import { flashMessage } from '$lib/store'
     import { getElevkontraktToken, getInvoices, deleteInvoices, getSettings } from '$lib/useApi'
@@ -56,13 +56,8 @@
     })
 
     const isPending = (invoice) => invoice.status === 'Ikke Fakturert'
-    // A rate's price is set when it is sent, so an unsent rate invoice shows what the backend will use.
-    const isPreliminary = (invoice) => invoice.type === 'buyOut' && isPending(invoice) && settings
-    function amount (invoice) {
-        const items = invoice.itemsFromCart ?? []
-        if (isPreliminary(invoice)) return items.length * ratePrice(settings, invoice.student)
-        return items.reduce((sum, item) => sum + (parseInt(item.sum ?? item.price, 10) || 0), 0)
-    }
+    const isPreliminary = (invoice) => isPreliminaryInvoice(invoice, settings)
+    const amount = (invoice) => invoiceTotal(invoice, settings)
 
     $: counts = {
         all: invoices.length,

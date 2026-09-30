@@ -10,10 +10,29 @@
     import { returnLatestKnownContractInfo } from '$lib/helpers/latestKnownContractInfo'
     import { returnLatestKnownStudentInfo } from '$lib/helpers/latestKnownStudentInfo'
     import { isTrue } from '$lib/helpers/status.js'
-    import { hasAnyRole, HISTORY_ROLES } from '$lib/helpers/roles.js'
+    import { hasAnyRole, HISTORY_ROLES, BILLING_ROLES } from '$lib/helpers/roles.js'
+    import { loadInvoiceData, invoicesFor } from '$lib/helpers/contractInvoices.js'
     import { getContractsWithId, getElevkontraktToken } from '$lib/useApi'
 
     const tokenPromise = getElevkontraktToken(true)
+
+    // Invoices go with the contract they were made for. Only admin and billing roles may fetch them.
+    let canSeeInvoices = false
+    let allInvoices = null
+    let invoiceSettings = null
+    let invoicesState = 'idle' // idle | loading | ready | error
+
+    tokenPromise.then(async token => {
+        canSeeInvoices = hasAnyRole(token, BILLING_ROLES)
+        if (!canSeeInvoices) return
+        invoicesState = 'loading'
+        try {
+            ({ invoices: allInvoices, settings: invoiceSettings } = await loadInvoiceData(token))
+            invoicesState = 'ready'
+        } catch {
+            invoicesState = 'error'
+        }
+    }).catch(() => {})
 
     // Newest first. The API returns { error } when nothing matches.
     async function loadContracts (slug) {
@@ -80,7 +99,14 @@
 
                     <div class="contracts" aria-label="Avtaler, nyeste først">
                         {#each contracts as contract (contract._id)}
-                            <ContractCard {contract} {token} open={contract._id === contracts[0]._id} />
+                            <ContractCard
+                                {contract}
+                                {token}
+                                open={contract._id === contracts[0]._id}
+                                invoices={canSeeInvoices ? (allInvoices ? invoicesFor(allInvoices, contract._id) : null) : undefined}
+                                {invoicesState}
+                                settings={invoiceSettings}
+                            />
                         {/each}
                     </div>
                 {:catch}

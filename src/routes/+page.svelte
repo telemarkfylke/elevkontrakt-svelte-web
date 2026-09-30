@@ -19,9 +19,10 @@
     import EditContractDialog from '$lib/components/contracts/EditContractDialog.svelte'
     import MoveContractDialog from '$lib/components/contracts/MoveContractDialog.svelte'
     import { yesNoInfo } from '$lib/helpers/status.js'
-    import { isElevkontraktAdmin, hasAnyRole, ELEVKONTRAKT_ADMIN } from '$lib/helpers/roles.js'
+    import { isElevkontraktAdmin, hasAnyRole, ELEVKONTRAKT_ADMIN, BILLING_ROLES } from '$lib/helpers/roles.js'
     import { searchContracts, filterContracts, schoolsIn, classesIn, contractType, isNewThisYear, missingInFint, sortContracts } from '$lib/helpers/contractFilters.js'
     import { getContracts, getElevkontraktToken, getExtendedUserInfo } from '$lib/useApi'
+    import { loadInvoiceData, invoicesFor, countInvoices } from '$lib/helpers/contractInvoices.js'
 
     const IT = 'elevkontrakt.itservicedesk-readwrite'
     const SCHOOL_WRITE = 'elevkontrakt.skoleadministrator-write'
@@ -42,6 +43,7 @@
         { key: 'rate1', label: 'Faktura 1', path: 'fakturaInfo.rate1.status', sortable: true, status: true },
         { key: 'rate2', label: 'Faktura 2', path: 'fakturaInfo.rate2.status', sortable: true, status: true },
         { key: 'rate3', label: 'Faktura 3', path: 'fakturaInfo.rate3.status', sortable: true, status: true },
+        { key: 'fakturaer', label: 'Fakturaer', path: 'invoiceCount', sortable: true }, // admin and billing roles only
         { key: 'ansvarlig', label: 'Ansvarlig', path: 'ansvarligInfo.navn', sortable: true },
         { key: 'type', label: 'Avtaletype', path: 'unSignedskjemaInfo.kontraktType', sortable: true }
     ]
@@ -62,6 +64,10 @@
     let page = 1
     let flash = ''
     let selectedId = null
+    // All invoices the user may see, fetched the first time the panel opens.
+    let allInvoices = null
+    let invoiceSettings = null
+    let invoicesState = 'idle' // idle | loading | ready | error
     let panelOpen = false
     let editOpen = false
     let moveOpen = false
@@ -100,15 +106,15 @@
 
     $: columns = delivery
         ? DELIVERY_COLUMNS.map(key => key === 'dokument' ? DOCUMENT_COLUMN : COLUMNS.find(c => c.key === key))
-        : COLUMNS.filter(c => c.key !== 'barcode' || showBarcode)
+        : COLUMNS.filter(c => (c.key !== 'barcode' || showBarcode) && (c.key !== 'fakturaer' || canSeeInvoices))
 
     // Search and filters can't be combined, as before.
     $: filterActive = Boolean(type || school || klasse)
     $: searching = Boolean(query.trim())
-    $: visible = sortContracts(
-        searching ? searchContracts(contracts, query) : filterContracts(contracts, { type, school, klasse }),
-        sort.path, sort.dir
-    )
+    $: found = searching ? searchContracts(contracts, query) : filterContracts(contracts, { type, school, klasse })
+    $: visible = sort.path === 'invoiceCount'
+        ? [...found].sort((a, b) => ((invoiceCounts?.[a._id] ?? 0) - (invoiceCounts?.[b._id] ?? 0)) * (sort.dir === 'descending' ? -1 : 1))
+        : sortContracts(found, sort.path, sort.dir)
     $: totalPages = Math.max(1, Math.ceil(visible.length / PER_PAGE))
     $: if (page > totalPages) page = totalPages
     $: rows = visible.slice((page - 1) * PER_PAGE, page * PER_PAGE)
@@ -118,6 +124,13 @@
     $: counts = { leie: contracts.filter(c => contractType(c) === 'leieavtale').length, laan: contracts.filter(c => contractType(c) === 'låneavtale').length }
     $: if (token && tab !== collection) switchCollection(tab)
     $: selected = contracts.find(c => c._id === selectedId) ?? null
+    $: canSeeInvoices = hasAnyRole(token, BILLING_ROLES)
+    $: if (token && canSeeInvoices && invoicesState === 'idle') loadInvoices()
+    // Invoices per contract, for the Fakturaer column.
+    $: invoiceCounts = allInvoices ? countInvoices(allInvoices) : null
+    $: contractInvoices = canSeeInvoices && selected
+        ? (allInvoices ? invoicesFor(allInvoices, selected._id) : null)
+        : undefined
 
     const valueAt = (contract, path) => path.split('.').reduce((value, key) => value?.[key], contract)
     const show = (value) => value === undefined || value === null || value === '' || String(value).toLowerCase() === 'ukjent' ? '' : value
@@ -139,6 +152,16 @@
         flash = ''
         contracts = []
         await load()
+    }
+
+    async function loadInvoices () {
+        invoicesState = 'loading'
+        try {
+            ({ invoices: allInvoices, settings: invoiceSettings } = await loadInvoiceData(token))
+            invoicesState = 'ready'
+        } catch {
+            invoicesState = 'error'
+        }
     }
 
     function openContract (contract) {
@@ -323,6 +346,14 @@
                                                         <DsTag color={yn.color}>{yn.label}</DsTag>
                                                     {:else if column.status}
                                                         <StatusTag status={valueAt(contract, column.path)} />
+                                                    {:else if column.key === 'fakturaer'}
+                                                        {#if invoiceCounts}
+                                                            <span class="invoice-count" class:none={!invoiceCounts[contract._id]}>{invoiceCounts[contract._id] ?? 0}</span>
+                                                        {:else if invoicesState === 'error'}
+                                                            <span class="invoice-count none" title="Vi fikk ikke hentet fakturaene">–</span>
+                                                        {:else}
+                                                            <span class="invoice-count none" aria-label="Henter">…</span>
+                                                        {/if}
                                                     {:else}
                                                         {show(valueAt(contract, column.path)) || '–'}
                                                     {/if}
@@ -384,7 +415,7 @@
                             {/if}
                         </div>
                         {#key selected}
-                            <ContractCard contract={selected} {token} bare />
+                            <ContractCard contract={selected} {token} bare invoices={contractInvoices} {invoicesState} settings={invoiceSettings} />
                         {/key}
                     {/if}
                 </DsDialog>
@@ -589,6 +620,17 @@
     .th-help .material-symbols-outlined { font-size: 1rem; }
 
     .actions { white-space: nowrap; }
+
+    .invoice-count {
+        display: block;
+        text-align: right;
+        font-weight: 600;
+    }
+
+    .invoice-count.none {
+        font-weight: 400;
+        color: var(--ds-color-neutral-text-subtle);
+    }
 
     .table-foot {
         display: flex;

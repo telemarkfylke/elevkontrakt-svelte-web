@@ -41,7 +41,8 @@ export const TOPICS = [
         roles: null,
         answer: `
           <p class="ds-paragraph">Klikk på raden i oversikten. Da åpnes et panel til høyre med elev, ansvarlig, PC-status og betalinger.</p>
-          <p class="ds-paragraph">Har du tilgang til å endre avtalen, finner du <strong>Rediger</strong> øverst i panelet. Du kan også bruke <strong>Rediger</strong> direkte på raden.</p>`
+          <p class="ds-paragraph">Har du tilgang til å endre avtalen, finner du <strong>Rediger</strong> øverst i panelet. Du kan også bruke <strong>Rediger</strong> direkte på raden.</p>
+          <p class="ds-paragraph">Har du en rolle for fakturering, har panelet også fanen <strong>Fakturaer</strong>. Der ser du fakturaene til eleven, delt i rater og tilleggstjenester. Klikk på en faktura for å åpne den. Administratorer ser den samme fanen på hver avtale i <strong>Historikk</strong>.</p>`
       },
       {
         q: 'Hvorfor ser jeg bare elever fra min skole?',

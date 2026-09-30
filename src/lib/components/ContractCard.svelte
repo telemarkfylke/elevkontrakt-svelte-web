@@ -2,12 +2,14 @@
     /**
      * One contract as a collapsible card: type, source and status when closed; status summary,
      * details and fakturering when open. DigiTroll contracts get tabs, with Rådata for administrators.
+     * Pass invoices to add a Fakturaer tab (undefined = no tab).
      */
     import DsAlert from './ds/DsAlert.svelte'
     import DsTag from './ds/DsTag.svelte'
     import DsTabs from './ds/DsTabs.svelte'
     import StatusTag from './StatusTag.svelte'
     import ContractStatusSummary from './ContractStatusSummary.svelte'
+    import ContractInvoices from './contracts/ContractInvoices.svelte'
     import { formatFnr } from '$lib/helpers/formatFnr.js'
     import { formatShortDate } from '$lib/helpers/formatDate.js'
     import { contractYear } from '$lib/helpers/contractDate.js'
@@ -20,19 +22,21 @@
     export let token
     export let open = false
     export let bare = false // only the contents, e.g. inside the side panel on Oversikt
+    export let invoices = undefined // array, or null while loading
+    export let invoicesState = 'ready' // loading | ready | error
+    export let settings = null
 
     let tab = 'overview'
     let copied = false
 
     $: c = returnLatestKnownContractInfo(contract) ?? {}
     $: ending = pcEnding(contract)
-    $: contractTabs = fromDigiTroll(contract)
-        ? [
-            { value: 'overview', label: 'Oversikt', icon: 'dashboard' },
-            { value: 'digitroll', label: 'DigiTroll-data', icon: 'database' },
-            ...(isElevkontraktAdmin(token) ? [{ value: 'raw', label: 'Rådata', icon: 'data_object' }] : [])
-        ]
-        : []
+    $: contractTabs = [
+        { value: 'overview', label: 'Oversikt', icon: 'dashboard' },
+        ...(invoices !== undefined ? [{ value: 'invoices', label: 'Fakturaer', icon: 'receipt', count: invoices?.length }] : []),
+        ...(fromDigiTroll(contract) ? [{ value: 'digitroll', label: 'DigiTroll-data', icon: 'database' }] : []),
+        ...(fromDigiTroll(contract) && isElevkontraktAdmin(token) ? [{ value: 'raw', label: 'Rådata', icon: 'data_object' }] : [])
+    ]
 
     const fromDigiTroll = (contract) => isTrue(contract.isImportedFromDigiTroll)
     // School and class come from DigiTroll when the contract itself has none.
@@ -91,9 +95,11 @@
 
 {#snippet contents()}
     <div class="body" class:bare>
-        {#if contractTabs.length}
+        {#if contractTabs.length > 1}
             <DsTabs tabs={contractTabs} bind:value={tab} label="Visning for avtalen" size="sm" let:value>
-                {#if value === 'digitroll'}
+                {#if value === 'invoices'}
+                    <ContractInvoices {invoices} state={invoicesState} {settings} digiTroll={fromDigiTroll(contract)} />
+                {:else if value === 'digitroll'}
                     {@render digiTrollData(contract)}
                 {:else if value === 'raw'}
                     <div class="raw-head">
