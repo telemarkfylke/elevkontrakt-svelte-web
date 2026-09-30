@@ -112,7 +112,10 @@
         const response = await sendInvoice(cart, contract._id, token, collection)
         sending = false
         if (response?.status !== 200) {
-            sendError = 'Fakturaen ble ikke opprettet. Ingenting er sendt. Prøv igjen om litt, og kontakt servicedesk hvis feilen fortsetter.'
+            // 409: the API allows one unsent tilleggstjeneste-faktura per contract.
+            sendError = response?.response?.status === 409
+                ? 'Eleven har allerede en faktura for tilleggstjenester som ikke er sendt. Slett den under Fakturaer og lag en ny, eller vent til den er sendt i natt.'
+                : 'Fakturaen ble ikke opprettet. Ingenting er sendt. Prøv igjen om litt, og kontakt servicedesk hvis feilen fortsetter.'
             return
         }
         flash = `${invoiceCount === 2 ? '2 fakturaer' : 'Fakturaen'} på totalt kr ${total} er opprettet for ${contract.ansvarligInfo?.navn ?? 'ansvarlig'}. ${invoiceCount === 2 ? 'De sendes' : 'Den sendes'} til Xledger kl. 01.00.`
