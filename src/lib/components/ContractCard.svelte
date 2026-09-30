@@ -19,6 +19,7 @@
     export let contract
     export let token
     export let open = false
+    export let bare = false // only the contents, e.g. inside the side panel on Oversikt
 
     let tab = 'overview'
     let copied = false
@@ -59,6 +60,9 @@
     }
 </script>
 
+{#if bare}
+    {@render contents()}
+{:else}
 <details class="contract" bind:open>
     <summary>
         <span class="material-symbols-outlined type-icon" aria-hidden="true">{String(c.kontraktType).toLowerCase() === 'låneavtale' ? 'handshake' : 'contract'}</span>
@@ -80,30 +84,35 @@
     </summary>
 
     {#if open}
-        <div class="body">
-            {#if contractTabs.length}
-                <DsTabs tabs={contractTabs} bind:value={tab} label="Visning for avtalen" size="sm" let:value>
-                    {#if value === 'digitroll'}
-                        {@render digiTrollData(contract)}
-                    {:else if value === 'raw'}
-                        <div class="raw-head">
-                            <p class="ds-paragraph" data-size="sm">Dataene slik de ble importert fra DigiTroll. Bare for administratorer.</p>
-                            <button class="ds-button" data-variant="secondary" data-size="sm" type="button" on:click={copyRaw}>
-                                <span class="material-symbols-outlined" aria-hidden="true">{copied ? 'check' : 'content_copy'}</span>
-                                {copied ? 'Kopiert' : 'Kopier JSON'}
-                            </button>
-                        </div>
-                        <pre class="raw">{JSON.stringify(contract.digiTrollData, null, 2)}</pre>
-                    {:else}
-                        {@render overview(contract, c)}
-                    {/if}
-                </DsTabs>
-            {:else}
-                {@render overview(contract, c)}
-            {/if}
-        </div>
+        {@render contents()}
     {/if}
 </details>
+{/if}
+
+{#snippet contents()}
+    <div class="body" class:bare>
+        {#if contractTabs.length}
+            <DsTabs tabs={contractTabs} bind:value={tab} label="Visning for avtalen" size="sm" let:value>
+                {#if value === 'digitroll'}
+                    {@render digiTrollData(contract)}
+                {:else if value === 'raw'}
+                    <div class="raw-head">
+                        <p class="ds-paragraph" data-size="sm">Dataene slik de ble importert fra DigiTroll. Bare for administratorer.</p>
+                        <button class="ds-button" data-variant="secondary" data-size="sm" type="button" on:click={copyRaw}>
+                            <span class="material-symbols-outlined" aria-hidden="true">{copied ? 'check' : 'content_copy'}</span>
+                            {copied ? 'Kopiert' : 'Kopier JSON'}
+                        </button>
+                    </div>
+                    <pre class="raw">{JSON.stringify(contract.digiTrollData, null, 2)}</pre>
+                {:else}
+                    {@render overview(contract, c)}
+                {/if}
+            </DsTabs>
+        {:else}
+            {@render overview(contract, c)}
+        {/if}
+    </div>
+{/snippet}
 
 {#snippet overview(contract, c)}
     {@const student = returnLatestKnownStudentInfo(contract)}
@@ -337,6 +346,8 @@
         .type-icon { display: none; }
         .status { grid-column: 1 / -1; justify-content: flex-start; }
     }
+
+    .body.bare { padding: 0; }
 
     .body {
         padding: 0 var(--ds-size-5) var(--ds-size-5);
