@@ -1,747 +1,575 @@
 <script>
-    import { getContractsWithId, getElevkontraktToken } from "$lib/useApi";
-    import { page } from '$app/stores';
-    import Alert from "$lib/components/alert.svelte";
-    import IconSpinner from "$lib/components/IconSpinner.svelte";
-    import { returnType } from "$lib/helpers/returnInvoiceType";
-    import { formatDate } from "$lib/helpers/formatDate";
+    // One invoice as a document: lines and total, status, who it went to, and who created it.
+    import { onDestroy } from 'svelte'
+    import { page } from '$app/stores'
+    import { goto } from '$app/navigation'
+    import DsScope from '$lib/components/ds/DsScope.svelte'
+    import DsAlert from '$lib/components/ds/DsAlert.svelte'
+    import DsButton from '$lib/components/ds/DsButton.svelte'
+    import DsDialog from '$lib/components/ds/DsDialog.svelte'
+    import DsSteps from '$lib/components/ds/DsSteps.svelte'
+    import StatusTag from '$lib/components/StatusTag.svelte'
+    import { formatShortDate } from '$lib/helpers/formatDate'
+    import { formatTimeUntilExport } from '$lib/helpers/xledgerExport.js'
+    import { ratePrice } from '$lib/helpers/prices.js'
+    import { hasAnyRole, BILLING_ROLES } from '$lib/helpers/roles.js'
+    import { flashMessage } from '$lib/store'
+    import { deleteInvoices, getContractsWithId, getElevkontraktToken, getSettings } from '$lib/useApi'
 
+    const TYPE = { buyOut: 'Rater', extraInvoice: 'Tilleggstjenester' }
+    const STANDARD_FIELDS = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
 
-    let invoiceData = null;
-    
-    let showSuccessAlert = false
-    let errorMessage = ''
-    let successMessage = ''
-    let successTitle = ''
-    let responseMessage = ''
+    let invoice = null
+    let settings = null
+    let loadState = 'loading' // loading | ready | notFound
+    let deleteOpen = false
+    let deleting = false
+    let deleteError = ''
+    let copied = false
+    let countdown = formatTimeUntilExport()
 
-    const getContractsBySlug = async (slug) => {
-        const targetCollection = 'invoices'
-        try {
-            const contracts = await getContractsWithId(slug, targetCollection);
-            if(contracts?.error) {
-                invoiceData = null;
-                errorMessage = contracts.error
-            } else {
-                return contracts;
-            }
-            return contracts;
-        } catch (error) {
-            errorMessage = 'Error fetching contracts by slug:' + JSON.stringify(error)
+    const timer = setInterval(() => { countdown = formatTimeUntilExport() }, 30000)
+    onDestroy(() => clearInterval(timer))
+
+    const tokenPromise = getElevkontraktToken(true)
+    const ready = tokenPromise.then(async token => {
+        if (!hasAnyRole(token, BILLING_ROLES)) return token
+        const [result, settingsResponse] = await Promise.all([getContractsWithId($page.params.slug, 'invoices'), getSettings()])
+        settings = settingsResponse?.data?.result?.[0] ?? null
+        if (Array.isArray(result) && result.length) {
+            invoice = result[0]
+            loadState = 'ready'
+        } else {
+            loadState = 'notFound'
+        }
+        return token
+    })
+
+    $: pending = invoice?.status === 'Ikke Fakturert'
+    $: isRates = invoice?.type === 'buyOut'
+    // A rate's price is set when it is sent, so an unsent rate invoice shows what the backend will use.
+    $: preliminary = isRates && pending && settings
+    $: items = invoice?.itemsFromCart ?? []
+    $: lineAmount = (item) => preliminary ? ratePrice(settings, invoice.student) : (parseInt(item.sum ?? item.price, 10) || 0)
+    $: total = items.reduce((sum, item) => sum + lineAmount(item), 0)
+
+    const known = (value) => value && value !== 'Ukjent' ? value : ''
+    const extraFields = (item) => Object.keys(item).filter(key => !STANDARD_FIELDS.includes(key) && String(item[key] ?? '').trim())
+
+    // Sent: faktureringsDato on the invoice, or on the lines for rates. Paid or credited: betaltDato.
+    function latestDate (...values) {
+        const times = values.flat().map(v => new Date(v).getTime()).filter(Number.isFinite)
+        return times.length ? new Date(Math.max(...times)).toISOString() : ''
+    }
+    $: sentDate = latestDate(invoice?.faktureringsDato, items.map(i => i.faktureringsDato))
+    $: closedDate = latestDate(invoice?.betaltDato, items.map(i => i.betaltDato))
+
+    $: ending = invoice?.status === 'Kreditert'
+        ? { label: 'Kreditert', tone: 'plomme', mark: 'undo', date: formatShortDate(closedDate) }
+        : invoice?.status === 'Overført inkasso'
+            ? { label: 'Overført inkasso', tone: 'danger', mark: 'priority_high', date: formatShortDate(closedDate) }
+            : { label: 'Betalt', done: invoice?.status === 'Betalt', date: formatShortDate(closedDate) }
+
+    $: steps = invoice ? [
+        { label: 'Opprettet', done: true, date: formatShortDate(invoice.createdTimeStamp) },
+        { label: 'Sendt til Xledger', done: !pending, date: formatShortDate(sentDate), pending: 'I natt kl. 01.00' },
+        ending
+    ] : []
+
+    async function copyId () {
+        try { await navigator.clipboard.writeText(invoice._id) } catch { /* convenience */ }
+        copied = true
+        setTimeout(() => { copied = false }, 1500)
+    }
+
+    async function confirmDelete () {
+        deleting = true
+        deleteError = ''
+        const response = await deleteInvoices(invoice._id)
+        deleting = false
+        if (response?.status !== 200) {
+            deleteError = 'Fakturaen ble ikke slettet. Prøv igjen om litt. Den sendes til Xledger kl. 01.00 hvis den ikke blir slettet.'
+            return
+        }
+        flashMessage.set(`Fakturaen til ${invoice.recipient?.navn ?? 'ansvarlig'} (kr ${total}) er slettet.`)
+        deleteOpen = false
+        goto('/invoices')
+    }
+
+    function back (event) {
+        if (history.length > 1 && document.referrer.includes('/invoices')) {
+            event.preventDefault()
+            history.back()
         }
     }
-
-    const returnStatusText = (status) => {
-        switch(status) {
-            case 'Ikke Fakturert':
-                return 'notinvoiced'
-            case 'Fakturert':
-                return 'invoiced'
-            case 'Betalt':
-                return 'paid'
-            default:
-                return status
-        }
-    }
-
-    const returnTotalPrice = (items) => {
-        let total = 0
-        items.forEach(item => {
-
-            total += parseInt(item.sum || item.price)
-        });
-        return total
-    }
-
-    const checkForExtraFields = (items) => {
-        // Returns the extra fields that are not part of the standard invoice item fields
-        const standardFields = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
-        let extraFields = []
-        items.forEach(item => {
-            Object.keys(item).forEach(key => {
-                if(!standardFields.includes(key) && !extraFields.includes(key)) {
-                    extraFields.push(key)
-                }
-            })
-        })
-        return extraFields
-    }
-
 </script>
 
-<main>
-    {#await getElevkontraktToken(true)}
-        <div class="loading">
-            <IconSpinner width={"32px"} />
-        </div>
-    {:then token}
-        {#if errorMessage}
-            <Alert type="error" title="Feil" message={errorMessage} dismissible={true} on:close={() => errorMessage = ''} autoClose={true} autoCloseDelay={10000} position="fixed-top"/>
-        {/if}
-        {#if responseMessage}
-            <Alert type="success" title="Suksess" message={responseMessage} dismissible={true} on:close={() => responseMessage = ''} autoClose={true} autoCloseDelay={10000} position="fixed-top"/>
-        {/if}
-        {#if showSuccessAlert}
-            <Alert type="success" title={successTitle} message={successMessage} dismissible={true} on:close={handleSuccessAlertClose} autoClose={true} autoCloseDelay={8000} position="fixed-top"/>
-        {/if}
-        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.billing-readwrite', 'elevkontrakt.billing-read'].includes(r))}
-            {#await getContractsBySlug($page.params.slug)}
-                <div class="loading">
-                    <IconSpinner width={"32px"} />
-                </div>
-            {:then invoiceData}
-                {#if errorMessage}
-                    <div class="error-message">
-                        <p>{errorMessage}</p>
-                    </div>
-                {/if}
-                {#if !errorMessage}
-                    <!-- Contract Info -->
-                    {#each invoiceData as invoice}
-                        <div class="contract-overview">
-                            <h2 class={returnStatusText(invoice.status).toLowerCase()}>
-                                <span class="material-symbols-outlined">receipt_long</span>
-                                Faktura Detaljer
-                            </h2>
-                            <!-- Student Info -->
-                            <div class="info-section">
-                                <h3>
-                                    <span class="material-symbols-outlined">description</span>
-                                    Elev informasjon
-                                </h3>
-                                <div class="info-grid">
-                                    <div class="info-item">
-                                        <label>Navn: </label>
-                                        <div class="value">{invoice.student.navn}</div>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Epost: </label>
-                                        <div class="value">{invoice.student.upn}</div>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Skole på faktureringstidspunkt: </label>
-                                        <div class="value">{invoice.student.skole}</div>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Klasse på faktureringstidspunkt: </label>
-                                        <div class="value">{invoice.student.klasse}</div>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Trinn på faktureringstidspunkt: </label>
-                                        <div class="value">{invoice.student.trinn}</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- Invoice Items (only for buyOut type) -->
-                            {#if invoice.type === 'buyOut'}
-                                <div class="info-section">
-                                    <h3>
-                                        <span class="material-symbols-outlined">description</span>
-                                        Fakturerte rater for utkjøp
-                                    </h3>
-                                    {#each invoice.itemsFromCart as item, i}
-                                        <h4>
-                                            <span class="material-symbols-outlined">receipt</span>
-                                            Rate {i + 1}
-                                        </h4>
-                                        <div class="info-grid">
-                                            <div class="info-item">
-                                                <label>Rate Faktureringsdato: </label>
-                                                <div class="value">{formatDate(item.faktureringsDato)}</div>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Rate Status: </label>
-                                                <div class="value">{item.status}</div>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Rate Sum: </label>
-                                                <div class="value">{item.sum} Kr</div>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Rate løpenummer: </label>
-                                                <div class="value">{item.løpenummer}</div>
-                                            </div>
-                                        </div>
-                                        <br>
-                                    {/each}
-                                    <br>
-                                    <div class="info-item">
-                                        <label>Total pris: </label>
-                                        <div class="value">{returnTotalPrice(invoice.itemsFromCart)} Kr</div>
-                                    </div>
-                                </div>
-                            {/if}
-                            <!-- Invoice Items (only for extraInvoice type) -->
-                            {#if invoice.type === 'extraInvoice'}
-                                <div class="info-section">
-                                    <h3>
-                                        <span class="material-symbols-outlined">description</span>
-                                        Fakturerte rater for produkter og tjenester
-                                    </h3>
-                                    {#each invoice.itemsFromCart as item, i}
-                                        <h4>
-                                            <span class="material-symbols-outlined">receipt</span>
-                                            {item.name}
-                                        </h4>
-                                        <div class="info-grid">
-                                            <div class="info-item">
-                                                <label>Produkt beskrivelse: </label>
-                                                <div class="value">{item.description}</div>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Rate Sum: </label>
-                                                <div class="value">{item.price} Kr</div>
-                                            </div>
-                                            {#if checkForExtraFields(invoice.itemsFromCart).length > 0}
-                                                {#each checkForExtraFields(invoice.itemsFromCart) as field}
-                                                    <div class="info-item">
-                                                        <label>{field}: </label>
-                                                        <div class="value">{item[field]}</div>
-                                                    </div>
-                                                {/each}
-                                            {/if}
-                                        </div>
-                                        <br>
-                                    {/each}
-                                    <br>
-                                    <div class="info-item">
-                                        <label>Total pris: </label>
-                                        <div class="value">{returnTotalPrice(invoice.itemsFromCart)} Kr</div>
-                                    </div>
-                                </div>
-                            {/if}
-                            <!-- Invoice Information -->
-                            <div class="info-section">
-                                <h3>
-                                    <span class="material-symbols-outlined">description</span>
-                                    Faktura informasjon
-                                </h3>
-                                <div class="info-grid">
-                                    <div class="info-item">
-                                        <label>Type: </label>
-                                        <div class="value">{returnType(invoice.type)}</div>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Faktura sendt til: </label>
-                                        <div class="value">{invoice.recipient.navn}</div>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Faktura opprettet: </label>
-                                        <div class="value">{formatDate(invoice.createdTimeStamp)}</div>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Faktura status: </label>
-                                        <div class="value">{invoice.status}</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- Invoice Created By Information -->
-                            <div class="info-section">
-                                <h3>
-                                    <span class="material-symbols-outlined">description</span>
-                                    Fakturert av
-                                </h3>
-                                <div class="info-grid">
-                                    <div class="info-item">
-                                        <label>Navn: </label>
-                                        <div class="value">{invoice.invoiceCreatedBy.name}</div>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Epost: </label>
-                                        <div class="value">{invoice.invoiceCreatedBy.email}</div>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Arbeidssted: </label>
-                                        <div class="value">{invoice.invoiceCreatedBy.officeLocation}</div>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Stilling: </label>
-                                        <div class="value">{invoice.invoiceCreatedBy.jobTitle}</div>
-                                    </div>
-                                    <div class="info-item">
-                                        <label>Faktura Database ID: </label>
-                                        <div class="value">{invoice._id}</div>
-                                    </div>
-                                </div>
-                            </div>
+<DsScope>
+    <main>
+        <a class="ds-link back" href="/invoices" on:click={back}>
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Tilbake til fakturaene
+        </a>
+
+        {#await ready}
+            <div class="loading" aria-busy="true"><div class="skel tall"></div><div class="skel"></div><div class="skel big"></div></div>
+        {:then token}
+            {#if !hasAnyRole(token, BILLING_ROLES)}
+                <h1 class="ds-heading" data-size="lg">Faktura</h1>
+                <DsAlert color="warning" heading="Du har ikke tilgang til fakturaer">
+                    <p class="ds-paragraph" data-size="sm">Fakturaer er for administratorer og økonomi. Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang.</p>
+                </DsAlert>
+            {:else if loadState === 'notFound'}
+                <DsAlert color="warning" heading="Fant ikke fakturaen">
+                    <p class="ds-paragraph" data-size="sm">Den kan være slettet. Gå tilbake til fakturaene og prøv igjen.</p>
+                </DsAlert>
+            {:else}
+                <header class="head">
+                    <div>
+                        <div class="title">
+                            <h1 class="ds-heading" data-size="lg">Faktura: {TYPE[invoice.type] ?? invoice.type}</h1>
+                            <StatusTag status={invoice.status} kind="invoice" size="md" />
                         </div>
-                    {/each}
-                {/if}
-            {/await}
-        {:else}
-            <p class="error">Du har ikke tilgang til å se fakturaer.</p>
-        {/if}
-    {/await}
-</main>
+                        <div class="meta">
+                            <span><span class="material-symbols-outlined" aria-hidden="true">person</span>{invoice.student?.navn}</span>
+                            <span><span class="material-symbols-outlined" aria-hidden="true">calendar_today</span>Opprettet {formatShortDate(invoice.createdTimeStamp)}</span>
+                        </div>
+                    </div>
+                    <div class="big-total">
+                        <small>{preliminary ? 'Foreløpig totalt' : 'Totalt'}</small>
+                        <strong>kr {total}</strong>
+                        {#if preliminary}<span class="muted">Endelig pris settes kl. 01.00</span>{/if}
+                    </div>
+                </header>
+
+                <div class="layout">
+                    <div class="col">
+                        <div class="status-box">
+                            <span class="box-label">Status</span>
+                            <DsSteps {steps} label="Fakturaens status" />
+                        </div>
+
+                        {#if pending}
+                            <div class="pending" role="status">
+                                <span class="clock"><span class="material-symbols-outlined" aria-hidden="true">schedule_send</span></span>
+                                <div>
+                                    <p class="ds-heading" data-size="2xs">Fakturaen er ikke sendt ennå</p>
+                                    <p class="ds-paragraph" data-size="sm">Den sendes til Xledger i natt kl. 01.00. Til da kan den slettes, hvis noe er feil. Om noe skulle være feil etter dette så må du ta kontakt med en administrator og få fakturaen kreditert i Xledger.</p>
+                                </div>
+                                <div class="side">
+                                    <strong>{countdown}</strong>
+                                    <span class="muted">til sending</span>
+                                    <DsButton variant="secondary" color="danger" size="sm" on:click={() => { deleteError = ''; deleteOpen = true }}>
+                                        <span class="material-symbols-outlined" aria-hidden="true">delete</span>Slett faktura
+                                    </DsButton>
+                                </div>
+                            </div>
+                        {:else if invoice.status === 'Kreditert'}
+                            <DsAlert color="info"><p class="ds-paragraph" data-size="sm">Fakturaen er kreditert i Xledger og skal ikke betales.</p></DsAlert>
+                        {:else}
+                            <DsAlert color="info"><p class="ds-paragraph" data-size="sm">Fakturaen er sendt til Xledger og kan ikke slettes her. Er noe feil, må du ta kontakt med en administrator og få fakturaen kreditert i Xledger.</p></DsAlert>
+                        {/if}
+
+                        <section class="doc" aria-labelledby="lines-title">
+                            <div class="doc-head">
+                                <h2 class="ds-heading" data-size="xs" id="lines-title">
+                                    <span class="material-symbols-outlined" aria-hidden="true">{isRates ? 'event_repeat' : 'inventory_2'}</span>{TYPE[invoice.type] ?? invoice.type}
+                                </h2>
+                                <span class="muted">{items.length} {items.length === 1 ? 'linje' : 'linjer'}</span>
+                            </div>
+                            <div class="table-wrap">
+                                <table class="ds-table" data-size="sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Beskrivelse</th>
+                                            {#if isRates}<th>Løpenummer</th><th>Faktureringsdato</th>{/if}
+                                            <th class="num">Beløp</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {#each items as item, i}
+                                            <tr>
+                                                <td>
+                                                    <span class="line-name">{isRates ? `Rate ${i + 1}` : item.name}</span>
+                                                    <span class="line-sub">{isRates ? (item.faktureringsår ? `Opprinnelig faktureringsår ${item.faktureringsår}` : '') : (item.description ?? '')}</span>
+                                                    {#if !isRates && extraFields(item).length}
+                                                        <dl class="extras">
+                                                            {#each extraFields(item) as key}<div><dt>{key}:</dt><dd>{item[key]}</dd></div>{/each}
+                                                        </dl>
+                                                    {/if}
+                                                </td>
+                                                {#if isRates}
+                                                    <td class="mono">{known(item.løpenummer) || '–'}</td>
+                                                    <td>{formatShortDate(item.faktureringsDato) || '–'}</td>
+                                                {/if}
+                                                <td class="num">kr {lineAmount(item)}</td>
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr><td colspan={isRates ? 3 : 1}>{preliminary ? 'Foreløpig totalt' : 'Totalt'}</td><td class="num">kr {total}</td></tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </section>
+                    </div>
+
+                    <aside class="side-col" aria-label="Detaljer">
+                        <section class="info recipient">
+                            <h3 class="ds-heading" data-size="2xs"><span class="material-symbols-outlined" aria-hidden="true">{pending ? 'schedule_send' : 'send'}</span>{pending ? 'Sendes til' : 'Sendt til'}</h3>
+                            <dl><dt>Navn</dt><dd><strong>{invoice.recipient?.navn ?? 'Ukjent'}</strong></dd><dt>Rolle</dt><dd>Ansvarlig på avtalen</dd></dl>
+                        </section>
+                        <section class="info">
+                            <h3 class="ds-heading" data-size="2xs"><span class="material-symbols-outlined" aria-hidden="true">school</span>Elev</h3>
+                            <p class="ds-paragraph muted" data-size="xs">Slik det var da fakturaen ble opprettet.</p>
+                            <dl>
+                                <dt>Navn</dt><dd>{invoice.student?.navn}</dd>
+                                <dt>E-post</dt><dd>{invoice.student?.upn ?? ''}</dd>
+                                <dt>Skole</dt><dd>{known(invoice.student?.skole) || 'Ingen data'}</dd>
+                                <dt>Klasse</dt><dd>{known(invoice.student?.klasse) || 'Ingen data'}</dd>
+                                <dt>Trinn</dt><dd>{known(invoice.student?.trinn) || 'Ingen data'}</dd>
+                            </dl>
+                        </section>
+                        <section class="info">
+                            <h3 class="ds-heading" data-size="2xs"><span class="material-symbols-outlined" aria-hidden="true">badge</span>Opprettet av</h3>
+                            <dl>
+                                <dt>Navn</dt><dd>{invoice.invoiceCreatedBy?.name ?? 'Ukjent'}</dd>
+                                <dt>Stilling</dt><dd>{invoice.invoiceCreatedBy?.jobTitle ?? ''}</dd>
+                                <dt>Arbeidssted</dt><dd>{invoice.invoiceCreatedBy?.officeLocation ?? ''}</dd>
+                                <dt>E-post</dt><dd>{invoice.invoiceCreatedBy?.email ?? ''}</dd>
+                            </dl>
+                        </section>
+                        <section class="info">
+                            <h3 class="ds-heading" data-size="2xs"><span class="material-symbols-outlined" aria-hidden="true">tag</span>Faktura-ID</h3>
+                            <div class="id-row">
+                                <code class="mono">{invoice._id}</code>
+                                <button class="ds-button" data-variant="tertiary" data-size="sm" data-icon type="button" aria-label="Kopier faktura-ID" on:click={copyId}>
+                                    <span class="material-symbols-outlined" aria-hidden="true">{copied ? 'check' : 'content_copy'}</span>
+                                </button>
+                            </div>
+                            {#if known(invoice.løpenummer)}<p class="ds-paragraph muted" data-size="xs">Løpenummer {invoice.løpenummer}</p>{/if}
+                        </section>
+                    </aside>
+                </div>
+
+                <DsDialog bind:open={deleteOpen} width="32rem" labelledby="delete-title" closedby={deleting ? 'none' : 'any'}>
+                    <h2 class="ds-heading" data-size="sm" id="delete-title">Slette fakturaen til {invoice.recipient?.navn}?</h2>
+                    <p class="ds-paragraph" data-size="sm">{TYPE[invoice.type] ?? invoice.type} for {invoice.student?.navn}, totalt <strong>kr {total}</strong>. Fakturaen er ikke sendt til Xledger ennå. Slettingen kan ikke angres.</p>
+                    {#if deleteError}
+                        <DsAlert color="danger"><p class="ds-paragraph" data-size="sm">{deleteError}</p></DsAlert>
+                    {/if}
+                    <svelte:fragment slot="footer">
+                        <DsButton color="danger" loading={deleting} loadingText="Sletter …" on:click={confirmDelete}>
+                            <span class="material-symbols-outlined" aria-hidden="true">delete</span>Slett fakturaen
+                        </DsButton>
+                        <DsButton variant="secondary" disabled={deleting} on:click={() => (deleteOpen = false)}>Avbryt</DsButton>
+                    </svelte:fragment>
+                </DsDialog>
+            {/if}
+        {/await}
+    </main>
+</DsScope>
 
 <style>
     main {
-        padding: 2rem;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    h1 {
-        color: var(--gress-80);
-        margin-bottom: 1rem;
-    }
-
-    p {
-        margin-bottom: 1rem;
-        color: var(--vann-70, #333);
-        line-height: 1.5;
-    }
-
-    .info-text {
-        background-color: var(--gress-5, #f8fffe);
-        border-left: 4px solid var(--gress-60);
-        padding: 1rem 1.5rem;
-        border-radius: 6px;
-        margin-bottom: 1.5rem;
-    }
-
-    button {
-        padding: 0.75rem 1.5rem;
-        background-color: var(--gress-60);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-
-    button:hover:not(:disabled) {
-        background-color: var(--gress-70);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    button:disabled {
-        background-color: #ccc;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-    }
-
-    .button-remove {
-        padding: 0.75rem 1.5rem;
-        background-color: var(--nype-60);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .button-remove:hover:not(:disabled) {
-        background-color: var(--nype-70);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    .spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid #ffffff;
-        border-top: 2px solid transparent;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    .contract-card {
-        margin-bottom: 3rem;
-    }
-
-    .results {
-        margin-top: 2rem;
-    }
-
-    .contract-overview {
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        overflow: hidden;
-    }
-
-    .contract-overview h2 {
-        background: linear-gradient(135deg, var(--gress-60), var(--gress-70));
-        color: white;
-        padding: 2rem;
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-
-        &.invoiced {
-            background: linear-gradient(135deg, var(--korn-60), var(--korn-70));
-        }
-        &.paid {
-            background: linear-gradient(135deg, var(--gress-60), var(--gress-70));
-        }
-        &.other {
-            background: linear-gradient(135deg, var(--plomme-60), var(--plomme-70));
-        }
-        &.notinvoiced {
-            background: linear-gradient(135deg, var(--nype-60), var(--nype-70));
-        }
-    }
-
-    .info-section {
-        border-bottom: 1px solid var(--gress-10);
-        padding: 2rem;
-    }
-
-    .info-section:last-child {
-        border-bottom: none;
-    }
-
-    .info-section h3 {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: var(--gress-80);
-        margin-bottom: 1.5rem;
-        font-size: 1.2rem;
-        font-weight: 600;
-    }
-
-    .info-section h3 .material-symbols-outlined {
-        font-size: 1.5rem;
-        color: var(--gress-60);
-    }
-
-    .info-section h4 {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: var(--gress-80);
-        margin-bottom: 1.5rem;
-        font-size: 1.2rem;
-        font-weight: 600;
-    }
-
-    .info-section h4 .material-symbols-outlined {
-        font-size: 1.5rem;
-        color: var(--gress-60);
-    }
-    
-    .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .info-item {
+        padding: var(--ds-size-4, 1rem);
+        max-width: 76rem;
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: var(--ds-size-5);
     }
 
-    .info-item label {
-        font-weight: 600;
-        color: var(--gress-70);
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+    .back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        align-self: flex-start;
     }
 
-    .info-item .value {
-        padding: 0.75rem;
-        background-color: var(--gress-5, #f8fffe);
-        border-radius: 6px;
-        border-left: 3px solid var(--gress-30);
-        font-size: 1rem;
-        min-height: 1.2rem;
-    }
+    .muted { color: var(--ds-color-neutral-text-subtle); }
+    .mono { font-family: ui-monospace, Consolas, monospace; font-size: 0.85em; }
 
-    .info-note {
-        margin: 0.5rem;
-        font-size: 0.9rem;
-        font-style: italic;
-    }
-
-    .value.contract-type {
-        background-color: var(--korn-10);
-        border-left-color: var(--korn-50);
-        font-weight: 600;
-    }
-
-    .value.uuid {
-        font-family: 'Courier New', monospace;
-        font-size: 0.85rem;
-        word-break: break-all;
-    }
-
-    .status-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .status-item {
+    .head {
         display: flex;
+        flex-wrap: wrap;
         justify-content: space-between;
+        align-items: flex-end;
+        gap: var(--ds-size-3) var(--ds-size-6);
+        padding-bottom: var(--ds-size-4);
+        border-bottom: 1px solid var(--ds-color-neutral-border-subtle);
+    }
+
+    .title {
+        display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        padding: 1rem;
-        border-radius: 8px;
-        background-color: var(--gress-5);
-        border: 1px solid var(--gress-20);
+        gap: var(--ds-size-3);
     }
 
-    .status-item label {
-        font-weight: 600;
-        color: var(--gress-80);
+    .meta {
+        margin-top: var(--ds-size-2);
+        color: var(--ds-color-neutral-text-subtle);
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ds-size-1) var(--ds-size-5);
     }
 
-    .status-badge {
-        padding: 0.4rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+    .meta > span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
     }
 
-    .status-item.success .status-badge {
-        background-color: var(--gress-20);
-        color: var(--gress-80);
-        border: 1px solid var(--gress-40);
-    }
-
-    .status-item.danger .status-badge {
-        background-color: var(--nype-20, #fdd);
-        color: var(--nype-80, #800);
-        border: 1px solid var(--nype-40, #faa);
-    }
-
-    .status-item.warning .status-badge {
-        background-color: var(--korn-20);
-        color: var(--korn-80);
-        border: 1px solid var(--korn-40);
-    }
-
-    .status-item.info .status-badge {
-        background-color: var(--himmel-20, #e6f3ff);
-        color: var(--himmel-80, #0066cc);
-        border: 1px solid var(--himmel-40, #99d6ff);
-    }
-
-    .billing-timeline {
+    .big-total {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
         display: flex;
         flex-direction: column;
-        gap: 1.5rem;
     }
 
-    .billing-period {
-        background-color: var(--gress-5);
-        border-radius: 8px;
-        overflow: hidden;
-        border: 1px solid var(--gress-20);
-    }
-
-    .period-header {
-        background-color: var(--gress-10);
-        padding: 1rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid var(--gress-20);
-    }
-
-    .period-header h4 {
-        margin: 0;
-        color: var(--gress-80);
-        font-weight: 600;
-    }
-
-    .period-details {
-        padding: 1rem;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-    }
-
-    .detail-item {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
-
-    .detail-label {
+    .big-total small {
+        color: var(--ds-color-neutral-text-subtle);
         font-size: 0.8rem;
-        font-weight: 600;
-        color: var(--gress-70);
+        letter-spacing: 0.06em;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        font-weight: 700;
     }
 
-    .detail-value {
-        padding: 0.5rem;
-        background-color: white;
-        border-radius: 4px;
-        border-left: 2px solid var(--gress-30);
-        font-size: 0.9rem;
+    .big-total strong {
+        font-size: 2rem;
+        line-height: 1.1;
+        font-family: 'Nunito', 'Nunito Sans', sans-serif;
     }
 
-    .pc-status {
+    .big-total .muted { font-size: 0.8rem; }
+
+    .layout {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
+        grid-template-columns: minmax(0, 1fr) 20rem;
+        gap: var(--ds-size-6);
+        align-items: start;
     }
 
-    .pc-status-item {
-        background-color: var(--gress-5);
-        border-radius: 8px;
-        padding: 1.5rem;
-        border: 1px solid var(--gress-20);
-        transition: all 0.2s ease;
+    @media (max-width: 1000px) {
+        .layout { grid-template-columns: 1fr; }
     }
 
-    .pc-status-item:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        transform: translateY(-2px);
-    }
-
-    .pc-status-header {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin-bottom: 1rem;
-        color: var(--gress-80);
-        font-weight: 600;
-    }
-
-    .pc-status-header .material-symbols-outlined {
-        font-size: 1.5rem;
-        color: var(--gress-60);
-    }
-
-    .pc-status-content {
+    .col {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: var(--ds-size-5);
+        min-width: 0;
     }
 
-    .date-info {
-        font-size: 0.85rem;
-        color: var(--gress-60);
-        font-style: italic;
+    .status-box {
+        padding: var(--ds-size-4) var(--ds-size-5);
+        background: var(--ds-color-accent-background-tinted);
+        border-radius: var(--ds-border-radius-lg);
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-3);
     }
 
-    .error-message {
-        background-color: var(--nype-10, #ffe5e5);
-        border-left: 4px solid var(--nype-60, #ff4d4d);
-        padding: 1rem 1.5rem;
-        border-radius: 6px;
-        margin-bottom: 1.5rem;
+    .box-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--ds-color-accent-text-subtle);
     }
 
-    .header-with-buttons {
+    .pending {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: var(--ds-size-3) var(--ds-size-4);
+        padding: var(--ds-size-4) var(--ds-size-5);
+        border-radius: var(--ds-border-radius-lg);
+        background: var(--ds-color-warning-surface-tinted);
+        border: 1px solid var(--ds-color-warning-border-subtle);
+    }
+
+    .clock {
+        width: 2.75rem;
+        height: 2.75rem;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--ds-color-warning-base-default);
+        color: var(--ds-color-warning-base-contrast-default);
+    }
+
+    .side {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: var(--ds-size-2);
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .side strong {
+        font-size: 1.35rem;
+        line-height: 1.1;
+    }
+
+    .side .muted { font-size: 0.8rem; }
+
+    @media (max-width: 640px) {
+        .pending { grid-template-columns: auto 1fr; }
+        .side { grid-column: 1 / -1; align-items: flex-start; text-align: left; }
+    }
+
+    .doc {
+        border: 1px solid var(--ds-color-neutral-border-subtle);
+        border-radius: var(--ds-border-radius-lg);
+        overflow: hidden;
+    }
+
+    .doc-head {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: var(--ds-size-3);
+        padding: var(--ds-size-4) var(--ds-size-5);
+        border-bottom: 1px solid var(--ds-color-neutral-border-subtle);
     }
 
+    .doc-head h2 {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
 
-    .button-group {
+    .doc-head h2 .material-symbols-outlined { color: var(--ds-color-accent-text-subtle); }
+
+    .table-wrap { overflow-x: auto; }
+
+    .ds-table {
+        --dsc-table-padding: 0.7rem 1.25rem;
+        min-width: 100%;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ds-table > thead > tr > :global(*) {
+        background: var(--ds-color-accent-background-tinted);
+        white-space: nowrap;
+    }
+
+    .ds-table td { vertical-align: top; }
+
+    .line-name { font-weight: 700; }
+
+    .line-sub {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--ds-color-neutral-text-subtle);
+        margin-top: 2px;
+    }
+
+    .extras {
+        margin: 0.35rem 0 0;
         display: flex;
-        gap: 1rem;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.9rem;
+        font-size: 0.85rem;
     }
 
-    .header-title {
-        font-size: 1.5rem;
-        font-weight: 600;
+    .extras div {
+        display: flex;
+        gap: 0.3rem;
     }
 
-    .toggle-button {
-        background-color: transparent;
-        padding: 0.5rem 1rem;
-        border: none;
-        border-radius: 6px;
+    .extras dt { color: var(--ds-color-neutral-text-subtle); }
+    .extras dd { margin: 0; }
+
+    .num {
+        text-align: right;
+        white-space: nowrap;
     }
 
-    .toggle-button:hover:not(:disabled) {
-        background-color: transparent;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    tfoot td {
+        font-weight: 700;
+        font-size: 1.05rem;
+        border-top: 2px solid var(--ds-color-neutral-border-default);
     }
+
+    .side-col {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-3);
+    }
+
+    .info {
+        border: 1px solid var(--ds-color-neutral-border-subtle);
+        border-radius: var(--ds-border-radius-md);
+        padding: var(--ds-size-4);
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-2);
+    }
+
+    .info h3 {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .info h3 .material-symbols-outlined { color: var(--ds-color-accent-text-subtle); }
+
+    .info.recipient {
+        border-color: var(--ds-color-accent-border-default);
+        background: var(--ds-color-accent-background-tinted);
+    }
+
+    .info dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.3rem var(--ds-size-3);
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .info dt {
+        color: var(--ds-color-neutral-text-subtle);
+        white-space: nowrap;
+    }
+
+    .info dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .id-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--ds-size-2);
+    }
+
+    .id-row code { overflow-wrap: anywhere; }
 
     .loading {
         display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
+        flex-direction: column;
+        gap: var(--ds-size-3);
     }
 
-    .not-invoiced {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-weight: 600;
+    .skel {
+        height: 4rem;
+        border-radius: var(--ds-border-radius-lg);
+        background: linear-gradient(90deg, var(--ds-color-neutral-surface-tinted), var(--ds-color-neutral-background-tinted), var(--ds-color-neutral-surface-tinted));
+        background-size: 200% 100%;
+        animation: shimmer 1.4s linear infinite;
     }
 
-    /* Extra fields styling in billing */
-    .extra-field-input {
-        min-width: 200px;
-        flex: 1;
+    .skel.tall { height: 5rem; }
+    .skel.big { height: 12rem; }
+
+    @keyframes shimmer {
+        to { background-position: -200% 0; }
     }
 
-    .extra-field-input :global(input) {
-        font-size: 0.9rem;
-        padding: 0.4rem;
-        border: 1px solid var(--vann-30);
-        border-radius: 4px;
-        background-color: var(--vann-5);
-    }
-
-    .extra-field-input :global(input):focus {
-        border-color: var(--vann-60);
-        outline: none;
-        box-shadow: 0 0 0 2px rgba(var(--vann-60), 0.2);
-    }
-
-    /* Responsive design */
-    @media (max-width: 768px) {
-        main {
-            padding: 1rem;
-        }
-
-        .info-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .status-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .pc-status {
-            grid-template-columns: 1fr;
-        }
-
-        .period-details {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    /* Material Icons */
-    .material-symbols-outlined {
-        font-variation-settings:
-        'FILL' 0,
-        'wght' 400,
-        'GRAD' 0,
-        'opsz' 24;
+    @media (prefers-reduced-motion: reduce) {
+        .skel { animation: none; }
     }
 </style>

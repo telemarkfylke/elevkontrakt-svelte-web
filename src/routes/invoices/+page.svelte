@@ -1,6 +1,7 @@
 <script>
     // Fakturaer: every invoice for administrators, your own for fakturering. Unsent ones can be deleted.
     import { onDestroy } from 'svelte'
+    import { get } from 'svelte/store'
     import DsScope from '$lib/components/ds/DsScope.svelte'
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
     import DsButton from '$lib/components/ds/DsButton.svelte'
@@ -14,6 +15,7 @@
     import { formatTimeUntilExport } from '$lib/helpers/xledgerExport.js'
     import { ratePrice } from '$lib/helpers/prices.js'
     import { hasAnyRole, isElevkontraktAdmin, BILLING_ROLES } from '$lib/helpers/roles.js'
+    import { flashMessage } from '$lib/store'
     import { getElevkontraktToken, getInvoices, deleteInvoices, getSettings } from '$lib/useApi'
 
     const TYPE = { buyOut: { label: 'Rater', icon: 'event_repeat' }, extraInvoice: { label: 'Tilleggstjenester', icon: 'inventory_2' } }
@@ -28,7 +30,9 @@
     let sort = { key: 'created', dir: 'descending' }
     let page = 1
     let perPage = 10
-    let flash = ''
+    // A message left by the invoice page, e.g. after a delete there.
+    let flash = get(flashMessage)
+    flashMessage.set('')
     let toDelete = null
     let deleting = false
     let deleteError = ''

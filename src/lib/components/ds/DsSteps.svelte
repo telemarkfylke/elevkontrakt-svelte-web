@@ -1,7 +1,7 @@
 <script>
     /**
      * Step line, e.g. Signert → PC utlevert → Innlevert.
-     * steps: [{ label, done, date?, icon?, tone?, mark? }]
+     * steps: [{ label, done, date?, icon?, tone?, mark?, pending? }] - pending replaces "Ikke ennå" for that step
      * - icon: small icon after the label, e.g. 'shopping_cart' for "Kjøpt ut"
      * - tone: 'plomme' | 'danger' marks an alternative ending (Kreditert, Overført inkasso); mark is its dot icon
      */
@@ -25,7 +25,7 @@
                 {#if step.icon}<span class="material-symbols-outlined how" aria-hidden="true">{step.icon}</span>{/if}
                 <span class="ds-sr-only">: {step.done || step.tone ? 'fullført' : 'ikke ennå'}</span>
             </span>
-            <span class="date">{step.done || step.tone ? (step.date ?? '') : pending}</span>
+            <span class="date">{step.done || step.tone ? (step.date ?? '') : (step.pending ?? pending)}</span>
         </li>
     {/each}
 </ol>
