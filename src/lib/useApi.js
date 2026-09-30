@@ -69,25 +69,39 @@ export const getContracts = async (school, targetCollection) => {
   return data
 }
 
+/**
+ * The school a search is limited to: null for administrators (all schools), otherwise the user's
+ * office location. Returns { error } if the location can't be fetched.
+ */
+export const getSearchScope = async (userToken) => {
+  if (!userToken.roles || userToken.roles.includes('elevkontrakt.administrator-readwrite')) return { school: null }
+  const userInfo = await getExtendedUserInfo(userToken.upn)
+  if (userInfo.status !== 200) {
+    console.error('Failed to fetch extended user info, response status:', userInfo.status)
+    return { error: 'Failed to fetch extended user info' }
+  }
+  let officeLocation = userInfo.data && userInfo.data.officeLocation ? userInfo.data.officeLocation : null
+  if (officeLocation?.startsWith('Nome')) {
+    officeLocation = 'Nome videregående skole'
+  }
+  return { school: officeLocation }
+}
+
+// DigiTroll dates are dd.mm.yyyy, ours are ISO. Used only to sort newest first.
+const contractTime = (value) => {
+  const nb = /^(\d{2})\.(\d{2})\.(\d{4})/.exec(value || '')
+  const time = nb ? new Date(`${nb[3]}-${nb[2]}-${nb[1]}`).getTime() : new Date(value).getTime()
+  return Number.isFinite(time) ? time : 0
+}
+
 export const searchContracts = async (searchName, targetCollection, userToken) => {
   // Validate input
   if (!searchName) return { error: 'No searchName provided' }
   if (!targetCollection) return { error: 'No targetCollection provided' }
 
-  let officeLocation
-  if(userToken.roles && !userToken.roles.includes('elevkontrakt.administrator-readwrite')) {
-    // If the user is not an administrator, get the school where the user is located and use that as a filter. 
-    const userInfo = await getExtendedUserInfo(userToken.upn)
-    if(userInfo.status !== 200) {
-      console.error('Failed to fetch extended user info, response status:', userInfo.status)
-      return { error: 'Failed to fetch extended user info' }
-    } else {
-      officeLocation = userInfo.data && userInfo.data.officeLocation ? userInfo.data.officeLocation : null
-      if(officeLocation.startsWith('Nome')) {
-        officeLocation = 'Nome videregående skole'
-      }
-    }
-  }
+  const scope = await getSearchScope(userToken)
+  if (scope.error) return { error: scope.error }
+  const officeLocation = scope.school
 
   const token = await getElevkontraktToken()
   const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/handleDbRequest${import.meta.env.VITE_MOCK_DATA === 'true' ? '?isMock=true' : '?isMock=false'}&navn=${encodeURIComponent(searchName)}&school=${officeLocation ? encodeURIComponent(officeLocation) : ''}`
@@ -112,9 +126,24 @@ export const searchContracts = async (searchName, targetCollection, userToken) =
         }
       })
 
+      // Each of the student's contracts, newest first, with where it came from
+      const contractList = data.result
+        .filter(c => c.elevInfo.fnr === contract.elevInfo.fnr)
+        .map(c => {
+          const info = returnLatestKnownContractInfo(c)
+          return {
+            id: c._id,
+            type: info?.kontraktType,
+            createdTimeStamp: info?.createdTimeStamp,
+            isImportedFromDigiTroll: String(c.isImportedFromDigiTroll) === 'true'
+          }
+        })
+        .sort((a, b) => contractTime(b.createdTimeStamp) - contractTime(a.createdTimeStamp))
+
       // Simplify contract structure
       return {
         id: contracts,
+        contracts: contractList,
         numberOfContracts: contracts.length,
         name: contract.elevInfo.navn,
         fnr: contract.elevInfo.fnr,

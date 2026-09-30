@@ -1,338 +1,369 @@
 <script>
-    import { goto } from "$app/navigation";
-    import IconSpinner from "$lib/components/IconSpinner.svelte";
-    import Input from "$lib/components/Input.svelte";
-    import { formatDate } from "$lib/helpers/formatDate";
-    import { formatFnr } from "$lib/helpers/formatFnr";
-    import { getElevkontraktToken, searchContracts } from "$lib/useApi";
+    // Historikk: search for an elev by name. One row per elev, with all their contracts.
+    import DsScope from '$lib/components/ds/DsScope.svelte'
+    import DsInput from '$lib/components/ds/DsInput.svelte'
+    import DsButton from '$lib/components/ds/DsButton.svelte'
+    import DsAlert from '$lib/components/ds/DsAlert.svelte'
+    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
+    import DsTag from '$lib/components/ds/DsTag.svelte'
+    import DsPagination from '$lib/components/ds/DsPagination.svelte'
+    import { formatFnr } from '$lib/helpers/formatFnr'
+    import { formatShortDate } from '$lib/helpers/formatDate'
+    import { hasAnyRole, HISTORY_ROLES } from '$lib/helpers/roles.js'
+    import { getElevkontraktToken, getSearchScope, searchContracts } from '$lib/useApi'
 
-    let personSearchValue = ''
-    let isLoadingSearchData = false
-    let contractData = null
-    let userData = null
-    let resultsVisible = true
-    let contractOverviewVisible = false
-    let digitrollDataVisible = false
-    let digitrollDataRawVisible = false
-    let errorMessage = ''
+    let query = ''
+    let searched = ''
+    let searching = false
+    let results = null // null = not searched yet
+    let error = ''
+    let copiedId = ''
+    let page = 1
 
-    const getHistoryData = async (searchValue, token) => {
-        contractOverviewVisible = false
-        errorMessage = ''
-        isLoadingSearchData = true;
-        try {
-            userData = await searchContracts(searchValue, 'history', token);
-            if (userData && userData.contracts && userData.contracts.length > 0) {
-                contractData = userData.contracts[0]
-            } else if (userData.error && userData.error.length > 0) {
-                contractData = null;
-                errorMessage = userData.error
-            }
-            isLoadingSearchData = false;
-        } catch (error) {
-            errorMessage = 'Noe gikk veldig galt' + JSON.stringify(error)
-            isLoadingSearchData = false;
+    // Same page size as Oversikt.
+    const PER_PAGE = 30
+    $: totalPages = Math.max(1, Math.ceil((results?.length ?? 0) / PER_PAGE))
+    $: pageResults = results?.slice((page - 1) * PER_PAGE, page * PER_PAGE) ?? []
+
+    const tokenPromise = getElevkontraktToken(true)
+    const scopePromise = tokenPromise.then(token => hasAnyRole(token, HISTORY_ROLES) ? getSearchScope(token) : { school: null })
+
+    async function search (token) {
+        const name = query.trim()
+        if (!name || searching) return
+        searching = true
+        error = ''
+        searched = name
+        const response = await searchContracts(name, 'history', token)
+        searching = false
+        page = 1
+        if (Array.isArray(response)) {
+            results = response
+        } else if (response?.error?.startsWith('Fant ingen')) {
+            results = []
+        } else {
+            results = null
+            error = 'Vi fikk ikke kontakt med avtaleregisteret. Prøv igjen om litt. Kontakt servicedesk hvis feilen fortsetter.'
         }
     }
 
-    const handleVisibility = (section, i) => {
-        if (section === 'contractOverview') {
-            if(contractOverviewVisible === i){
-                contractOverviewVisible = false;
-            } else {
-                contractOverviewVisible = i;
-            }
-        }
+    async function copy (id) {
+        try { await navigator.clipboard.writeText(id) } catch { /* copying is a convenience */ }
+        copiedId = id
+        setTimeout(() => { if (copiedId === id) copiedId = '' }, 1500)
     }
+
+    const historyHref = (student) => `/history/${student.id.join(',')}`
+    const fromDigiTroll = (student) => student.contracts?.some(c => c.isImportedFromDigiTroll)
+    const latest = (student) => student.contracts?.[0]
 </script>
 
-<main>
-    {#await getElevkontraktToken(true)}
-        <div class="loading">
-            <IconSpinner width={"32px"} />
-        </div>
-    {:then token}
-        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))}
-            <h1>Historikk søk</h1>
-            <div class="info-text">
-                <p>Her kan du søke etter en elev sin historikk ved å skrive inn elevens navn.</p>
-                <p>Skriv inn navn på eleven i søkefeltet under og trykk på "Hent elev" knappen.</p>
-                <br>
-                <p><strong>Obs!</strong> Om en elev er importert fra digitroll og har ukjent skole eller klasse, vil den sist kjente informasjonen fra digitroll bli vist.</p>
-                <p>Dette betyr også at informasjonen kan være utdatert eller ufullstendig. Du kan da se på informasjonen i digitroll-fanen for mer detaljer.</p>
-            </div>
+<DsScope>
+    <main>
+        {#await tokenPromise}
+            <div class="center"><DsSpinner size="sm" title="Laster" /></div>
+        {:then token}
+            <h1 class="ds-heading" data-size="lg">Historikk</h1>
 
-            <div class="searchField">
-                <Input disabled="{isLoadingSearchData}" type="text" bind:value={personSearchValue} placeholder="Eleven sitt navn" keypressEvent={(e) => e.key === 'Enter' && getHistoryData(personSearchValue, token)}/>
-                <button disabled="{personSearchValue.length === 0 || isLoadingSearchData}" on:click={() => getHistoryData(personSearchValue, token)}>
-                    {#if isLoadingSearchData}
-                        <span class="spinner"></span>
-                        Henter elev...
-                    {:else}
-                        Hent elev
+            {#if !hasAnyRole(token, HISTORY_ROLES)}
+                <DsAlert color="warning" heading="Du har ikke tilgang til historikken">
+                    <p class="ds-paragraph" data-size="sm">Historikken er for administratorer og skoleadministratorer. Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang.</p>
+                </DsAlert>
+            {:else}
+                <p class="ds-paragraph lead" data-size="sm">Søk etter en elev for å se avtaler fra tidligere skoleår.</p>
+
+                <form class="search" role="search" on:submit|preventDefault={() => search(token)}>
+                    <DsInput label="Elevens navn" type="search" icon="search" placeholder="Fornavn, etternavn eller begge" autocomplete="off" readonly={searching} bind:value={query} />
+                    <DsButton type="submit" disabled={!query.trim()} loading={searching} loadingText="Søker …">Søk</DsButton>
+                </form>
+
+                {#await scopePromise then scope}
+                    {#if scope.school}
+                        <p class="ds-paragraph scope" data-size="sm">
+                            <span class="material-symbols-outlined" aria-hidden="true">school</span>
+                            Du søker i avtaler ved {scope.school}.
+                        </p>
                     {/if}
-                </button>
-            </div>
+                {/await}
 
-            {#if isLoadingSearchData}
-                <div class="loading">
-                    <IconSpinner width={"32px"} />
-                </div>
-            {:else if userData}
-                {#if errorMessage}
-                    <div class="error-message">
-                        <p>{errorMessage}</p>
+                {#if error}
+                    <DsAlert color="danger" heading="Søket feilet">
+                        <p class="ds-paragraph" data-size="sm">{error}</p>
+                    </DsAlert>
+                {:else if searching}
+                    <div class="table-wrap" aria-busy="true">
+                        <div class="skeleton">{#each [1, 2, 3] as _}<div class="skel"></div>{/each}</div>
+                    </div>
+                {:else if results === null}
+                    <div class="state">
+                        <span class="material-symbols-outlined" aria-hidden="true">person_search</span>
+                        <p class="ds-heading" data-size="2xs">Søk etter en elev</p>
+                        <p class="ds-paragraph" data-size="sm">Skriv hele eller deler av navnet og trykk Søk. Du får én rad per elev, med alle avtalene eleven har hatt.</p>
+                    </div>
+                {:else if results.length === 0}
+                    <div class="state">
+                        <span class="material-symbols-outlined" aria-hidden="true">search_off</span>
+                        <p class="ds-heading" data-size="2xs">Ingen elever funnet</p>
+                        {#await scopePromise then scope}
+                            <p class="ds-paragraph" data-size="sm">Fant ingen avtaler for «{searched}»{scope.school ? ` ved ${scope.school}` : ''}. Sjekk stavemåten, eller prøv bare fornavn eller etternavn.</p>
+                        {/await}
+                    </div>
+                {:else}
+                    <h2 class="ds-heading" data-size="xs" id="results-title">{results.length === 1 ? '1 elev' : `${results.length} elever`} funnet for «{searched}»</h2>
+                    <div class="table-wrap">
+                        <table class="ds-table" data-size="sm" data-border aria-labelledby="results-title">
+                            <thead>
+                                <tr><th>Elev</th><th>Fødselsnummer</th><th>Siste avtale</th><th>Avtaler</th><th><span class="ds-sr-only">Handling</span></th></tr>
+                            </thead>
+                            <tbody>
+                                {#each pageResults as student, i (student.fnr)}
+                                    <tr>
+                                        <td>
+                                            <span class="who">
+                                                <span class="name-line">
+                                                    <a class="ds-link" href={historyHref(student)}><strong>{student.name}</strong></a>
+                                                    {#if fromDigiTroll(student)}<DsTag color="plomme">DigiTroll</DsTag>{/if}
+                                                </span>
+                                                <small>{student.upn}</small>
+                                            </span>
+                                        </td>
+                                        <td><span class="fnr">{formatFnr(student.fnr)}</span></td>
+                                        <td>
+                                            <span class="latest">
+                                                {latest(student)?.type ?? student.contractType}
+                                                <small>Opprettet {formatShortDate(latest(student)?.createdTimeStamp) || student.createdTimeStamp}</small>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="ds-button" data-variant="tertiary" data-size="sm" type="button" popovertarget="contracts-{i}">
+                                                {student.numberOfContracts} {student.numberOfContracts === 1 ? 'avtale' : 'avtaler'}
+                                                <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+                                            </button>
+                                            <div class="ds-popover contracts" popover id="contracts-{i}" data-placement="bottom-start">
+                                                <p class="ds-heading" data-size="2xs">Avtaler for {student.name}</p>
+                                                <ul>
+                                                    {#each student.contracts ?? [] as contract (contract.id)}
+                                                        <li>
+                                                            <div class="row">
+                                                                <span><strong>{contract.type}</strong> · {formatShortDate(contract.createdTimeStamp)}</span>
+                                                                {#if contract.isImportedFromDigiTroll}
+                                                                    <DsTag color="plomme">DigiTroll</DsTag>
+                                                                {:else}
+                                                                    <DsTag color="accent">Elevavtaler</DsTag>
+                                                                {/if}
+                                                            </div>
+                                                            <div class="row id">
+                                                                <code>{contract.id}</code>
+                                                                <button class="ds-button" data-variant="tertiary" data-size="sm" data-icon type="button" aria-label="Kopier ID {contract.id}" on:click={() => copy(contract.id)}>
+                                                                    <span class="material-symbols-outlined" aria-hidden="true">{copiedId === contract.id ? 'check' : 'content_copy'}</span>
+                                                                </button>
+                                                            </div>
+                                                        </li>
+                                                    {/each}
+                                                </ul>
+                                            </div>
+                                        </td>
+                                        <td class="go">
+                                            <a class="ds-button" data-variant="secondary" data-size="sm" href={historyHref(student)}>
+                                                Se historikk <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-foot">
+                        <p class="ds-paragraph" data-size="sm">Viser {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, results.length)} av {results.length} elever</p>
+                        <DsPagination bind:current={page} total={totalPages} />
                     </div>
                 {/if}
-                {#if !errorMessage}
-                    {#each userData as contract, i}
-                        <div class="contract-overview">
-                            <h2>
-                                <div class="header-with-buttons">
-                                    <div class="header-title">
-                                        <span class="material-symbols-outlined">person</span>
-                                        {contract.name} - {formatFnr(contract.fnr)}
-                                    </div>
-                                    <div class="button-group">
-                                        <button class="toggle-button" on:click={() => goto(`/history/${contract.id}`)}>
-                                            <span class="material-symbols-outlined">contract</span>
-                                        </button>
-                                        <button class="toggle-button" on:click={() => handleVisibility('contractOverview', i)}>
-                                            <span class="material-symbols-outlined">
-                                                {contractOverviewVisible === i ? 'visibility_off' : 'visibility'}
-                                            </span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </h2>
-                            {#if contractOverviewVisible === i}
-                                {#each contract.id as id}
-                                    <div class="info-section">
-                                        <div class="info-grid">
-                                            <div class="info-item">
-                                                <label>Database ID:</label>
-                                                <span class="value">{id}</span>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Avtaletype:</label>
-                                                <span class="value">{contract.contractType}</span>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Opprettet:</label>
-                                                <span class="value">{contract.createdTimeStamp}</span>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Gå til denne avtalen:</label>
-                                                <div class="button-group">
-                                                    <button class="button" on:click={() => goto(`/history/${contract.id}`)}>
-                                                        <span class="material-symbols-outlined">contract</span>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                {/each}
-                            {/if}
-                        </div>
-                        <br>
-                    {/each}
-                {/if}
             {/if}
-        {:else}
-            <h1>Tilgang nektet</h1>
-            <p>Du har ikke de nødvendige tillatelsene for å få tilgang til denne siden. Vennligst kontakt systemadministratoren hvis du mener dette er en feil.</p>
-        {/if}
-    {/await}
-</main>
+        {/await}
+    </main>
+</DsScope>
 
 <style>
     main {
-        padding: 2rem;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    h1 {
-        color: var(--gress-80);
-        margin-bottom: 1rem;
-    }
-
-    p {
-        margin-bottom: 1rem;
-        color: var(--vann-70, #333);
-        line-height: 1.5;
-    }
-
-    .searchField {
-        display: flex;
-        gap: 1rem;
-        margin: 2rem 0;
-        align-items: center;
-    }
-
-    .info-text {
-        background-color: var(--gress-5, #f8fffe);
-        border-left: 4px solid var(--gress-60);
-        padding: 1rem 1.5rem;
-        border-radius: 6px;
-        margin-bottom: 1.5rem;
-    }
-
-    button {
-        padding: 0.75rem 1.5rem;
-        background-color: var(--gress-60);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    button:hover:not(:disabled) {
-        background-color: var(--gress-70);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    button:disabled {
-        background-color: #ccc;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-    }
-
-    .spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid #ffffff;
-        border-top: 2px solid transparent;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    .contract-overview {
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        overflow: hidden;
-    }
-
-    .contract-overview h2 {
-        background: linear-gradient(135deg, var(--gress-60), var(--gress-70));
-        color: white;
-        padding: 2rem;
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-    }
-
-    .info-section {
-        border-bottom: 1px solid var(--gress-10);
-        padding: 2rem;
-    }
-
-    .info-section:last-child {
-        border-bottom: none;
-    }
-    
-    .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .info-item {
+        padding: var(--ds-size-4, 1rem);
+        max-width: 64rem;
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: var(--ds-size-5);
     }
 
-    .info-item label {
-        font-weight: 600;
-        color: var(--gress-70);
+    .center {
+        display: grid;
+        place-items: center;
+        padding: 2rem;
+    }
+
+    .lead,
+    .scope,
+    .who small,
+    .latest small,
+    .state .ds-paragraph {
+        color: var(--ds-color-neutral-text-subtle);
+    }
+
+    .search {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: var(--ds-size-3);
+    }
+
+    .search > :global(.ds-field) {
+        flex: 1 1 20rem;
+        max-width: 32rem;
+    }
+
+    .scope {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .state {
+        display: grid;
+        justify-items: center;
+        gap: var(--ds-size-2);
+        text-align: center;
+        padding: var(--ds-size-8, 2.5rem) var(--ds-size-4);
+        border: 2px dashed var(--ds-color-neutral-border-subtle);
+        border-radius: var(--ds-border-radius-lg);
+    }
+
+    .state .material-symbols-outlined {
+        font-size: 2.2rem;
+        color: var(--ds-color-accent-text-subtle);
+    }
+
+    .state .ds-paragraph {
+        max-width: 36rem;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--ds-color-neutral-border-subtle);
+        border-radius: var(--ds-border-radius-lg);
+    }
+
+    .ds-table {
+        --dsc-table-padding: 0.7rem 0.9rem;
+        min-width: 100%;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ds-table > thead > tr > :global(*) {
+        background: var(--ds-color-accent-background-tinted);
+        white-space: nowrap;
+    }
+
+    .ds-table td {
+        vertical-align: middle;
+    }
+
+    .who,
+    .latest {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.3;
+    }
+
+    .who small,
+    .latest small {
+        font-size: 0.8rem;
+        overflow-wrap: anywhere;
+    }
+
+    .name-line {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--ds-size-2);
+    }
+
+    .fnr {
+        font-family: ui-monospace, Consolas, monospace;
         font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        white-space: nowrap;
     }
 
-    .info-item .value {
-        padding: 0.75rem;
-        background-color: var(--gress-5, #f8fffe);
-        border-radius: 6px;
-        border-left: 3px solid var(--gress-30);
-        font-size: 1rem;
-        min-height: 1.2rem;
+    .go {
+        text-align: right;
+        white-space: nowrap;
     }
 
-    .error-message {
-        background-color: var(--nype-10, #ffe5e5);
-        border-left: 4px solid var(--nype-60, #ff4d4d);
-        padding: 1rem 1.5rem;
-        border-radius: 6px;
-        margin-bottom: 1.5rem;
-    }
-
-    .header-with-buttons {
+    .table-foot {
         display: flex;
+        flex-wrap: wrap;
+        align-items: center;
         justify-content: space-between;
-        align-items: center;
+        gap: var(--ds-size-3);
+        font-variant-numeric: tabular-nums;
     }
 
-    .button-group {
+    .contracts {
+        min-width: 20rem;
+        max-width: 26rem;
+    }
+
+    .contracts ul {
+        list-style: none;
+        margin: var(--ds-size-2) 0 0;
+        padding: 0;
+    }
+
+    .contracts li {
         display: flex;
-        gap: 1rem;
+        flex-direction: column;
+        gap: 2px;
+        padding: var(--ds-size-2) 0;
+        border-top: 1px solid var(--ds-color-neutral-border-subtle);
     }
 
-    .header-title {
-        font-size: 1.5rem;
-        font-weight: 600;
+    .contracts li:first-child {
+        border-top: 0;
     }
 
-    .toggle-button {
-        background-color: transparent;
-        padding: 0.5rem 1rem;
-        border: none;
-        border-radius: 6px;
-    }
-
-    .loading {
+    .row {
         display: flex;
         align-items: center;
-        justify-content: center;
-        height: 100%;
+        justify-content: space-between;
+        gap: var(--ds-size-2);
     }
 
-    /* Responsive design */
-    @media (max-width: 768px) {
-        main {
-            padding: 1rem;
-        }
-
-        .searchField {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .info-grid {
-            grid-template-columns: 1fr;
-        }
+    .row.id {
+        color: var(--ds-color-neutral-text-subtle);
     }
 
-    /* Material Icons */
-    .material-symbols-outlined {
-        font-variation-settings:
-        'FILL' 0,
-        'wght' 400,
-        'GRAD' 0,
-        'opsz' 24;
+    .row code {
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 0.82rem;
+        overflow-wrap: anywhere;
+    }
+
+    .skeleton {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-2);
+        padding: var(--ds-size-4);
+    }
+
+    .skel {
+        height: 2.6rem;
+        border-radius: var(--ds-border-radius-md);
+        background: linear-gradient(90deg, var(--ds-color-neutral-surface-tinted), var(--ds-color-neutral-background-tinted), var(--ds-color-neutral-surface-tinted));
+        background-size: 200% 100%;
+        animation: shimmer 1.4s linear infinite;
+    }
+
+    @keyframes shimmer {
+        to { background-position: -200% 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .skel { animation: none; }
     }
 </style>
