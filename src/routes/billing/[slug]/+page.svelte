@@ -5,7 +5,6 @@
      */
     import { page } from '$app/stores'
     import { get } from 'svelte/store'
-    import DsScope from '$lib/components/ds/DsScope.svelte'
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
     import DsButton from '$lib/components/ds/DsButton.svelte'
     import DsDialog from '$lib/components/ds/DsDialog.svelte'
@@ -134,7 +133,6 @@
     }
 </script>
 
-<DsScope>
     <main>
         <a class="ds-link back" href="/billing" on:click={back}>
             <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Tilbake til søket
@@ -358,7 +356,6 @@
             </DsAlert>
         {/await}
     </main>
-</DsScope>
 
 <style>
     main {

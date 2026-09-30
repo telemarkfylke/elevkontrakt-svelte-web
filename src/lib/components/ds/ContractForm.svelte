@@ -593,7 +593,7 @@
     }
 
     .hint {
-        color: var(--ds-color-neutral-text-subtle, var(--vann-60));
+        color: var(--ds-color-neutral-text-subtle);
         margin-top: calc(-1 * var(--ds-size-2, 0.5rem));
     }
 </style>

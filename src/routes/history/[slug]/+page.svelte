@@ -1,7 +1,6 @@
 <script>
     // Historikk for one elev: every contract in the link, newest first.
     import { page } from '$app/stores'
-    import DsScope from '$lib/components/ds/DsScope.svelte'
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
     import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
     import DsTag from '$lib/components/ds/DsTag.svelte'
@@ -36,7 +35,6 @@
     }
 </script>
 
-<DsScope>
     <main>
         <a class="ds-link back" href="/history" on:click={back}>
             <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Tilbake til søket
@@ -93,7 +91,6 @@
             {/if}
         {/await}
     </main>
-</DsScope>
 
 <style>
     main {

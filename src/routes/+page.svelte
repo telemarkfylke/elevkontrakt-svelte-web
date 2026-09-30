@@ -3,7 +3,6 @@
      * Oversikt: all elevavtaler the user may see. Search or filter, open a contract in the side panel,
      * and edit, move or delete it there. Administrators and IT-servicedesk also get delivery mode and export.
      */
-    import DsScope from '$lib/components/ds/DsScope.svelte'
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
     import DsButton from '$lib/components/ds/DsButton.svelte'
     import DsCheckbox from '$lib/components/ds/DsCheckbox.svelte'
@@ -184,7 +183,6 @@
     }
 </script>
 
-<DsScope>
     <main>
         {#await ready}
             <h1 class="ds-heading" data-size="lg">Oversikt</h1>
@@ -395,7 +393,6 @@
             {/if}
         {/await}
     </main>
-</DsScope>
 
 <style>
     main {

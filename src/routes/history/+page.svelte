@@ -1,6 +1,5 @@
 <script>
     // Historikk: search for an elev by name. One row per elev, with all their contracts.
-    import DsScope from '$lib/components/ds/DsScope.svelte'
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
     import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
     import StudentSearch from '$lib/components/StudentSearch.svelte'
@@ -28,7 +27,6 @@
     }
 </script>
 
-<DsScope>
     <main>
         {#await Promise.all([tokenPromise, scopePromise])}
             <div class="center"><DsSpinner size="sm" title="Laster" /></div>
@@ -53,7 +51,6 @@
             {/if}
         {/await}
     </main>
-</DsScope>
 
 <style>
     main {

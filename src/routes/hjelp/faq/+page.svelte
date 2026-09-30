@@ -1,6 +1,5 @@
 <script>
     // Frequently asked questions, filtered by the user's roles. The content is in questions.js.
-    import DsScope from '$lib/components/ds/DsScope.svelte'
     import DsInput from '$lib/components/ds/DsInput.svelte'
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
     import DsTag from '$lib/components/ds/DsTag.svelte'
@@ -25,7 +24,6 @@
     }
 </script>
 
-<DsScope>
     <main>
         <p class="ds-paragraph" data-size="sm"><a class="ds-link" href="/hjelp">← Tilbake til hjelp</a></p>
 
@@ -92,7 +90,6 @@
             <p class="ds-paragraph" data-size="sm">Ta kontakt med din nærmeste servicedesk. Oppgi at henvendelsen gjelder Elevavtaler, og hva du prøvde å gjøre.</p>
         </DsAlert>
     </main>
-</DsScope>
 
 <style>
     main {
@@ -199,6 +196,7 @@
     .answer :global(.ds-tag) {
         font-weight: 600;
     }
+
 
     .none {
         display: grid;

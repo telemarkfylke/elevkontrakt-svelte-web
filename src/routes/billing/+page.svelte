@@ -2,7 +2,6 @@
     // Fakturering: find the elev to invoice. Administrators can also search among elever who have left.
     import { tick } from 'svelte'
     import { get } from 'svelte/store'
-    import DsScope from '$lib/components/ds/DsScope.svelte'
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
     import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
     import StudentSearch from '$lib/components/StudentSearch.svelte'
@@ -39,7 +38,6 @@
     }
 </script>
 
-<DsScope>
     <main>
         {#await Promise.all([tokenPromise, scopePromise])}
             <div class="center"><DsSpinner size="sm" title="Laster" /></div>
@@ -83,7 +81,6 @@
             {/if}
         {/await}
     </main>
-</DsScope>
 
 <style>
     main {

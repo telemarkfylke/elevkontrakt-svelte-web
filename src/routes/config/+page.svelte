@@ -1,6 +1,5 @@
 <script>
     // Innstillinger (administrators): rate prices, the two exception lists, and products.
-    import DsScope from '$lib/components/ds/DsScope.svelte'
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
     import DsButton from '$lib/components/ds/DsButton.svelte'
     import DsCheckbox from '$lib/components/ds/DsCheckbox.svelte'
@@ -301,7 +300,6 @@
     }
 </script>
 
-<DsScope>
     <main>
         <header>
             <h1 class="ds-heading" data-size="lg">Innstillinger</h1>
@@ -585,7 +583,6 @@
             {/if}
         {/await}
     </main>
-</DsScope>
 
 <style>
     main {

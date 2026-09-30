@@ -9,7 +9,6 @@
     import DsCard from '$lib/components/ds/DsCard.svelte'
     import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
     import { startBulkInvoice, getBulkRun, listBulkRuns } from '$lib/useApi.js'
-    import DsScope from '$lib/components/ds/DsScope.svelte'
 
     const POLL_MS = 2000
     const MAX_POLL_FAILURES = 5
@@ -203,7 +202,6 @@
     $: report = finished?.report ?? null
 </script>
 
-<DsScope>
     <AdminOnly>
         <main>
             <h1 class="ds-heading" data-size="lg">Fakturer fra fil</h1>
@@ -483,7 +481,6 @@
             </section>
         </main>
     </AdminOnly>
-</DsScope>
 
 <style>
     /* Designsystemet spaces list items for prose; --ds-size-3 between one-word items is too much. */

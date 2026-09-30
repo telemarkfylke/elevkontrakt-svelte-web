@@ -149,9 +149,9 @@
         gap: var(--ds-size-3, 0.75rem);
         flex-wrap: wrap;
         padding: var(--ds-size-3, 0.75rem) var(--ds-size-4, 1rem);
-        border: 1px solid var(--ds-color-neutral-border-subtle, var(--vann-20));
+        border: 1px solid var(--ds-color-neutral-border-subtle);
         border-radius: var(--ds-border-radius-md, 4px);
-        background: var(--ds-color-neutral-surface-tinted, var(--vann-5));
+        background: var(--ds-color-neutral-surface-tinted);
     }
 
     .filename {
@@ -162,13 +162,10 @@
     }
 
     .filesize {
-        color: var(--ds-color-neutral-text-subtle, var(--vann-60));
+        color: var(--ds-color-neutral-text-subtle);
     }
 
-    /**
-     * Bare icon, matching .iv-action-btn in /invoices. `all: unset` is load-bearing: app.css still
-     * styles bare <button> in @layer app-base and there is no .ds-button class here to out-rank it.
-     */
+    /* Bare icon button. */
     .remove {
         all: unset;
         cursor: pointer;
@@ -178,19 +175,19 @@
         width: 2rem;
         height: 2rem;
         border-radius: 6px;
-        color: var(--vann-70);
+        color: var(--ds-color-neutral-text-subtle);
         transition: background 0.1s, color 0.1s;
         /* Trailing edge, so the control stays put whatever the filename length. */
         margin-inline-start: auto;
     }
 
     .remove:hover {
-        background: var(--nype-10);
-        color: var(--nype);
+        background: var(--ds-color-danger-surface-tinted);
+        color: var(--ds-color-danger-text-default);
     }
 
     .remove:focus-visible {
-        outline: 2px solid var(--vann);
+        outline: 3px solid var(--ds-color-focus-outer);
         outline-offset: 2px;
     }
 

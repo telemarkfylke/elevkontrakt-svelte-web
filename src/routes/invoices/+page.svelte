@@ -2,7 +2,6 @@
     // Fakturaer: every invoice for administrators, your own for fakturering. Unsent ones can be deleted.
     import { onDestroy } from 'svelte'
     import { get } from 'svelte/store'
-    import DsScope from '$lib/components/ds/DsScope.svelte'
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
     import DsButton from '$lib/components/ds/DsButton.svelte'
     import DsDialog from '$lib/components/ds/DsDialog.svelte'
@@ -119,7 +118,6 @@
     }
 </script>
 
-<DsScope>
     <main>
         {#await ready}
             <h1 class="ds-heading" data-size="lg">Fakturaer</h1>
@@ -274,7 +272,6 @@
             {/if}
         {/await}
     </main>
-</DsScope>
 
 <style>
     main {
