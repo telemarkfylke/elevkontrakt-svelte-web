@@ -1,1600 +1,694 @@
 <script>
-    import { page } from '$app/stores';
-    import Alert from '$lib/components/alert.svelte';
-    import IconSpinner from '$lib/components/IconSpinner.svelte';
-    import Input from '$lib/components/Input.svelte';
-    import { calculateRestValuePC } from '$lib/helpers/calculateRestValuePC';
-    import { formatDate } from '$lib/helpers/formatDate.js';
-    import { formatFnr } from '$lib/helpers/formatFnr.js';
-    import { returnLatestKnownContractInfo } from '$lib/helpers/latestKnownContractInfo';
-    import { returnLatestKnownStudentInfo } from '$lib/helpers/latestKnownStudentInfo';
-    import { billingTargetCollection } from '$lib/store';
-    import { getContractsWithId, getElevkontraktToken, getSettings, getProducts, sendInvoice } from '$lib/useApi';
-    import { error } from '@sveltejs/kit';
-    import { onMount } from 'svelte';
-    import { get } from 'svelte/store';
-    
-    let isLoadingSearchData = false
-    let contractData = null
-    let digitrollDataVisible = false
-    let digitrollDataRawVisible = false
-    let contractOverviewVisible = false
-    let buyOutVisible = false
-    let extraInvoiceVisible = false
-    let isSendingInvoice = false
+    /**
+     * Invoice an elev: rates and tilleggstjenester on the left, the invoice (cart) on the right.
+     * Rates and tilleggstjenester become two invoices. Nothing is sent before the user confirms.
+     */
+    import { page } from '$app/stores'
+    import { get } from 'svelte/store'
+    import DsScope from '$lib/components/ds/DsScope.svelte'
+    import DsAlert from '$lib/components/ds/DsAlert.svelte'
+    import DsButton from '$lib/components/ds/DsButton.svelte'
+    import DsDialog from '$lib/components/ds/DsDialog.svelte'
+    import DsInput from '$lib/components/ds/DsInput.svelte'
+    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
+    import DsTag from '$lib/components/ds/DsTag.svelte'
+    import StatusTag from '$lib/components/StatusTag.svelte'
+    import ContractCard from '$lib/components/ContractCard.svelte'
+    import { formatFnr } from '$lib/helpers/formatFnr.js'
+    import { formatShortDate } from '$lib/helpers/formatDate.js'
+    import { returnLatestKnownStudentInfo } from '$lib/helpers/latestKnownStudentInfo'
+    import { hasAnyRole, isElevkontraktAdmin, ELEVKONTRAKT_ADMIN } from '$lib/helpers/roles.js'
+    import { ADMIN_ONLY_PRODUCTS, productPrice, checkProductPrice, ratePrice, hasReducedPrice } from '$lib/helpers/prices.js'
+    import { billingTargetCollection } from '$lib/store'
+    import { getContractsWithId, getElevkontraktToken, getProducts, getSettings, sendInvoice } from '$lib/useApi'
 
-    // Alert states success
-    let showSuccessAlert = false
-    let successMessage = ''
-    let successTitle = ''
+    const BILLING_WRITE_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.billing-readwrite']
+    const STANDARD_FIELDS = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
+    // Extra fields that hold the price itself, so they are not shown as text on the invoice line.
+    const PRICE_FIELDS = ['Innkjøpspris PC', 'Egenandel', 'Restverdi']
 
-    // Alert states error
-    let showErrorAlert = false
-    let errorMessage = ''
-    let errorTitle = ''
+    const collection = get(billingTargetCollection)
+    const tokenPromise = getElevkontraktToken(true)
 
-    let responseMessage = ''
-    
-    let cart = {
-        buyOut: [],
-        extraInvoice: []
-    }
-
+    let contracts = []
     let settings = null
-    let products = null
-    let productsLength = 0
+    let products = []
+    let loadState = 'loading' // loading | ready | notFound | error
+    let loadError = ''
 
-    let productExtraFields = {}
-    onMount(async () => {
-        try {
-            const settingsResponse = await getSettings()
-            if (settingsResponse?.data?.result) {
-                settings = settingsResponse.data.result[0]
-            }
-        } catch (error) {
-            console.error('Error loading settings:', error)
-            errorMessage = 'Failed to load settings'
-        }
+    let cart = { buyOut: [], extraInvoice: [] }
+    let values = {} // what the user typed into empty extra fields, per product id
+    let confirmOpen = false
+    let sending = false
+    let sendError = ''
+    let flash = ''
 
-        try {
-            const token = await getElevkontraktToken(true)
-            const productsResponse = await getProducts()
-            if(productsResponse.status !== 200) {
-                errorMessage = 'Failed to load products: ' + productsResponse.error
-            } else if (productsResponse?.data?.result) {
-                if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))) {
-                    products = productsResponse.data.result
-                } else {
-                    // Filter out specific products for non-admin users
-                    const excludedProducts = [ '69bd4c20e7d203bdae952250', '69d7d4c3d9ab0462f2ef38fb', '6a216481d8650085b998a23d' ];
-                    products = productsResponse.data.result.filter(product => !excludedProducts.includes(product._id));
-                }
-                productsLength = products.length
-                // Initialize extra fields for products after products are loaded
-                initializeProductExtraFields()
-            }
-        } catch (error) {
-            console.error('Error loading products:', error)
-            errorMessage = 'Failed to load products'
+    async function load (token) {
+        const [contractResult, settingsResponse, productsResponse] = await Promise.all([
+            getContractsWithId($page.params.slug, collection),
+            getSettings(),
+            getProducts()
+        ])
+        if (!Array.isArray(contractResult)) {
+            loadState = 'notFound'
+            return
         }
-
-        const urlParams = new URLSearchParams($page.url.search);
-        if (urlParams.get('success') === 'invoice-sent') {
-            showSuccessAlert = true
-            successTitle = 'Faktura opprettet!'
-            successMessage = 'Fakturaen har blitt opprettet og vil bli sendt til Xledger.'
-            
-            // Clean up URL by removing the success parameter
-            const newUrl = new URL($page.url)
-            newUrl.searchParams.delete('success')
-            window.history.replaceState(null, '', newUrl)
+        settings = settingsResponse?.data?.result?.[0] ?? null
+        const allProducts = productsResponse?.status === 200 ? productsResponse.data.result : []
+        if (!settings || productsResponse?.status !== 200) {
+            loadError = 'Priser eller produkter kunne ikke hentes. Last inn siden på nytt før du lager en faktura.'
         }
-
-        if(urlParams.get('error') === 'zero-price') {
-            showErrorAlert = true
-            errorTitle = 'Utkjøpspris er 0 kr'
-            errorMessage = 'Utkjøpsprisen for denne PC-en er 0 kr basert på innkjøpspris og elevens trinn. Det anbefales å ikke legge denne i handlekurven. Vennligst kontakt support hvis du mener dette er en feil.'
-            
-            // Clean up URL by removing the error parameter
-            const newUrl = new URL($page.url)
-            newUrl.searchParams.delete('error')
-            window.history.replaceState(null, '', newUrl)
-        }
-
-        if(urlParams.get('error') === 'price-too-high') {
-            showErrorAlert = true
-            errorTitle = 'Pris er for høy'
-            errorMessage = 'Prisen for denne PC-en overstiger den anbefalte grensen. Det anbefales å ikke legge denne i handlekurven. Vennligst kontakt support hvis du mener dette er en feil.'
-            
-            // Clean up URL by removing the error parameter
-            const newUrl = new URL($page.url)
-            newUrl.searchParams.delete('error')
-            window.history.replaceState(null, '', newUrl)
-        }
-    })
-
-    const getContractsBySlug = async (slug) => {
-        const targetCollection = get(billingTargetCollection)
-        try {
-            const contracts = await getContractsWithId(slug, targetCollection);
-            if(contracts?.error) {
-                contractData = null;
-                errorMessage = contracts.error
-            } else {
-                return contracts;
-            }
-            return contracts;
-        } catch (error) {
-            errorMessage = 'Error fetching contracts by slug:' + JSON.stringify(error)
-        }
+        products = allProducts.filter(p => isElevkontraktAdmin(token) || !ADMIN_ONLY_PRODUCTS.includes(p._id))
+        contracts = contractResult
+        loadState = 'ready'
     }
 
-    const getStatusColor = (value) => {
-        if (value === "true" || value === true || value === "Ja" || value === "Betalt") return "success";
-        if (value === "false" || value === false || value === "Nei") return "danger";
-        if (value === "utlån faktureres ikke") return "info";
-        if (value === "ukjent") return "warning";
-        return "default";
+    const ready = tokenPromise.then(token => hasAnyRole(token, BILLING_WRITE_ROLES) ? load(token).then(() => token) : token)
+
+    // The first contract in the link is the one being invoiced, as before.
+    $: contract = contracts[0]
+    $: elev = contract?.elevInfo
+    $: rates = Object.entries(contract?.fakturaInfo ?? {}).map(([key, rate]) => ({ key, number: key.slice(-1), ...rate }))
+    $: price = settings && elev ? ratePrice(settings, elev) : null
+    $: reduced = settings && elev ? hasReducedPrice(settings, elev) : false
+    $: activeProducts = products.filter(p => p.active)
+
+    const isOpenRate = (rate) => String(rate.status).toLowerCase() === 'ikke fakturert'
+    const rateInCart = (rate, cart) => cart.buyOut.some(item => item.faktureringsår === rate.faktureringsår)
+    const productInCart = (product, cart) => cart.extraInvoice.some(item => item._id === product._id)
+    const extraKeys = (product) => Object.keys(product).filter(key => !STANDARD_FIELDS.includes(key))
+    const emptyKeys = (product) => extraKeys(product).filter(key => !String(product[key] ?? '').trim())
+    const priceOf = (product, values) => productPrice(product, values[product._id], settings, elev)
+
+    function toggleRate (rate) {
+        cart.buyOut = rateInCart(rate, cart)
+            ? cart.buyOut.filter(item => item.faktureringsår !== rate.faktureringsår)
+            : [...cart.buyOut, { ...contract.fakturaInfo[rate.key], sum: price }] // the whole rate, as before
     }
 
-    const getStatusLabel = (value) => {
-        if (value === "true" || value === true) return "Ja";
-        if (value === "false" || value === false) return "Nei";
-        return value || "ukjent";
+    function toggleProduct (product) {
+        if (productInCart(product, cart)) {
+            cart.extraInvoice = cart.extraInvoice.filter(item => item._id !== product._id)
+            return
+        }
+        const { price: amount } = priceOf(product, values)
+        cart.extraInvoice = [...cart.extraInvoice, { ...product, ...(values[product._id] ?? {}), price: amount }]
     }
 
-    const handleVisibility = (section, i) => {
-        if (section === 'contractOverview') {
-            if(contractOverviewVisible === i){
-                contractOverviewVisible = false;
-            } else {
-                contractOverviewVisible = i;
-            }
-        } else if (section === 'digitrollData') {
-            if(digitrollDataVisible === i) {
-                digitrollDataVisible = false;
-            } else {
-                digitrollDataVisible = i;
-            }
-        } else if (section === 'digitrollDataRaw') {
-            if(digitrollDataRawVisible === i) {
-                digitrollDataRawVisible = false;
-            } else {
-                digitrollDataRawVisible = i;
-            }
-        } else if (section === 'extraInvoice') {
-            if(extraInvoiceVisible === i) {
-                extraInvoiceVisible = false;
-            } else {
-                extraInvoiceVisible = i;
-            }
-        } else if (section === 'buyOut') {
-            if(buyOutVisible === i) {
-                buyOutVisible = false;
-            } else {
-                buyOutVisible = i;
-            }
+    function setValue (product, key, value) {
+        values = { ...values, [product._id]: { ...(values[product._id] ?? {}), [key]: value } }
+    }
+
+    $: lines = [
+        ...cart.buyOut.map(item => ({ key: `r${item.faktureringsår}`, group: 'rates', label: `Rate ${rates.find(r => r.faktureringsår === item.faktureringsår)?.number ?? ''}`, sub: `Opprinnelig faktureringsår ${item.faktureringsår}${reduced ? ' · redusert pris' : ''}`, sum: item.sum, remove: () => { cart.buyOut = cart.buyOut.filter(i => i !== item) } })),
+        ...cart.extraInvoice.map(item => ({ key: `p${item._id}`, group: 'products', label: item.name, sub: extraKeys(item).filter(k => !PRICE_FIELDS.includes(k) && String(item[k] ?? '').trim()).map(k => `${k}: ${item[k]}`).join(' · '), sum: item.price, remove: () => { cart.extraInvoice = cart.extraInvoice.filter(i => i !== item) } }))
+    ]
+    $: total = lines.reduce((sum, line) => sum + Number(line.sum || 0), 0)
+    $: invoiceCount = (cart.buyOut.length ? 1 : 0) + (cart.extraInvoice.length ? 1 : 0)
+
+    async function create (token) {
+        sending = true
+        sendError = ''
+        const response = await sendInvoice(cart, contract._id, token, collection)
+        sending = false
+        if (response?.status !== 200) {
+            sendError = 'Fakturaen ble ikke opprettet. Ingenting er sendt. Prøv igjen om litt, og kontakt servicedesk hvis feilen fortsetter.'
+            return
+        }
+        flash = `${invoiceCount === 2 ? '2 fakturaer' : 'Fakturaen'} på totalt kr ${total} er opprettet for ${contract.ansvarligInfo?.navn ?? 'ansvarlig'}. ${invoiceCount === 2 ? 'De sendes' : 'Den sendes'} til Xledger kl. 01.00.`
+        cart = { buyOut: [], extraInvoice: [] }
+        values = {}
+        confirmOpen = false
+        await load(token) // show the new rate statuses without reloading the page
+    }
+
+    // Back to the search keeps the search (the search page restores it from its snapshot).
+    function back (event) {
+        if (history.length > 1 && document.referrer.includes('/billing')) {
+            event.preventDefault()
+            history.back()
         }
     }
-
-    /**
-     * Calculates the number of invoices based on the provided fakturaInfo and summaryType.
-     * @param fakturaInfo
-     * @param summaryType e.g 'all', 'invoiced', 'notInvoiced'
-     * @returns {number} The count of invoices based on the specified summaryType.
-     */
-    const calculateNumberOfInvoices = (fakturaInfo, summaryType) => {
-        let count = 0;
-
-        if (!fakturaInfo) return count
-
-        // Return the total number of invoices regardless of status
-        if(summaryType === 'all') {
-            return Object.keys(fakturaInfo).length
-        }
-        // Count only the invoices that are either "Betalt", "Fakturert" or "Overført inkasso"
-        if(summaryType === 'invoiced') {
-            for (const rateInfo of Object.values(fakturaInfo)) {
-                if (rateInfo.status.toLowerCase() === 'betalt' || rateInfo.status.toLowerCase() === 'fakturert' || rateInfo.status.toLowerCase() === 'overført inkasso') {
-                    count++
-                }
-            }
-        }
-        // Count only the invoices that are "Ikke Fakturert"
-        if(summaryType === 'notInvoiced') {
-            for (const rateInfo of Object.values(fakturaInfo)) {
-                if (rateInfo.status.toLowerCase() === 'ikke fakturert') {
-                    count++
-                }
-            }
-        }
-        return count
-    }
-
-    /**
-     * Handles cart actions such as adding or removing a buyout based on the specified type and rate name.
-     * @param type e.g 'add' or 'remove'
-     * @param shop e.g 'buyOut' or 'extraInvoice'
-     * @param data e.g 'rate1', 'rate2', 'rate3'
-     */
-    const handleCartAction = (type, shop, data) => {
-        if(type === 'add') {
-            let isAlreadyInCart;
-            
-            if(shop === 'extraInvoice') {
-                isAlreadyInCart = cart[shop].some(item => item._id === data._id);
-            } else if(shop === 'buyOut') {
-                isAlreadyInCart = cart[shop].some(item => item.faktureringsår === data.faktureringsår);
-            } else {
-                isAlreadyInCart = cart[shop].includes(data);
-            }
-                
-            if(!isAlreadyInCart) {
-                if(shop === 'extraInvoice') {
-                    const productWithExtraFields = {
-                        ...data,
-                        ...getProductExtraFields(data._id)
-                    }
-                    cart[shop] = [...cart[shop], productWithExtraFields];
-                } else {
-                    cart[shop] = [...cart[shop], data];
-                }
-            }
-        } else if (type === 'remove') {
-            if(shop === 'extraInvoice') {
-                cart[shop] = cart[shop].filter(item => item._id !== data._id)
-            } else if(shop === 'buyOut') {
-                cart[shop] = cart[shop].filter(item => item.faktureringsår !== data.faktureringsår)
-            } else {
-                cart[shop] = cart[shop].filter(item => item !== data)
-            }
-        }
-    }
-
-    const calculateTotal = (cart, student) => {
-        let total = 0;
-
-        if(cart.buyOut.length > 0) {
-            total += cart.buyOut.reduce((sum, rateInfo) => {
-                return sum + parseInt(rateInfo.sum)
-            }, 0)
-        }
-
-        if(cart.extraInvoice.length > 0) {
-            total += cart.extraInvoice.reduce((sum, product) => {
-                return sum + calculatePrice(product, student)
-            }, 0)
-        }
-
-        return total;
-    }
-
-    const sendInvoiceRequest = async (cart, customerId, token) => {
-        isSendingInvoice = true;
-
-        const mainDocumentCollectionSource = get(billingTargetCollection)
-
-        const response = await sendInvoice(cart, customerId, token, mainDocumentCollectionSource)
-
-        isSendingInvoice = false
-
-        if (response && response.status === 200) {
-            // Successfully updated product
-            responseMessage = 'Fakturaen har blitt opprettet og vil bli sendt til Xledger.'
-            cart.buyOut = []
-            cart.extraInvoice = []
-            reloadPageWithSuccess('invoice-sent') // Reload with success parameter
-        } else {
-            errorMessage = 'Noe gikk galt ved oppretting av faktura. Vennligst prøv igjen.'
-        }
-    }
-
-    const reloadPageWithSuccess = (successType) => {
-        const currentUrl = new URL(window.location);
-        currentUrl.searchParams.set('success', successType);
-        window.location.href = currentUrl.toString();
-    }
-
-    const reloadPageWithError = (errorType) => {
-        const currentUrl = new URL(window.location);
-        currentUrl.searchParams.set('error', errorType);
-        window.location.href = currentUrl.toString();
-    }
-
-    const handleErrorAlertClose = () => {
-        showErrorAlert = false;
-        errorTitle = '';
-        errorMessage = '';
-    }
-
-    const handleSuccessAlertClose = () => {
-        showSuccessAlert = false;
-        successMessage = '';
-        successTitle = '';
-    }
-
-    const initializeProductExtraFields = () => {
-        if (products) {
-            products.forEach(product => {
-                const extraFields = {}
-                const standardFields = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
-                
-                Object.keys(product).forEach(key => {
-                    if (!standardFields.includes(key)) {
-                        extraFields[key] = product[key] || ''
-                    }
-                })
-                
-                productExtraFields[product._id] = extraFields
-            })
-        }
-    }
-
-    const updateProductExtraField = (productId, fieldKey, value) => {
-        if (!productExtraFields[productId]) {
-            productExtraFields[productId] = {}
-        }
-        productExtraFields[productId][fieldKey] = value
-        productExtraFields = { ...productExtraFields }
-    }
-
-    const getProductExtraFields = (productId) => {
-        return productExtraFields[productId] || {}
-    }
-
-    const calculatePrice = (product, student) => {
-        // Studentdata == contractsData[0].elevInfo
-        const studentGrade = student.elevInfo.trinn
-        const studentFnr = student.elevInfo.fnr
-        const specialProducts = ['69bd4c20e7d203bdae952250', '69d7d4c3d9ab0462f2ef38fb', '6a216481d8650085b998a23d', '6a9eae8f4d0dd6ed3d8de53f']
-
-        if(specialProducts.includes(product._id)) {
-            if(product._id === '69bd4c20e7d203bdae952250') {
-                const price = calculateRestValuePC(product["Innkjøpspris PC"], studentGrade)
-
-                if(price === 0) {
-                    reloadPageWithError('zero-price')
-                }
-
-                // Add price to the product price in the cart
-                product.price = price
-
-                return price
-            }
-            if(product._id === '69d7d4c3d9ab0462f2ef38fb') {
-                // Just return the price. 
-                const price = parseInt(product["Egenandel"])
-
-                if(price === 0) {
-                    reloadPageWithError('zero-price')
-                }
-
-                if(price > 5000) {
-                    reloadPageWithError('price-too-high')
-                }
-
-                product.price = price
-                return price
-            }
-            if(product._id === '6a216481d8650085b998a23d') {
-                // Just return the price. 
-                const price = parseInt(product["Restverdi"])
-
-                if(price === 0) {
-                    reloadPageWithError('zero-price')
-                }
-
-                if(price > 5000) {
-                    reloadPageWithError('price-too-high')
-                }
-
-                product.price = price
-                return price
-            }
-            // Yearly rent beyond the 3rd rate. Fetches the price from settings and also checks if the student should have the original price or the discounted price based on the rules in settings.
-            if(product._id === '6a9eae8f4d0dd6ed3d8de53f') {
-                const pricesFromSettings = settings.prices || {}
-                // Check if student is in the list of studnets from settings
-                const studentInExceptions = settings.exceptionsFromRegularPrices.students.some((s) => s.fnr === studentFnr)
-                const price = parseInt(studentInExceptions ? pricesFromSettings.reducedPrice : pricesFromSettings.regularPrice)
-
-                product.price = price
-                return price
-            }
-        } else {
-            return product.price
-        }
-    }
-
 </script>
 
-<main>
-    {#await getElevkontraktToken(true)}
-        <div class="loading">
-            <IconSpinner width={"32px"} />
-        </div>
-    {:then token}
-        {#if errorMessage}
-            <Alert type="error" title={errorTitle ? errorTitle : "Feil"} message={errorMessage} dismissible={true} on:close={handleErrorAlertClose} autoClose={true} autoCloseDelay={10000} position="fixed-top"/>
-        {/if}
-        {#if responseMessage}
-            <Alert type="success" title="Suksess" message={responseMessage} dismissible={true} on:close={() => responseMessage = ''} autoClose={true} autoCloseDelay={10000} position="fixed-top"/>
-        {/if}
-        {#if showSuccessAlert}
-            <Alert type="success" title={successTitle} message={successMessage} dismissible={true} on:close={handleSuccessAlertClose} autoClose={true} autoCloseDelay={8000} position="fixed-top"/>
-        {/if}
-        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.billing-readwrite'].includes(r))}
-            {#await getContractsBySlug($page.params.slug)}
-                <div class="loading">
-                    <IconSpinner width={"32px"} />
-                </div>
-            {:then contractsData}
-                {#if errorMessage}
-                    <div class="error-message">
-                        <p>{errorMessage}</p>
+<DsScope>
+    <main>
+        <a class="ds-link back" href="/billing" on:click={back}>
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Tilbake til søket
+        </a>
+
+        {#await ready}
+            <div class="loading" aria-busy="true"><div class="skel tall"></div><div class="skel"></div><div class="skel big"></div></div>
+        {:then token}
+            {#if !hasAnyRole(token, BILLING_WRITE_ROLES)}
+                <h1 class="ds-heading" data-size="lg">Fakturering</h1>
+                <DsAlert color="warning" heading="Du har ikke tilgang til fakturering">
+                    <p class="ds-paragraph" data-size="sm">Fakturering er for administratorer og økonomi. Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang.</p>
+                </DsAlert>
+            {:else if loadState === 'notFound'}
+                <DsAlert color="warning" heading="Fant ikke avtalen">
+                    <p class="ds-paragraph" data-size="sm">Avtalen i lenken finnes ikke i denne gruppen. Den kan være flyttet. Søk etter eleven på nytt.</p>
+                </DsAlert>
+            {:else}
+                {@const student = returnLatestKnownStudentInfo(contract)}
+                <header class="student">
+                    <h1 class="ds-heading" data-size="lg">Fakturer {elev.navn}</h1>
+                    <div class="meta">
+                        <span><span class="material-symbols-outlined" aria-hidden="true">badge</span><span class="mono">{formatFnr(elev.fnr)}</span></span>
+                        <span><span class="material-symbols-outlined" aria-hidden="true">school</span>{student.skole}{student.klasse && student.klasse !== 'Ukjent' ? `, ${student.klasse}` : ''}{elev.trinn ? ` · ${elev.trinn}` : ''}</span>
+                        {#if elev.upn}<span><span class="material-symbols-outlined" aria-hidden="true">mail</span>{elev.upn}</span>{/if}
                     </div>
+                </header>
+
+                {#if flash}
+                    <DsAlert color="success" dismissible on:dismiss={() => (flash = '')}>
+                        <p class="ds-paragraph" data-size="sm">{flash}</p>
+                    </DsAlert>
                 {/if}
-                {#if !errorMessage}
-                    <!-- Contract Info -->
-                    {#each contractsData as contractData, i}
-                        <div class="contract-card">
-                            <h1>
-                                <span class="material-symbols-outlined">contract</span>
-                                {returnLatestKnownContractInfo(contractData)?.kontraktType} for {contractData.elevInfo.navn}, opprettet: {formatDate(returnLatestKnownContractInfo(contractData).createdTimeStamp, true)}
-                            </h1>
-                            <div class="results">
-                                <div class="contract-overview">
-                                    <h2>
-                                        <div class="header-with-buttons">
-                                            <div class="header-title">
-                                                Avtaleoversikt for <strong>{contractData.elevInfo.navn} {contractData.isImportedFromDigiTroll === "true" ? "(Importert fra DigiTroll)" : ""}</strong>
-                                            </div>
-                                            <div class="button-group">
-                                                <button class="toggle-button" on:click={() => handleVisibility('contractOverview', i)}>
-                                                    <span class="material-symbols-outlined">
-                                                        {contractOverviewVisible === i ? 'visibility_off' : 'visibility'}
-                                                    </span>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </h2>
-                                    {#if contractOverviewVisible === i}
-                                        <!-- Student Information -->
-                                        <div class="info-section">
-                                            <h3>
-                                                <span class="material-symbols-outlined">person</span>
-                                                Elevinformasjon
-                                            </h3>
-                                            <div class="info-grid">
-                                                <div class="info-item">
-                                                    <label>Navn:</label>
-                                                    <span class="value">{contractData.elevInfo.navn}</span>
-                                                </div>
-                                                <div class="info-item">
-                                                    <label>Fødselsnummer:</label>
-                                                    <span class="value">{formatFnr(contractData.elevInfo.fnr)}</span>
-                                                </div>
-                                                <div class="info-item">
-                                                    <label>Skole (Sist kjente):</label>
-                                                    <span class="value">{returnLatestKnownStudentInfo(contractData).skole}</span>
-                                                </div>
-                                                <div class="info-item">
-                                                    <label>Klasse (Sist kjente):</label>
-                                                    <span class="value">{returnLatestKnownStudentInfo(contractData).klasse}</span>
-                                                </div>
-                                            </div>
-                                        </div>
+                {#if loadError}
+                    <DsAlert color="danger"><p class="ds-paragraph" data-size="sm">{loadError}</p></DsAlert>
+                {/if}
 
-                                        <!-- Contract Status -->
-                                        <div class="info-section">
-                                            <h3>
-                                                <span class="material-symbols-outlined">assignment</span>
-                                                Avtalestatus
-                                            </h3>
-                                            <div class="status-grid">
-                                                <div class="status-item {getStatusColor(contractData.isSigned)}">
-                                                    <label>Signert:</label>
-                                                    <span class="status-badge">{getStatusLabel(contractData.isSigned)}</span>
-                                                </div>
-                                                <div class="status-item {getStatusColor(contractData.isImportedToXledger)}">
-                                                    <label>Importert til XLedger:</label>
-                                                    <span class="status-badge">{getStatusLabel(contractData.isImportedToXledger)}</span>
-                                                </div>
-                                                <div class="status-item {getStatusColor(contractData.isStudent)}">
-                                                    <label>Er student:</label>
-                                                    <span class="status-badge">{getStatusLabel(contractData.isStudent)}</span>
-                                                </div>
-                                                <div class="status-item {getStatusColor(contractData.isImportedFromDigiTroll)}">
-                                                    <label>Importert fra DigiTroll:</label>
-                                                    <span class="status-badge">{getStatusLabel(contractData.isImportedFromDigiTroll ? 'true' : 'false')}</span>
-                                                </div>
-                                            </div>
-                                        </div>
+                <div class="layout">
+                    <div class="col">
+                        {#each contracts as item (item._id)}
+                            <ContractCard contract={item} {token} />
+                        {/each}
 
-                                        <!-- Contract Information -->
-                                        <div class="info-section">
-                                            <h3>
-                                                <span class="material-symbols-outlined">description</span>
-                                                Avtaleinformasjon
-                                            </h3>
-                                            <div class="info-grid">
-                                                <div class="info-item">
-                                                    <label>Type:</label>
-                                                    <span class="value contract-type">{returnLatestKnownContractInfo(contractData).kontraktType}</span>
-                                                </div>
-                                                <div class="info-item">
-                                                    <label>Opprettet:</label>
-                                                    <span class="value">{formatDate(returnLatestKnownContractInfo(contractData).createdTimeStamp)}</span>
-                                                </div>
-                                                <div class="info-item">
-                                                    <label>UUID (Database referanse):</label>
-                                                    <span class="value uuid">{contractData.uuid}</span>
-                                                </div>
-                                                <div class="info-item">
-                                                    <label>Filnavn:</label>
-                                                    <span class="value">{returnLatestKnownContractInfo(contractData).acosName}</span>
-                                                </div>
-                                                <div class="info-item">
-                                                    <label>Referanse ID:</label>
-                                                    <span class="value">{returnLatestKnownContractInfo(contractData).refId}</span>
-                                                </div>
-                                                <div class="info-item">
-                                                    <label>Arkiv dokumentnummer:</label>
-                                                    <span class="value">{returnLatestKnownContractInfo(contractData).archiveDocumentNumber}</span>
-                                                </div>
-                                                <div class="info-item">
-                                                    <label>Ansvarlig:</label>
-                                                    <span class="value">{returnLatestKnownContractInfo(contractData).ansvarligNavn}</span>
-                                                </div>
-                                            </div>
+                        <section class="section" aria-labelledby="h-rates">
+                            <div class="section-head">
+                                <h2 class="ds-heading" data-size="xs" id="h-rates"><span class="material-symbols-outlined" aria-hidden="true">event_repeat</span>Rater</h2>
+                                <span class="muted">{rates.filter(isOpenRate).length ? `${rates.filter(isOpenRate).length} ikke fakturert` : 'Alle rater er fakturert'}</span>
+                            </div>
+                            {#if price !== null}
+                                <p class="ds-paragraph lead" data-size="sm">
+                                    Eleven har {reduced ? 'redusert pris' : 'ordinær pris'}, <strong>kr {price}</strong> per rate. Endelig pris settes når fakturaen sendes til Xledger kl. 01.00.
+                                </p>
+                            {/if}
+                            <ul class="picks">
+                                {#each rates as rate (rate.key)}
+                                    {@const open = isOpenRate(rate)}
+                                    {@const picked = rateInCart(rate, cart)}
+                                    <li class="pick" class:picked class:locked={!open}>
+                                        <div class="what">
+                                            <span class="name">Rate {rate.number} {#if picked}<DsTag color="accent">I fakturaen</DsTag>{:else}<StatusTag status={rate.status} />{/if}</span>
+                                            <small>Faktureringsår {rate.faktureringsår}{rate.betaltDato && rate.betaltDato !== 'Ukjent' ? ` · betalt ${formatShortDate(rate.betaltDato)}` : ''}</small>
                                         </div>
+                                        <span class="price">
+                                            {#if open}kr {price ?? '–'}<small>{reduced ? 'redusert pris' : 'ordinær pris'}</small>{:else}{rate.sum ? `kr ${rate.sum}` : ''}{/if}
+                                        </span>
+                                        <span class="act">
+                                            {#if !open}
+                                                <span class="muted small">Allerede behandlet</span>
+                                            {:else if picked}
+                                                <DsButton variant="tertiary" size="sm" on:click={() => toggleRate(rate)}><span class="material-symbols-outlined" aria-hidden="true">remove_shopping_cart</span>Fjern</DsButton>
+                                            {:else}
+                                                <DsButton variant="secondary" size="sm" disabled={price === null} on:click={() => toggleRate(rate)}><span class="material-symbols-outlined" aria-hidden="true">add_shopping_cart</span>Legg til</DsButton>
+                                            {/if}
+                                        </span>
+                                    </li>
+                                {/each}
+                            </ul>
+                        </section>
 
-                                        <!-- Billing Information -->
-                                        <div class="info-section">
-                                            <h3>
-                                                <span class="material-symbols-outlined">receipt_long</span>
-                                                Faktureringsinformasjon
-                                            </h3>
-                                            <div class="billing-timeline">
-                                                {#each Object.entries(contractData.fakturaInfo) as [rateName, rateInfo]}
-                                                    <div class="billing-period">
-                                                        <div class="period-header">
-                                                            <h4>Rate {rateName.slice(-1)}</h4>
-                                                            <span class="status-badge {getStatusColor(rateInfo.status.toLowerCase() === 'utlån faktureres ikke' ? 'info' : rateInfo.status)}">
-                                                                {rateInfo.status}
-                                                            </span>
-                                                        </div>
-                                                        {#if rateInfo.status.toLowerCase() === 'utlån faktureres ikke'}
-                                                            <p class="info-note">Denne raten er ikke fakturert fordi utlån ikke faktureres.</p>
-                                                        {:else}
-                                                            <div class="period-details">
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">Faktureringsdato:</span>
-                                                                    <span class="detail-value">{formatDate(rateInfo.faktureringsDato, true)}</span>
-                                                                </div>
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">Betalt dato:</span>
-                                                                    <span class="detail-value">{formatDate(rateInfo.betaltDato, true)}</span>
-                                                                </div>
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">Sum:</span>
-                                                                    <span class="detail-value">{rateInfo.sum} Kr</span>
-                                                                </div>
-                                                            </div>
-                                                        {/if}
-                                                    </div>
+                        <section class="section" aria-labelledby="h-products">
+                            <div class="section-head">
+                                <h2 class="ds-heading" data-size="xs" id="h-products"><span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>Tilleggstjenester og annet</h2>
+                                <span class="muted">{activeProducts.length} tilgjengelige</span>
+                            </div>
+                            <p class="ds-paragraph lead" data-size="sm">Faktureres som en egen faktura til ansvarlig, ved siden av ratene.</p>
+                            <ul class="picks">
+                                {#each activeProducts as product (product._id)}
+                                    {@const computed = priceOf(product, values)}
+                                    {@const check = checkProductPrice(computed)}
+                                    {@const picked = productInCart(product, cart)}
+                                    <li class="pick" class:picked>
+                                        <div class="what">
+                                            <span class="name">{product.name} {#if picked}<DsTag color="accent">I fakturaen</DsTag>{/if}</span>
+                                            <small>{product.description ?? ''}</small>
+                                        </div>
+                                        <span class="price">
+                                            {computed.price === null || Number.isNaN(computed.price) ? '–' : `kr ${computed.price}`}
+                                            {#if computed.how}<small>{computed.how}</small>{/if}
+                                        </span>
+                                        <span class="act">
+                                            {#if picked}
+                                                <DsButton variant="tertiary" size="sm" on:click={() => toggleProduct(product)}><span class="material-symbols-outlined" aria-hidden="true">remove_shopping_cart</span>Fjern</DsButton>
+                                            {:else}
+                                                <DsButton variant="secondary" size="sm" disabled={!check.ok} on:click={() => toggleProduct(product)}><span class="material-symbols-outlined" aria-hidden="true">add_shopping_cart</span>Legg til</DsButton>
+                                            {/if}
+                                        </span>
+                                        {#if !picked && emptyKeys(product).length}
+                                            <div class="extra">
+                                                {#each emptyKeys(product) as key}
+                                                    <DsInput
+                                                        label={PRICE_FIELDS.includes(key) ? `${key} (kr)` : `${key} (valgfritt)`}
+                                                        value={values[product._id]?.[key] ?? ''}
+                                                        maxlength={100}
+                                                        inputmode={PRICE_FIELDS.includes(key) ? 'numeric' : undefined}
+                                                        placeholder={PRICE_FIELDS.includes(key) ? 'For eksempel 1500' : 'Fyll inn'}
+                                                        error={check.level === 'block' && PRICE_FIELDS.includes(key) ? check.message : ''}
+                                                        on:input={(event) => setValue(product, key, event.target.value)}
+                                                    />
                                                 {/each}
                                             </div>
-                                        </div>
-                                        
-                                        <!-- PC Information -->
-                                        <div class="info-section">
-                                            <h3>
-                                                <span class="material-symbols-outlined">laptop</span>
-                                                PC Informasjon
-                                            </h3>
-                                            <div class="pc-status">
-                                                <div class="pc-status-item">
-                                                    <div class="pc-status-header">
-                                                        <span class="material-symbols-outlined">download</span>
-                                                        <span>Utlevert</span>
-                                                    </div>
-                                                    <div class="pc-status-content">
-                                                        <span class="status-badge {getStatusColor(contractData.pcInfo.released)}">
-                                                            {getStatusLabel(contractData.pcInfo.released)}
-                                                        </span>
-                                                        {#if contractData.pcInfo.releasedDate !== "Ukjent"}
-                                                            <span class="date-info">{formatDate(contractData.pcInfo.releasedDate)}</span>
-                                                        {/if}
-                                                    </div>
-                                                </div>
-                                                
-                                                <div class="pc-status-item">
-                                                    <div class="pc-status-header">
-                                                        <span class="material-symbols-outlined">upload</span>
-                                                        <span>Returnert</span>
-                                                    </div>
-                                                    <div class="pc-status-content">
-                                                        <span class="status-badge {getStatusColor(contractData.pcInfo.returned)}">
-                                                            {getStatusLabel(contractData.pcInfo.returned)}
-                                                        </span>
-                                                        {#if contractData.pcInfo.returnedDate !== "Ukjent"}
-                                                            <span class="date-info">{formatDate(contractData.pcInfo.returnedDate)}</span>
-                                                        {/if}
-                                                    </div>
-                                                </div>
-                                                
-                                                <div class="pc-status-item">
-                                                    <div class="pc-status-header">
-                                                        <span class="material-symbols-outlined">shopping_cart</span>
-                                                        <span>Utkjøpt</span>
-                                                    </div>
-                                                    <div class="pc-status-content">
-                                                        <span class="status-badge {getStatusColor(contractData.pcInfo.boughtOut)}">
-                                                            {getStatusLabel(contractData.pcInfo.boughtOut)}
-                                                        </span>
-                                                        {#if contractData.pcInfo.buyOutDate !== "Ukjent"}
-                                                            <span class="date-info">{formatDate(contractData.pcInfo.buyOutDate)}</span>
-                                                        {/if}
-                                                    </div>
-                                                </div>
-                                            </div>
+                                        {/if}
+                                        {#if !picked && check.level === 'block' && !emptyKeys(product).some(k => PRICE_FIELDS.includes(k))}
+                                            <div class="warn"><DsAlert color="danger"><p class="ds-paragraph" data-size="sm">{check.message}</p></DsAlert></div>
+                                        {:else if !picked && check.level === 'need'}
+                                            <p class="ds-paragraph muted small warn" data-size="xs">{check.message}</p>
+                                        {/if}
+                                    </li>
+                                {/each}
+                            </ul>
+                        </section>
+                    </div>
+
+                    <aside class="cart" id="cart" aria-labelledby="h-cart">
+                        <div class="cart-head">
+                            <h2 class="ds-heading" data-size="xs" id="h-cart">Faktura</h2>
+                            <div class="recipient">
+                                <span class="material-symbols-outlined" aria-hidden="true">person</span>
+                                <span>Sendes til <strong>{contract.ansvarligInfo?.navn ?? 'Ukjent'}</strong><br /><span class="muted">Ansvarlig på avtalen</span></span>
+                            </div>
+                        </div>
+                        <div class="cart-body">
+                            {#if !lines.length}
+                                <div class="cart-empty">
+                                    <span class="material-symbols-outlined" aria-hidden="true">shopping_cart</span>
+                                    <p class="ds-paragraph" data-size="sm">Ingen linjer ennå. Legg til rater eller tilleggstjenester fra listen.</p>
+                                </div>
+                            {:else}
+                                {#each [['rates', 'Rater', 1], ['products', 'Tilleggstjenester', 2]] as [group, title, n]}
+                                    {@const groupLines = lines.filter(line => line.group === group)}
+                                    {#if groupLines.length}
+                                        <div class="inv-group">
+                                            <h3 class="ds-heading" data-size="2xs">{title} {#if invoiceCount === 2}<small>faktura {n} av 2</small>{/if}</h3>
+                                            <ul class="lines">
+                                                {#each groupLines as line (line.key)}
+                                                    <li>
+                                                        <span>{line.label}{#if line.sub}<small>{line.sub}</small>{/if}</span>
+                                                        <strong>kr {line.sum}</strong>
+                                                        <button class="ds-button" data-variant="tertiary" data-size="sm" data-icon type="button" aria-label="Fjern {line.label}" on:click={line.remove}>
+                                                            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                                                        </button>
+                                                    </li>
+                                                {/each}
+                                            </ul>
                                         </div>
                                     {/if}
-                                </div>
-                            </div>
-                            <br>
-                            {#if contractData.isImportedFromDigiTroll === "true"}
-                                <!-- DigiTroll Data Section -->
-                                <div class="results-digitroll">
-                                    <div class="contract-overview">
-                                            <h2>
-                                                <div class="header-with-buttons">
-                                                    <div class="header-title">
-                                                        DigiTroll Data for {contractData.digiTrollData?.Navn || "Unknown"}
-                                                    </div>
-                                                    <div class="button-group">
-                                                        <button class="toggle-button" on:click={() => handleVisibility('digitrollData', i)}>
-                                                            <span class="material-symbols-outlined">
-                                                                {digitrollDataVisible === i ? 'visibility_off' : 'visibility'}
-                                                            </span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </h2>
-                                        {#if digitrollDataVisible === i}
-                                            <!-- Elevinformasjon -->
-                                            <div class="info-section">
-                                                <h3>
-                                                    <span class="material-symbols-outlined">person</span>
-                                                    Elevinformasjon
-                                                </h3>
-                                                <div class="info-grid">
-                                                    <div class="info-item">
-                                                        <label>Navn:</label>
-                                                        <span class="value">{contractData.digiTrollData.Navn}</span>
-                                                    </div>
-                                                    <div class="info-item">
-                                                        <label>Fødselsnummer:</label>
-                                                        <span class="value">{formatFnr(contractData.digiTrollData["Personnr./ Brukernavn"])}</span>
-                                                    </div>
-                                                    <div class="info-item">
-                                                        <label>Skole (Sist kjente):</label>
-                                                        <span class="value">{returnLatestKnownStudentInfo(contractData).skole}</span>
-                                                    </div>
-                                                    <div class="info-item">
-                                                        <label>Klasse (Sist kjente):</label>
-                                                        <span class="value">{returnLatestKnownStudentInfo(contractData).klasse}</span>
-                                                    </div>
-                                                    <div class="info-item">
-                                                        <label>Antall avtaler:</label>
-                                                        <span class="value">{contractData.digiTrollData["Antall kontrakter"]}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- Avtale(r) -->
-                                            {#each Object.entries(contractData.digiTrollData.contracts) as [contractId, contractList]}
-                                                <div class="info-section">
-                                                    <h3>
-                                                        <span class="material-symbols-outlined">description</span>
-                                                        Avtale ID: {contractId}
-                                                    </h3>
-                                                    <div class="info-grid">
-                                                        <div class="info-item">
-                                                            <label>Personnr./ Brukernavn:</label>
-                                                            <span class="value">{formatFnr(contractList[0]["Personnr./ Brukernavn"])}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Avtale ID:</label>
-                                                            <span class="value">{contractList[0]["Avtale ID"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Bruker ID:</label>
-                                                            <span class="value">{contractList[0]["Bruker ID"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Avtalenavn:</label>
-                                                            <span class="value">{contractList[0]["Avtalenavn"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Laget dato:</label>
-                                                            <span class="value">{contractList[0]["Laget dato"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Filnavn:</label>
-                                                            <span class="value">{contractList[0]["Filnavn"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Signert dato:</label>
-                                                            <span class="value">{contractList[0]["Signert dato"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Signert av:</label>
-                                                            <span class="value">{contractList[0]["Signert av"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Signert av adresse:</label>
-                                                            <span class="value">{contractList[0]["Signert av adresse"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Signert av postnr:</label>
-                                                            <span class="value">{contractList[0]["Signert av postnr"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Signert av sted:</label>
-                                                            <span class="value">{contractList[0]["Signert av sted"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Signert av telefon:</label>
-                                                            <span class="value">{contractList[0]["Signert av telefon"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Signert på papir:</label>
-                                                            <span class="value">{contractList[0]["Signert på papir"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Signeringsfrist:</label>
-                                                            <span class="value">{contractList[0]["Signeringsfrist"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>FeideID:</label>
-                                                            <span class="value">{contractList[0]["FeideID"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>ShortFeideID:</label>
-                                                            <span class="value">{contractList[0]["ShortFeideID"]}</span>
-                                                        </div>
-                                                        <div class="info-item">
-                                                            <label>Telefon:</label>
-                                                            <span class="value">{contractList[0]["Telefon"]}</span>
-                                                        </div>
-                                                    </div>
-                                                    <br>
-                                                    {#each contractList as contract, i}
-                                                        <div class="info-section">
-                                                            <h4>
-                                                                <span class="material-symbols-outlined">description</span>
-                                                                Oppføring {i + 1}
-                                                            </h4>
-                                                            <div class="info-grid">
-                                                                <div class="info-item">
-                                                                    <label>Betalingsbeskrivelse:</label>
-                                                                    <span class="value">{contract["Betalingsbeskrivelse"]}</span>
-                                                                </div>
-                                                                <div class="info-item">
-                                                                    <label>Betalingsfrist:</label>
-                                                                    <span class="value">{contract["Betalingsfrist"]}</span>
-                                                                </div>
-                                                                <div class="info-item">
-                                                                    <label>BetaltMedKvittering:</label>
-                                                                    <span class="value">{contract["BetaltMedKvittering"]}</span>
-                                                                </div>
-                                                                <div class="info-item">
-                                                                    <label>ExtKvittering:</label>
-                                                                    <span class="value">{contract["ExtKvittering"]}</span>
-                                                                </div>
-                                                                <div class="info-item">
-                                                                    <label>Sum:</label>
-                                                                    <span class="value">{contract["Sum"]} Kr</span>
-                                                                </div>
-                                                                <div class="info-item">
-                                                                    <label>Betalings ID:</label>
-                                                                    <span class="value">{contract["Betalings ID"]}</span>
-                                                                </div>
-                                                                <div class="info-item">
-                                                                    <label>Betalt:</label>
-                                                                    <span class="value">{contract["Betalt"]}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    {/each}
-                                                </div>
-                                            {/each}
-                                        {/if}
-                                    </div>
-                                </div>
-
-                                <!-- DigiTroll Rawdata Section -->
-                                {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                    <br>
-                                    <div class="results-digitroll">
-                                        <div class="contract-overview">
-                                            <h2>
-                                                <div class="header-with-buttons">
-                                                    <div class="header-title">
-                                                        DigiTroll Data (Rådata)
-                                                    </div>
-                                                    <div class="button-group">
-                                                        <button class="toggle-button" on:click={() => handleVisibility('digitrollDataRaw', i)}>
-                                                            <span class="material-symbols-outlined">
-                                                                {digitrollDataRawVisible === i ? 'visibility_off' : 'visibility'}
-                                                            </span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </h2>
-                                            {#if digitrollDataRawVisible === i}
-                                                <div class="info-section">
-                                                    <pre>{JSON.stringify(contractData.digiTrollData, null, 2)}</pre>
-                                                </div>
-                                            {/if}
-                                        </div>
-                                    </div>
+                                {/each}
+                                <div class="total"><span>Totalt</span><strong>kr {total}</strong></div>
+                                {#if cart.buyOut.length}
+                                    <p class="fine"><span class="material-symbols-outlined" aria-hidden="true">info</span>Prisen på ratene settes endelig når fakturaen sendes kl. 01.00. Endres prisene under Innstillinger før det, følger ratene med.</p>
                                 {/if}
                             {/if}
-                        </div>
-                    {/each}
-                    <!-- BuyOut PC -->
-                    <div class="contract-card">
-                        <h1>
-                            <span class="material-symbols-outlined">laptop_windows</span>
-                            Utkjøp av PC for {contractsData[0].elevInfo.navn}
-                        </h1>
-                        <div class="results">
-                            <div class="contract-overview">
-                                <h2>
-                                    <div class="header-with-buttons">
-                                        <div class="header-title">
-                                             <strong>{contractsData[0].elevInfo.navn} - Antall ikke fakturerte rater: {calculateNumberOfInvoices(contractsData[0].fakturaInfo, 'notInvoiced')} {contractsData[0].isImportedFromDigiTroll === "true" ? "(Importert fra DigiTroll)" : ""}</strong>
-                                        </div>
-                                        <div class="button-group">
-                                            <button class="toggle-button" on:click={() => handleVisibility('buyOut', 0)}>
-                                                <span class="material-symbols-outlined">
-                                                    {buyOutVisible ? 'visibility_off' : 'visibility'}
-                                                </span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </h2>
-                                {#if buyOutVisible === 0}
-                                    <!-- Billing Information -->
-                                    <div class="info-section">
-                                        <h3>
-                                            <span class="material-symbols-outlined">receipt_long</span>
-                                            Faktureringsinformasjon
-                                        </h3>
-                                        <div class="info-note">
-                                            <p>Her ser du en oversikt over faktureringsstatus for hver rate knyttet til denne avtalen. Dette inkluderer faktureringsdato, betalt dato, og sum for hver rate. Hvis en rate har status "Utlån faktureres ikke", betyr det at denne raten ikke er fakturert fordi utlån ikke faktureres.</p>
-                                            <p>Hvis en rate har status "Betalt", betyr det at raten er fakturert og betalt. Hvis en rate har status "Ikke fakturert", betyr det at raten ennå ikke er fakturert og det er disse du kan fakturere ved å klikke på den grønne knappen ved siden av "Ikke fakturert". Da blir disse lagt til i handlekurven.</p>
-                                            <p><strong>Merk:</strong> Du kan angre fakturering ved å fjerne raten fra handlekurven før du bekrefter faktureringen.</p>
-                                            <p><strong>Merk:</strong> Det er årets rate som blir fakturert: <strong>{settings.prices.regularPrice}</strong>.</p>
-                                            <p>Under ratene vil du få et sammendrag av total fakturert beløp og antall fakturerte rater.</p>
-                                        </div>
-                                        <br>
-                                        <div class="billing-timeline">
-                                            {#each Object.entries(contractsData[0].fakturaInfo) as [rateName, rateInfo]}
-                                                <div class="billing-period">
-                                                    <div class="period-header">
-                                                        <h4>Rate {rateName.slice(-1)}</h4>
-                                                        <span class="status-badge {getStatusColor(rateInfo.status.toLowerCase() === 'utlån faktureres ikke' ? 'info' : rateInfo.status)}">
-                                                            {#if rateInfo.status.toLowerCase() === 'ikke fakturert'}
-                                                                <div class="not-invoiced">
-                                                                    Ikke fakturert
-                                                                    {#if !cart.buyOut.some(item => item.faktureringsår === rateInfo.faktureringsår)}
-                                                                        <button class="button" on:click={() => handleCartAction('add', 'buyOut', {...rateInfo, sum: settings.prices.regularPrice})}>
-                                                                            <span class="material-symbols-outlined">add_shopping_cart</span>
-                                                                        </button>
-                                                                    {:else}
-                                                                        <button class="button-remove" on:click={() => handleCartAction('remove', 'buyOut', {...rateInfo, sum: settings.prices.regularPrice})}>
-                                                                            <span class="material-symbols-outlined">remove_shopping_cart</span>
-                                                                        </button>
-                                                                    {/if}
-                                                                </div>   
-                                                            {:else}
-                                                                {rateInfo.status}
-                                                            {/if}
-                                                        </span>
-                                                    </div>
-                                                    {#if rateInfo.status.toLowerCase() === 'utlån faktureres ikke'}
-                                                        <p class="info-note">Denne raten er ikke fakturert fordi utlån ikke faktureres.</p>
-                                                    {:else}
-                                                        <div class="period-details">
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">Faktureringsdato:</span>
-                                                                <span class="detail-value">{formatDate(rateInfo.faktureringsDato, true)}</span>
-                                                            </div>
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">Betalt dato:</span>
-                                                                <span class="detail-value">{formatDate(rateInfo.betaltDato, true)}</span>
-                                                            </div>
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">Sum:</span>
-                                                                <span class="detail-value">{rateInfo.sum === undefined ? settings.prices.regularPrice : rateInfo.sum} Kr</span>
-                                                            </div>
-                                                        </div>
-                                                    {/if}
-                                                </div>
-                                            {/each}
-                                        </div>
-                                    </div>
+                            <div class="cart-foot">
+                                {#if invoiceCount === 2}
+                                    <p class="fine"><span class="material-symbols-outlined" aria-hidden="true">call_split</span>Rater og tilleggstjenester blir to fakturaer.</p>
                                 {/if}
+                                <DsButton disabled={!invoiceCount} on:click={() => { sendError = ''; confirmOpen = true }}>
+                                    <span class="material-symbols-outlined" aria-hidden="true">send</span>{invoiceCount === 2 ? 'Opprett 2 fakturaer' : 'Opprett faktura'}
+                                </DsButton>
+                                <p class="fine"><span class="material-symbols-outlined" aria-hidden="true">schedule</span>Fakturaen sendes til Xledger kl. 01.00 når mottakeren er klar i Xledger. Der blir den synlig når økonomiavdelingen har godkjent den.</p>
                             </div>
                         </div>
-                    </div>
+                    </aside>
+                </div>
 
-                    <!-- Extra Invoce -->
-                    <div class="contract-card">
-                        <h1>
-                            <span class="material-symbols-outlined">laptop_windows</span>
-                            Tilleggstjenester og annet
-                        </h1>
-                        <div class="results">
-                            <div class="contract-overview">
-                                <h2>
-                                    <div class="header-with-buttons">
-                                        <div class="header-title">
-                                             <strong>Tilleggstjenester og annet: {productsLength}</strong>
-                                        </div>
-                                        <div class="button-group">
-                                            <button class="toggle-button" on:click={() => handleVisibility('extraInvoice', 0)}>
-                                                <span class="material-symbols-outlined">
-                                                    {extraInvoiceVisible ? 'visibility_off' : 'visibility'}
-                                                </span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </h2>
-                                {#if extraInvoiceVisible === 0}
-                                    <!-- Products info -->
-                                    <div class="info-section">
-                                        <h3>
-                                            <span class="material-symbols-outlined">receipt_long</span>
-                                            Informasjon om tilleggstjenester og annet som kan faktureres
-                                        </h3>
-                                        <div class="info-note">
-                                            <p>Under ser du en oversikt over tilleggstjenester og annet som kan faktureres i tillegg til ordinære rater.</p>
-                                        </div>
-                                        <br>
-                                        <div class="billing-timeline">
-                                            {#each products as product, i}
-                                                {#if product.active}
-                                                    <div class="billing-period">
-                                                        <div class="period-header">
-                                                            <h4>{product.name}</h4>
-                                                            <div class="not-invoiced">
-                                                                {#if !cart.extraInvoice.some(item => item._id === product._id)}
-                                                                    <button class="button" on:click={() => handleCartAction('add', 'extraInvoice', product)}>
-                                                                        <span class="material-symbols-outlined">add_shopping_cart</span>
-                                                                    </button>
-                                                                {:else}
-                                                                    <button class="button-remove" on:click={() => handleCartAction('remove', 'extraInvoice', product)}>
-                                                                        <span class="material-symbols-outlined">remove_shopping_cart</span>
-                                                                    </button>
-                                                                {/if}
-                                                            </div>   
-                                                        </div>
-                                                        <!-- product details -->
-                                                        <div class="period-details">
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">Beskrivelse:</span>
-                                                                <span class="detail-value">{product.description}</span>
-                                                            </div>
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">Pris:</span>
-                                                                <span class="detail-value">{product.price === 0 ? 'Pris regnes ut i sammendraget' : product.price}</span>
-                                                            </div>
-                                                            
-                                                            <!-- Extra fields display/editing -->
-                                                            {#each Object.keys(product).filter(key => !['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog'].includes(key)) as fieldKey}
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">{fieldKey}:</span>
-                                                                    {#if product[fieldKey] && product[fieldKey].trim() !== ''}
-                                                                        <!-- Field has value, show it -->
-                                                                        <span class="detail-value">{getProductExtraFields(product._id)[fieldKey] || product[fieldKey]}</span>
-                                                                    {:else}
-                                                                        <!-- Field is empty, allow editing -->
-                                                                        <div class="detail-value extra-field-input">
-                                                                            <Input
-                                                                                type="text"
-                                                                                placeholder="Utfyll verdi..."
-                                                                                value={getProductExtraFields(product._id)[fieldKey] || ''}
-                                                                                on:input={(e) => updateProductExtraField(product._id, fieldKey, e.target.value)}
-                                                                                maxlength="100"
-                                                                            />
-                                                                        </div>
-                                                                    {/if}
-                                                                </div>
-                                                            {/each}
-                                                        </div>
-                                                    </div>
-                                                {/if}
-                                            {/each}
-                                        </div>
-                                    </div>
-                                {/if}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Summary -->
-                    <div class="contract-card">
-                        <h1>
-                            <span class="material-symbols-outlined">shopping_cart</span>
-                            Sammendrag
-                        </h1>
-                        <div class="results">
-                            <div class="contract-overview">
-                                <h2>
-                                    <div class="header-with-buttons">
-                                        <div class="header-title">
-                                            Sammendrag av valgte fakturaer for elev {contractsData[0].elevInfo.navn} og tilleggstjenester
-                                        </div>
-                                    </div>
-                                </h2>
-                                {#if cart.buyOut.length > 0 || cart.extraInvoice.length >0} 
-                                <!-- PC -->
-                                    {#if cart.buyOut.length > 0}
-                                        <div class="info-section">
-                                            <h3>
-                                                <span class="material-symbols-outlined">laptop_windows</span>
-                                                Rater
-                                            </h3>
-                                            {#each cart.buyOut as rateInfo}
-                                                <div class="period-details">
-                                                    <div class="detail-item">
-                                                        <span class="detail-label">Opprinnelig faktureringsår:</span>
-                                                        <span class="detail-value">{rateInfo.faktureringsår}</span>
-                                                    </div>
-                                                    <div class="detail-item">
-                                                        <span class="detail-label">Pris:</span>
-                                                        <span class="detail-value">{rateInfo.sum}</span>
-                                                    </div>
-                                                </div>
-                                            {/each}
-                                        </div>
-                                    {/if}
-                                    <!-- Extra -->
-                                    {#if cart.extraInvoice.length > 0}
-                                        <div class="info-section">
-                                            <h3>
-                                                <span class="material-symbols-outlined">shopping_cart</span>
-                                                Tilleggstjenester og annet
-                                            </h3>
-                                            {#each cart.extraInvoice as product}
-                                                <div class="period-details">
-                                                    <div class="detail-item">
-                                                        <span class="detail-label">Produkt navn:</span>
-                                                        <span class="detail-value">{product.name}</span>
-                                                    </div>
-                                                    <div class="detail-item">
-                                                        <span class="detail-label">Pris:</span>
-                                                        <span class="detail-value">{calculatePrice(product, contractsData[0])}</span>
-                                                    </div>
-                                                    <!-- Display extra fields in cart summary -->
-                                                    {#each Object.keys(product).filter(key => !['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog'].includes(key)) as fieldKey}
-                                                        {#if product[fieldKey] && product[fieldKey].trim() !== ''}
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">{fieldKey}:</span>
-                                                                <span class="detail-value">{product[fieldKey]}</span>
-                                                            </div>
-                                                        {/if}
-                                                    {/each}
-                                                </div>
-                                            {/each}
-                                        </div>
-                                    {/if}
-                                    <div class="info-section">
-                                        <h3>
-                                            <span class="material-symbols-outlined">receipt_long</span>
-                                            Totalt
-                                        </h3>
-                                        <div class="info-item">
-                                            <label>Total sum:</label>
-                                            <span class="value">{calculateTotal(cart, contractsData[0])} Kr</span>
-                                        </div>
-                                    </div>
-                                    <div class="info-section">
-                                        <h3>
-                                            <span class="material-symbols-outlined">receipt_long</span>
-                                            Generer og send faktura(er) til ansvarlig - {contractsData[0].ansvarligInfo.navn}
-                                        </h3>
-                                        <p><strong>Merk:</strong> Det vil bli generert 2 fakturaer dersom du fakturerer både rater og tilleggstjenester.</p>
-                                        <p>Dette er fordi rater og tilleggstjenester må faktureres separat for å sikre korrekt fakturering og regnskap. Rater vil bli fakturert som en ordinær faktura knyttet til elevens avtale, mens tilleggstjenester vil bli fakturert som en egen faktura knyttet til ansvarlig sin kontaktinformasjon.</p>
-                                                        <p><strong>Merk:</strong> Når en faktura er opprettet vil den bli sendt til Xledger påfølgende dag kl 01:00. Når xledger mottar fakturaen vil den ikke bli synlig før den har blitt godkjent av Økonomiavdelingen.</p>
-                                        {#if cart.buyOut.length > 0 && cart.extraInvoice.length > 0}
-                                        <p><strong>Du har både rater og tilleggstjenester i handlekurven. Når du klikker på knappen "Generer og send faktura(er)", vil det bli generert to separate fakturaer: en for ratene og en for tilleggstjenestene.</strong></p>
-                                        {/if}
-                                        <div class="center">
-                                            <button class="button" on:click={() => sendInvoiceRequest(cart, contractsData[0]._id, token)} disabled={isSendingInvoice}>
-                                                {#if isSendingInvoice}
-                                                    <div class="spinner"></div>
-                                                    Sender fakturaer...
-                                                {:else}
-                                                    Generer og send faktura(er)
-                                                {/if}
-                                                <span class="material-symbols-outlined">file_export</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                {:else}
-                                    <div class="info-section">
-                                        <h3>
-                                            <span class="material-symbols-outlined">receipt_long</span>
-                                            Ingen fakturaer/tilleggstjenester i handlekurven
-                                        </h3>
-                                        <p>Du har ingen fakturaer/tilleggstjenester i handlekurven. Legg til fakturaer ved å klikke på den grønne knappen ved siden av "Ikke fakturert" for de ratene du ønsker å fakturere, eller legg til tilleggstjenester under "Annet". Når du har lagt til fakturaer/tilleggstjenester i handlekurven, kan du generere og sende fakturaene ved å klikke på knappen "Generer og send faktura(er)".</p>
-                                    </div>
-                                {/if}
-                            </div>
-                        </div>
+                {#if lines.length}
+                    <div class="cart-bar">
+                        <span><strong>kr {total}</strong> <span class="muted">· {lines.length} {lines.length === 1 ? 'linje' : 'linjer'}</span></span>
+                        <a class="ds-button" data-variant="primary" data-size="sm" href="#cart">Til fakturaen <span class="material-symbols-outlined" aria-hidden="true">arrow_downward</span></a>
                     </div>
                 {/if}
-            {/await}
-        {:else}
-            <h1>Tilgang nektet</h1>
-            <p>Du har ikke de nødvendige tillatelsene for å få tilgang til denne siden. Vennligst kontakt systemadministratoren hvis du mener dette er en feil.</p>
-        {/if}
-    {/await}
-</main>
+
+                <DsDialog bind:open={confirmOpen} width="34rem" labelledby="confirm-title" closedby={sending ? 'none' : 'any'}>
+                    <h2 class="ds-heading" data-size="sm" id="confirm-title">{invoiceCount === 2 ? 'Opprette 2 fakturaer' : 'Opprette fakturaen'} til {contract.ansvarligInfo?.navn ?? 'ansvarlig'}?</h2>
+                    {#each [['rates', invoiceCount === 2 ? 'Faktura 1: Rater' : 'Rater'], ['products', invoiceCount === 2 ? 'Faktura 2: Tilleggstjenester' : 'Tilleggstjenester']] as [group, title]}
+                        {@const groupLines = lines.filter(line => line.group === group)}
+                        {#if groupLines.length}
+                            <div class="inv-group">
+                                <h3 class="ds-heading" data-size="2xs">{title}</h3>
+                                <ul class="lines plain">
+                                    {#each groupLines as line (line.key)}
+                                        <li><span>{line.label}{#if line.sub}<small>{line.sub}</small>{/if}</span><strong>kr {line.sum}</strong></li>
+                                    {/each}
+                                </ul>
+                            </div>
+                        {/if}
+                    {/each}
+                    <div class="total"><span>Totalt</span><strong>kr {total}</strong></div>
+                    <p class="fine"><span class="material-symbols-outlined" aria-hidden="true">schedule</span>Sendes til Xledger kl. 01.00. Den kan ikke endres etter at den er opprettet. Er noe feil, sletter du fakturaen under <strong>Fakturaer</strong> og lager en ny før kl. 01.00.</p>
+                    {#if sendError}
+                        <DsAlert color="danger"><p class="ds-paragraph" data-size="sm">{sendError}</p></DsAlert>
+                    {/if}
+                    <svelte:fragment slot="footer">
+                        <DsButton loading={sending} loadingText="Oppretter …" on:click={() => create(token)}>{invoiceCount === 2 ? 'Opprett fakturaene' : 'Opprett fakturaen'}</DsButton>
+                        <DsButton variant="secondary" disabled={sending} on:click={() => (confirmOpen = false)}>Avbryt</DsButton>
+                    </svelte:fragment>
+                </DsDialog>
+            {/if}
+        {:catch}
+            <DsAlert color="danger" heading="Siden kunne ikke lastes">
+                <p class="ds-paragraph" data-size="sm">Last inn siden på nytt. Kontakt servicedesk hvis feilen fortsetter.</p>
+            </DsAlert>
+        {/await}
+    </main>
+</DsScope>
 
 <style>
     main {
-        padding: 2rem;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    h1 {
-        color: var(--gress-80);
-        margin-bottom: 1rem;
-    }
-
-    p {
-        margin-bottom: 1rem;
-        color: var(--vann-70, #333);
-        line-height: 1.5;
-    }
-
-    .info-text {
-        background-color: var(--gress-5, #f8fffe);
-        border-left: 4px solid var(--gress-60);
-        padding: 1rem 1.5rem;
-        border-radius: 6px;
-        margin-bottom: 1.5rem;
-    }
-
-    button {
-        padding: 0.75rem 1.5rem;
-        background-color: var(--gress-60);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s ease;
+        padding: var(--ds-size-4, 1rem) var(--ds-size-4, 1rem) 7rem;
+        max-width: 84rem;
         display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-5);
+    }
+
+    .back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        align-self: flex-start;
+    }
+
+    .muted { color: var(--ds-color-neutral-text-subtle); }
+    .small { font-size: 0.85rem; }
+    .mono { font-family: ui-monospace, Consolas, monospace; font-size: 0.9em; }
+
+    .student {
+        padding-bottom: var(--ds-size-4);
+        border-bottom: 1px solid var(--ds-color-neutral-border-subtle);
+    }
+
+    .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ds-size-1) var(--ds-size-5);
+        margin-top: var(--ds-size-2);
+        color: var(--ds-color-neutral-text-subtle);
+    }
+
+    .meta > span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 22rem;
+        gap: var(--ds-size-6);
+        align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+        .layout { grid-template-columns: 1fr; }
+    }
+
+    .col {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-5);
+        min-width: 0;
+    }
+
+    .section {
+        border: 1px solid var(--ds-color-neutral-border-subtle);
+        border-radius: var(--ds-border-radius-lg);
+        padding: var(--ds-size-5);
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-4);
+    }
+
+    .section-head {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: var(--ds-size-3);
+    }
+
+    .section-head h2 {
+        display: inline-flex;
         align-items: center;
         gap: 0.5rem;
     }
 
-    button:hover:not(:disabled) {
-        background-color: var(--gress-70);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    .section-head h2 .material-symbols-outlined { color: var(--ds-color-accent-text-subtle); }
+
+    .lead {
+        color: var(--ds-color-neutral-text-subtle);
+        max-width: 60ch;
     }
 
-    button:disabled {
-        background-color: #ccc;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-    }
-
-    .button-remove {
-        padding: 0.75rem 1.5rem;
-        background-color: var(--nype-60);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .button-remove:hover:not(:disabled) {
-        background-color: var(--nype-70);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    .spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid #ffffff;
-        border-top: 2px solid transparent;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    .contract-card {
-        margin-bottom: 3rem;
-    }
-
-    .results {
-        margin-top: 2rem;
-    }
-
-    .contract-overview {
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    .picks {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        border: 1px solid var(--ds-color-neutral-border-subtle);
+        border-radius: var(--ds-border-radius-md);
         overflow: hidden;
     }
 
-    .contract-overview h2 {
-        background: linear-gradient(135deg, var(--gress-60), var(--gress-70));
-        color: white;
-        padding: 2rem;
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-    }
-
-    .info-section {
-        border-bottom: 1px solid var(--gress-10);
-        padding: 2rem;
-    }
-
-    .info-section:last-child {
-        border-bottom: none;
-    }
-
-    .info-section h3 {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: var(--gress-80);
-        margin-bottom: 1.5rem;
-        font-size: 1.2rem;
-        font-weight: 600;
-    }
-
-    .info-section h3 .material-symbols-outlined {
-        font-size: 1.5rem;
-        color: var(--gress-60);
-    }
-
-    .info-section h4 {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: var(--gress-80);
-        margin-bottom: 1.5rem;
-        font-size: 1.2rem;
-        font-weight: 600;
-    }
-
-    .info-section h4 .material-symbols-outlined {
-        font-size: 1.5rem;
-        color: var(--gress-60);
-    }
-    
-    .info-grid {
+    .pick {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        align-items: center;
+        gap: var(--ds-size-2) var(--ds-size-4);
+        padding: var(--ds-size-3) var(--ds-size-4);
+        border-top: 1px solid var(--ds-color-neutral-border-subtle);
     }
 
-    .info-item {
+    .pick:first-child { border-top: 0; }
+
+    .pick.picked {
+        background: var(--ds-color-accent-surface-tinted);
+        box-shadow: inset 4px 0 0 var(--ds-color-accent-base-default);
+    }
+
+    .pick.locked { background: var(--ds-color-neutral-background-tinted); }
+
+    .what {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 2px;
+        min-width: 0;
     }
 
-    .info-item label {
-        font-weight: 600;
-        color: var(--gress-70);
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .info-item .value {
-        padding: 0.75rem;
-        background-color: var(--gress-5, #f8fffe);
-        border-radius: 6px;
-        border-left: 3px solid var(--gress-30);
-        font-size: 1rem;
-        min-height: 1.2rem;
-    }
-
-    .info-note {
-        margin: 0.5rem;
-        font-size: 0.9rem;
-        font-style: italic;
-    }
-
-    .value.contract-type {
-        background-color: var(--korn-10);
-        border-left-color: var(--korn-50);
-        font-weight: 600;
-    }
-
-    .value.uuid {
-        font-family: 'Courier New', monospace;
-        font-size: 0.85rem;
-        word-break: break-all;
-    }
-
-    .status-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .status-item {
+    .name {
+        font-weight: 700;
         display: flex;
-        justify-content: space-between;
+        flex-wrap: wrap;
         align-items: center;
-        padding: 1rem;
-        border-radius: 8px;
-        background-color: var(--gress-5);
-        border: 1px solid var(--gress-20);
+        gap: var(--ds-size-2);
     }
 
-    .status-item label {
-        font-weight: 600;
-        color: var(--gress-80);
-    }
-
-    .status-badge {
-        padding: 0.4rem 0.8rem;
-        border-radius: 20px;
+    .what small,
+    .price small {
+        color: var(--ds-color-neutral-text-subtle);
         font-size: 0.85rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        font-weight: 400;
     }
 
-    .status-item.success .status-badge {
-        background-color: var(--gress-20);
-        color: var(--gress-80);
-        border: 1px solid var(--gress-40);
+    .price {
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        text-align: right;
     }
 
-    .status-item.danger .status-badge {
-        background-color: var(--nype-20, #fdd);
-        color: var(--nype-80, #800);
-        border: 1px solid var(--nype-40, #faa);
+    .price small { display: block; font-size: 0.78rem; }
+
+    .act { justify-self: end; }
+
+    .extra {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+        gap: var(--ds-size-3);
     }
 
-    .status-item.warning .status-badge {
-        background-color: var(--korn-20);
-        color: var(--korn-80);
-        border: 1px solid var(--korn-40);
+    .warn { grid-column: 1 / -1; }
+
+    @media (max-width: 560px) {
+        .pick { grid-template-columns: 1fr auto; }
+        .price { text-align: left; grid-column: 1; }
+        .act { grid-column: 2; grid-row: 1 / span 2; }
     }
 
-    .status-item.info .status-badge {
-        background-color: var(--himmel-20, #e6f3ff);
-        color: var(--himmel-80, #0066cc);
-        border: 1px solid var(--himmel-40, #99d6ff);
-    }
-
-    .billing-timeline {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-    }
-
-    .billing-period {
-        background-color: var(--gress-5);
-        border-radius: 8px;
+    .cart {
+        position: sticky;
+        top: var(--ds-size-5);
+        border: 1px solid var(--ds-color-accent-border-default);
+        border-radius: var(--ds-border-radius-lg);
+        background: var(--ds-color-neutral-background-default);
+        box-shadow: 0 1px 2px rgb(0 40 48 / 0.06), 0 10px 30px rgb(0 40 48 / 0.08);
         overflow: hidden;
-        border: 1px solid var(--gress-20);
     }
 
-    .period-header {
-        background-color: var(--gress-10);
-        padding: 1rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid var(--gress-20);
+    @media (max-width: 1100px) {
+        .cart { position: static; }
     }
 
-    .period-header h4 {
-        margin: 0;
-        color: var(--gress-80);
-        font-weight: 600;
-    }
-
-    .period-details {
-        padding: 1rem;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-    }
-
-    .detail-item {
+    .cart-head {
+        padding: var(--ds-size-4) var(--ds-size-5);
+        background: var(--ds-color-accent-background-tinted);
+        border-bottom: 1px solid var(--ds-color-accent-border-subtle);
         display: flex;
         flex-direction: column;
-        gap: 0.25rem;
+        gap: var(--ds-size-2);
     }
 
-    .detail-label {
+    .recipient {
+        display: flex;
+        gap: var(--ds-size-2);
+        align-items: flex-start;
+        font-size: 0.92rem;
+    }
+
+    .recipient .material-symbols-outlined { color: var(--ds-color-accent-text-subtle); }
+
+    .cart-body {
+        padding: var(--ds-size-4) var(--ds-size-5);
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-4);
+    }
+
+    .cart-empty {
+        text-align: center;
+        color: var(--ds-color-neutral-text-subtle);
+        display: grid;
+        gap: var(--ds-size-2);
+        justify-items: center;
+        padding-block: var(--ds-size-4);
+    }
+
+    .cart-empty .material-symbols-outlined {
+        font-size: 2rem;
+        color: var(--ds-color-accent-text-subtle);
+    }
+
+    .inv-group h3 {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: var(--ds-size-2);
+    }
+
+    .inv-group h3 small {
+        font-weight: 400;
+        color: var(--ds-color-neutral-text-subtle);
         font-size: 0.8rem;
-        font-weight: 600;
-        color: var(--gress-70);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
 
-    .detail-value {
-        padding: 0.5rem;
-        background-color: white;
-        border-radius: 4px;
-        border-left: 2px solid var(--gress-30);
-        font-size: 0.9rem;
-    }
-
-    .pc-status {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .pc-status-item {
-        background-color: var(--gress-5);
-        border-radius: 8px;
-        padding: 1.5rem;
-        border: 1px solid var(--gress-20);
-        transition: all 0.2s ease;
-    }
-
-    .pc-status-item:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        transform: translateY(-2px);
-    }
-
-    .pc-status-header {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin-bottom: 1rem;
-        color: var(--gress-80);
-        font-weight: 600;
-    }
-
-    .pc-status-header .material-symbols-outlined {
-        font-size: 1.5rem;
-        color: var(--gress-60);
-    }
-
-    .pc-status-content {
+    .lines {
+        list-style: none;
+        margin: 0;
+        padding: 0;
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: var(--ds-size-1);
     }
 
-    .date-info {
-        font-size: 0.85rem;
-        color: var(--gress-60);
-        font-style: italic;
+    .lines li {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        align-items: center;
+        gap: var(--ds-size-2);
+        font-size: 0.92rem;
+        font-variant-numeric: tabular-nums;
     }
 
-    .error-message {
-        background-color: var(--nype-10, #ffe5e5);
-        border-left: 4px solid var(--nype-60, #ff4d4d);
-        padding: 1rem 1.5rem;
-        border-radius: 6px;
-        margin-bottom: 1.5rem;
+    .lines.plain li { grid-template-columns: 1fr auto; }
+
+    .lines small {
+        display: block;
+        color: var(--ds-color-neutral-text-subtle);
+        font-size: 0.78rem;
     }
 
-    .header-with-buttons {
+    .total {
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: baseline;
+        padding-top: var(--ds-size-3);
+        border-top: 2px solid var(--ds-color-neutral-border-default);
+        font-variant-numeric: tabular-nums;
     }
 
-    .button-group {
+    .total strong { font-size: 1.35rem; }
+
+    .cart-foot {
         display: flex;
-        gap: 1rem;
+        flex-direction: column;
+        gap: var(--ds-size-3);
     }
 
-    .header-title {
-        font-size: 1.5rem;
-        font-weight: 600;
+    .cart-foot :global(.ds-button) {
+        width: 100%;
+        justify-content: center;
     }
 
-    .toggle-button {
-        background-color: transparent;
-        padding: 0.5rem 1rem;
-        border: none;
-        border-radius: 6px;
+    .fine {
+        font-size: 0.82rem;
+        color: var(--ds-color-neutral-text-subtle);
+        display: flex;
+        gap: 0.4rem;
+        align-items: flex-start;
+    }
+
+    .fine .material-symbols-outlined {
+        font-size: 1rem;
+        margin-top: 1px;
+    }
+
+    .cart-bar { display: none; }
+
+    @media (max-width: 1100px) {
+        .cart-bar {
+            display: flex;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 30;
+            padding: var(--ds-size-3) 16px calc(var(--ds-size-3) + env(safe-area-inset-bottom, 0px));
+            background: var(--ds-color-neutral-background-default);
+            border-top: 1px solid var(--ds-color-neutral-border-default);
+            box-shadow: 0 -6px 20px rgb(0 40 48 / 0.1);
+            justify-content: space-between;
+            align-items: center;
+            gap: var(--ds-size-3);
+            font-variant-numeric: tabular-nums;
+        }
     }
 
     .loading {
         display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
+        flex-direction: column;
+        gap: var(--ds-size-3);
     }
 
-    .not-invoiced {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-weight: 600;
+    .skel {
+        height: 4.2rem;
+        border-radius: var(--ds-border-radius-lg);
+        background: linear-gradient(90deg, var(--ds-color-neutral-surface-tinted), var(--ds-color-neutral-background-tinted), var(--ds-color-neutral-surface-tinted));
+        background-size: 200% 100%;
+        animation: shimmer 1.4s linear infinite;
     }
 
-    /* Extra fields styling in billing */
-    .extra-field-input {
-        min-width: 200px;
-        flex: 1;
+    .skel.tall { height: 5rem; }
+    .skel.big { height: 12rem; }
+
+    @keyframes shimmer {
+        to { background-position: -200% 0; }
     }
 
-    .extra-field-input :global(input) {
-        font-size: 0.9rem;
-        padding: 0.4rem;
-        border: 1px solid var(--vann-30);
-        border-radius: 4px;
-        background-color: var(--vann-5);
-    }
-
-    .extra-field-input :global(input):focus {
-        border-color: var(--vann-60);
-        outline: none;
-        box-shadow: 0 0 0 2px rgba(var(--vann-60), 0.2);
-    }
-
-    /* Responsive design */
-    @media (max-width: 768px) {
-        main {
-            padding: 1rem;
-        }
-
-        .info-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .status-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .pc-status {
-            grid-template-columns: 1fr;
-        }
-
-        .period-details {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    /* Material Icons */
-    .material-symbols-outlined {
-        font-variation-settings:
-        'FILL' 0,
-        'wght' 400,
-        'GRAD' 0,
-        'opsz' 24;
+    @media (prefers-reduced-motion: reduce) {
+        .skel { animation: none; }
     }
 </style>
