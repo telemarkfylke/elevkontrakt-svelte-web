@@ -46,7 +46,8 @@
         const [response, settingsResponse] = await Promise.all([getInvoices(token.upn), getSettings()])
         settings = settingsResponse?.data?.result?.[0] ?? null
         if (response?.status === 200) {
-            invoices = response.data
+            // "Vis som rolle": the API sees an admin, so narrow to the school like it does for billing roles.
+            invoices = token.previewSchool ? response.data.filter(i => i.student?.skole === token.previewSchool) : response.data
             loadState = 'ready'
         } else {
             loadState = 'error'

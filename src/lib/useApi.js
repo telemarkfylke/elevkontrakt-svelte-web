@@ -4,6 +4,7 @@ import { jwtDecode } from 'jwt-decode'
 import { returnLatestKnownContractInfo } from './helpers/latestKnownContractInfo'
 import { formatDate } from './helpers/formatDate'
 import { contractTime } from './helpers/contractDate'
+import { applyPreview } from './helpers/rolePreview'
 
 /**
  *
@@ -39,7 +40,7 @@ export const getElevkontraktToken = async (decoded) => {
       result.name = name || 'appReg'
       result.oid = oid || 'appReg'
 
-      return result
+      return applyPreview(result)
     }
     return accessToken
   } catch (error) {
@@ -75,6 +76,7 @@ export const getContracts = async (school, targetCollection) => {
  * office location. Returns { error } if the location can't be fetched.
  */
 export const getSearchScope = async (userToken) => {
+  if (userToken.previewSchool) return { school: userToken.previewSchool } // "Vis som rolle"
   if (!userToken.roles || userToken.roles.includes('elevkontrakt.administrator-readwrite')) return { school: null }
   const userInfo = await getExtendedUserInfo(userToken.upn)
   if (userInfo.status !== 200) {

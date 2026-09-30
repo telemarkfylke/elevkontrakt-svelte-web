@@ -247,6 +247,15 @@ export const TOPICS = [
         roles: null,
         answer: `
           <p class="ds-paragraph">Hva du ser i menyen, styres av rollen din i Elevavtaler. Har du en rolle for fakturering, ser du <strong>Fakturaer</strong>. Med skrivetilgang ser du også <strong>Fakturering</strong>, der fakturaene lages. Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang. Oppgi at henvendelsen gjelder rollen din i Elevavtaler.</p>`
+      },
+      {
+        q: 'Hvordan ser jeg løsningen slik en annen rolle ser den?',
+        roles: [ELEVKONTRAKT_ADMIN],
+        who: 'Administrator',
+        answer: `
+          <p class="ds-paragraph">Klikk på navnet ditt øverst til høyre. Da åpnes <strong>Vis som rolle</strong>. Velg rollen, og for skoleadministrator og fakturering også skolen. De rollene ser bare sin egen skole.</p>
+          <p class="ds-paragraph">Menyen, knappene og listene blir som for den rollen. En gul linje øverst viser hvilken rolle og skole du ser som. Klikk <strong>Tilbake til administrator</strong> når du er ferdig. Valget varer til du lukker fanen.</p>
+          <p class="ds-paragraph">Det endrer bare hva du ser. Alt du gjør, bruker fortsatt administratortilgangen din. Du ser derfor ikke om løsningen ville stoppet rollen. For å teste det trenger du en testbruker med rollen.</p>`
       }
     ]
   }

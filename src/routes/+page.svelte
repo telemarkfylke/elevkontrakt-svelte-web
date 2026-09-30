@@ -73,6 +73,8 @@
             let result
             if (hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT])) {
                 result = await getContracts(false, collection)
+            } else if (token.previewSchool) {
+                result = await getContracts(token.previewSchool, collection)
             } else {
                 const { data } = await getExtendedUserInfo(token.upn)
                 result = await getContracts(data.companyName, collection)

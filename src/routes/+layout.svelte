@@ -10,6 +10,8 @@
     import DsDialog from '$lib/components/ds/DsDialog.svelte'
     import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
     import NavMenu from '$lib/components/NavMenu.svelte'
+    import UserMenu from '$lib/components/UserMenu.svelte'
+    import { setPreview, previewRoleInfo } from '$lib/helpers/rolePreview.js'
     import { hasAnyRole, ELEVKONTRAKT_ADMIN, CONTRACT_ROLES, HISTORY_ROLES, BILLING_ROLES } from '$lib/helpers/roles.js'
     import logoTFK from '$lib/assets/logo.svg'
     import logoVFK from '$lib/assets/VFK_logo.svg'
@@ -61,11 +63,6 @@
     const groupsFor = (token) => GROUPS
         .map(group => ({ ...group, items: group.items.filter(item => !item.roles || hasAnyRole(token, item.roles)) }))
         .filter(group => group.items.length)
-
-    const initials = (name = '') => {
-        const parts = name.trim().split(/\s+/)
-        return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
-    }
 </script>
 
 <svelte:head>
@@ -103,11 +100,15 @@
                                 <span class="material-symbols-outlined" aria-hidden="true">menu</span>Meny
                             </button>
                             <p class="ds-heading app-name" data-size="xs">{appTitle}</p>
-                            <div class="user">
-                                <span class="name">{token.name}</span>
-                                <span class="ds-avatar" data-size="sm" data-color="accent" role="img" aria-label={token.name}>{initials(token.name)}</span>
-                            </div>
+                            <UserMenu {token} />
                         </header>
+                        {#if token.previewRole}
+                            <div class="preview-bar" role="status">
+                                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+                                <p class="ds-paragraph" data-size="sm">Du ser løsningen som <strong>{previewRoleInfo(token.previewRole)?.label}</strong>{#if token.previewSchool} ved <strong>{token.previewSchool}</strong>{/if}. Handlinger du gjør, bruker fortsatt administratortilgangen din.</p>
+                                <button class="ds-button" data-variant="secondary" data-color="neutral" data-size="sm" type="button" on:click={() => setPreview(null)}>Tilbake til administrator</button>
+                            </div>
+                        {/if}
                         <div class="content">
                             <slot />
                         </div>
@@ -210,14 +211,22 @@
         display: none;
     }
 
-    .user {
+    .preview-bar {
+        position: sticky;
+        top: 4rem;
+        z-index: 9;
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: var(--ds-size-2);
+        gap: var(--ds-size-2) var(--ds-size-3);
+        padding: var(--ds-size-2) var(--ds-size-6);
+        background: var(--ds-color-warning-surface-tinted);
+        border-bottom: 1px solid var(--ds-color-warning-border-subtle);
+        color: var(--ds-color-warning-text-default);
     }
 
-    .ds-avatar {
-        font-weight: 700;
+    .preview-bar p {
+        flex: 1 1 20rem;
     }
 
     .content {
@@ -232,7 +241,7 @@
         .sidebar { display: none; }
         .menu-btn { display: inline-flex; }
         .topbar { padding: var(--ds-size-2) var(--ds-size-4); }
-        .user .name { display: none; }
+        .preview-bar { padding-inline: var(--ds-size-4); }
         .content { padding: var(--ds-size-2) var(--ds-size-4) var(--ds-size-6); }
     }
 </style>
