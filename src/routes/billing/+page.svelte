@@ -1,354 +1,112 @@
 <script>
-    import { goto } from "$app/navigation";
-    import IconSpinner from "$lib/components/IconSpinner.svelte";
-    import Input from "$lib/components/Input.svelte";
-    import { formatDate } from "$lib/helpers/formatDate";
-    import { formatFnr } from "$lib/helpers/formatFnr";
-    import { getElevkontraktToken, searchContracts } from "$lib/useApi";
-    import { get } from "svelte/store";
-    import { billingTargetCollection } from "$lib/store";
+    // Fakturering: find the elev to invoice. Administrators can also search among elever who have left.
+    import { tick } from 'svelte'
+    import { get } from 'svelte/store'
+    import DsScope from '$lib/components/ds/DsScope.svelte'
+    import DsAlert from '$lib/components/ds/DsAlert.svelte'
+    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
+    import StudentSearch from '$lib/components/StudentSearch.svelte'
+    import { hasAnyRole, isElevkontraktAdmin, ELEVKONTRAKT_ADMIN } from '$lib/helpers/roles.js'
+    import { billingTargetCollection } from '$lib/store'
+    import { getElevkontraktToken, getSearchScope } from '$lib/useApi'
 
-    let personSearchValue = ''
-    let isLoadingSearchData = false
-    let contractData = null
-    let userData = null
-    let resultsVisible = true
-    let contractOverviewVisible = false
-    let digitrollDataVisible = false
-    let digitrollDataRawVisible = false
-    let errorMessage = ''
-    let searchSluttaGruppa = false
+    const BILLING_WRITE_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.billing-readwrite']
 
-    const getHistoryData = async (searchValue, token) => {
-        contractOverviewVisible = false
-        errorMessage = ''
-        isLoadingSearchData = true
-        try {
-            
-            let targetCollection = get(billingTargetCollection)
-            if(searchSluttaGruppa) {
-                targetCollection = 'pcIkkeInnlevert'
-                billingTargetCollection.set('pcIkkeInnlevert')
-            }
-            userData = await searchContracts(searchValue, targetCollection, token)
-            if (userData && userData.contracts && userData.contracts.length > 0) {
-                contractData = userData.contracts[0]
-            } else if (userData.error && userData.error.length > 0) {
-                contractData = null;
-                errorMessage = userData.error
-            }
-            isLoadingSearchData = false;
-        } catch (error) {
-            errorMessage = 'Noe gikk veldig galt' + JSON.stringify(error)
-            isLoadingSearchData = false;
+    const tokenPromise = getElevkontraktToken(true)
+    const scopePromise = tokenPromise.then(token => hasAnyRole(token, BILLING_WRITE_ROLES) ? getSearchScope(token) : { school: null })
+
+    // The invoice page reads the collection from the store, so the choice here must always set it.
+    let collection = get(billingTargetCollection) === 'pcIkkeInnlevert' ? 'pcIkkeInnlevert' : 'regular'
+    $: billingTargetCollection.set(collection)
+
+    let searchComponent
+    let pendingRestore = null
+
+    // Back from an invoice re-runs the search in the same group.
+    export const snapshot = {
+        capture: () => ({ collection, search: searchComponent?.capture() }),
+        restore: async (saved) => {
+            if (saved?.collection) collection = saved.collection
+            await tick() // a new group re-creates the search, restore into the new one
+            if (searchComponent) searchComponent.restore(saved?.search)
+            else pendingRestore = saved?.search
         }
     }
 
-    const handleVisibility = (section, i) => {
-        if (section === 'contractOverview') {
-            if(contractOverviewVisible === i){
-                contractOverviewVisible = false;
-            } else {
-                contractOverviewVisible = i;
-            }
-        }
+    $: if (searchComponent && pendingRestore) {
+        searchComponent.restore(pendingRestore)
+        pendingRestore = null
     }
 </script>
 
-<main>
-    {#await getElevkontraktToken(true)}
-        <div class="loading">
-            <IconSpinner width={"32px"} />
-        </div>
-    {:then token}
-        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.billing-readwrite'].includes(r))}
-            <h1>Fakturering</h1>
-            <div class="info-text">
-                <p>Her kan du søke etter en elev ved å skrive inn elevens navn. </p>
-                <p>Skriv inn navn på eleven i søkefeltet under og trykk på "Hent elev" knappen.</p>
-                <br>
-                <p>Når du har funnet den eleven du ønsker å fakturere, kan du gå videre til faktureringsdelen. Der skal du kunne opprette fakturaer basert på elevens avtaler eller fakturere for andre tjenester.</p>
-                <p><strong>Merk:</strong> Når en faktura er opprettet vil den bli sendt til Xledger påfølgende dag kl 01:00. Når xledger mottar fakturaen vil den ikke bli synlig før den har blitt godkjent av økonomiavdelingen.</p>
-            </div>
+<DsScope>
+    <main>
+        {#await Promise.all([tokenPromise, scopePromise])}
+            <div class="center"><DsSpinner size="sm" title="Laster" /></div>
+        {:then [token, scope]}
+            <h1 class="ds-heading" data-size="lg">Fakturering</h1>
 
-            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                <h3>
-                    <label for="includeSlutta">Skal du søke blant elevene i slutta-gruppa?</label>
-                    <input type="checkbox" bind:checked={searchSluttaGruppa} id="includeSlutta" />
-                </h3>
-            {/if}
+            {#if !hasAnyRole(token, BILLING_WRITE_ROLES)}
+                <DsAlert color="warning" heading="Du har ikke tilgang til fakturering">
+                    <p class="ds-paragraph" data-size="sm">Fakturering er for administratorer og økonomi. Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang.</p>
+                </DsAlert>
+            {:else}
+                <p class="ds-paragraph lead" data-size="sm">Finn eleven du skal fakturere. På neste side lager du fakturaen, enten fra elevens avtale eller for andre tjenester.</p>
 
-            <div class="searchField">
-                <Input disabled="{isLoadingSearchData}" type="text" bind:value={personSearchValue} placeholder="Eleven sitt navn" keypressEvent={(e) => e.key === 'Enter' && getHistoryData(personSearchValue, token)}/>
-                <button disabled="{personSearchValue.length === 0 || isLoadingSearchData}" on:click={() => getHistoryData(personSearchValue, token)}>
-                    {#if isLoadingSearchData}
-                        <span class="spinner"></span>
-                        Henter elev...
-                    {:else}
-                        Hent elev
-                    {/if}
-                </button>
-            </div>
-
-            {#if isLoadingSearchData}
-                <div class="loading">
-                    <IconSpinner width={"32px"} />
-                </div>
-            {:else if userData}
-                {#if errorMessage}
-                    <div class="error-message">
-                        <p>{errorMessage}</p>
+                {#if isElevkontraktAdmin(token)}
+                    <div class="ds-field collection">
+                        <span class="ds-label" id="collection-label">Søk blant</span>
+                        <div class="ds-toggle-group" data-size="sm" role="radiogroup" aria-labelledby="collection-label">
+                            <label class="ds-button" data-variant="tertiary"><input type="radio" name="collection" value="regular" bind:group={collection} />Elever</label>
+                            <label class="ds-button" data-variant="tertiary"><input type="radio" name="collection" value="pcIkkeInnlevert" bind:group={collection} />Har sluttet</label>
+                        </div>
+                        {#if collection === 'pcIkkeInnlevert'}
+                            <p class="ds-paragraph hint" data-size="xs">Elever som har sluttet, der PC-en ikke er innlevert eller ratene ikke er betalt.</p>
+                        {/if}
                     </div>
                 {/if}
-                {#if !errorMessage}
-                    {#each userData as contract, i}
-                        <div class="contract-overview">
-                            <h2>
-                                <div class="header-with-buttons">
-                                    <div class="header-title">
-                                        <span class="material-symbols-outlined">person</span>
-                                        {contract.name} - {formatFnr(contract.fnr)}
-                                    </div>
-                                    <div class="button-group">
-                                        <button class="toggle-button" on:click={() => goto(`/billing/${contract.id}`)}>
-                                            <span class="material-symbols-outlined">contract</span>
-                                        </button>
-                                        <button class="toggle-button" on:click={() => handleVisibility('contractOverview', i)}>
-                                            <span class="material-symbols-outlined">
-                                                {contractOverviewVisible === i ? 'visibility_off' : 'visibility'}
-                                            </span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </h2>
-                            {#if contractOverviewVisible === i}
-                                {#each contract.id as id}
-                                    <div class="info-section">
-                                        <div class="info-grid">
-                                            <div class="info-item">
-                                                <label>Database ID:</label>
-                                                <span class="value">{id}</span>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Avtaletype:</label>
-                                                <span class="value">{contract.contractType}</span>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Opprettet:</label>
-                                                <span class="value">{contract.createdTimeStamp}</span>
-                                            </div>
-                                            <div class="info-item">
-                                                <label>Gå til denne avtalen:</label>
-                                                <div class="button-group">
-                                                    <button class="button" on:click={() => goto(`/billing/${contract.id}`)}>
-                                                        <span class="material-symbols-outlined">contract</span>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                {/each}
-                            {/if}
-                        </div>
-                        <br>
-                    {/each}
-                {/if}
+
+                <!-- A new group starts a new search. -->
+                {#key collection}
+                    <StudentSearch
+                        bind:this={searchComponent}
+                        {token}
+                        {collection}
+                        school={scope.school}
+                        hrefFor={(student) => `/billing/${student.id.join(',')}`}
+                        actionLabel="Fakturer"
+                        actionIcon="receipt_long"
+                        idleText="Skriv hele eller deler av navnet og trykk Søk. Velg eleven for å gå videre til fakturaen."
+                        scopeText={collection === 'pcIkkeInnlevert' ? ' blant elever som har sluttet' : ''}
+                    />
+                {/key}
             {/if}
-        {:else}
-            <h1>Tilgang nektet</h1>
-            <p>Du har ikke de nødvendige tillatelsene for å få tilgang til denne siden. Vennligst kontakt systemadministratoren hvis du mener dette er en feil.</p>
-        {/if}
-    {/await}
-</main>
+        {/await}
+    </main>
+</DsScope>
 
 <style>
     main {
-        padding: 2rem;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    h1 {
-        color: var(--gress-80);
-        margin-bottom: 1rem;
-    }
-
-    p {
-        margin-bottom: 1rem;
-        color: var(--vann-70, #333);
-        line-height: 1.5;
-    }
-
-    .searchField {
-        display: flex;
-        gap: 1rem;
-        margin: 2rem 0;
-        align-items: center;
-    }
-
-    .info-text {
-        background-color: var(--gress-5, #f8fffe);
-        border-left: 4px solid var(--gress-60);
-        padding: 1rem 1.5rem;
-        border-radius: 6px;
-        margin-bottom: 1.5rem;
-    }
-
-    button {
-        padding: 0.75rem 1.5rem;
-        background-color: var(--gress-60);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    button:hover:not(:disabled) {
-        background-color: var(--gress-70);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    button:disabled {
-        background-color: #ccc;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-    }
-
-    .spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid #ffffff;
-        border-top: 2px solid transparent;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    .contract-overview {
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        overflow: hidden;
-    }
-
-    .contract-overview h2 {
-        background: linear-gradient(135deg, var(--gress-60), var(--gress-70));
-        color: white;
-        padding: 2rem;
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-    }
-
-    .info-section {
-        border-bottom: 1px solid var(--gress-10);
-        padding: 2rem;
-    }
-
-    .info-section:last-child {
-        border-bottom: none;
-    }
-    
-    .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .info-item {
+        padding: var(--ds-size-4, 1rem);
+        max-width: 64rem;
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: var(--ds-size-5);
     }
 
-    .info-item label {
-        font-weight: 600;
-        color: var(--gress-70);
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+    .center {
+        display: grid;
+        place-items: center;
+        padding: 2rem;
     }
 
-    .info-item .value {
-        padding: 0.75rem;
-        background-color: var(--gress-5, #f8fffe);
-        border-radius: 6px;
-        border-left: 3px solid var(--gress-30);
-        font-size: 1rem;
-        min-height: 1.2rem;
+    .lead,
+    .hint {
+        color: var(--ds-color-neutral-text-subtle);
     }
 
-    .error-message {
-        background-color: var(--nype-10, #ffe5e5);
-        border-left: 4px solid var(--nype-60, #ff4d4d);
-        padding: 1rem 1.5rem;
-        border-radius: 6px;
-        margin-bottom: 1.5rem;
-    }
-
-    .header-with-buttons {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .button-group {
-        display: flex;
-        gap: 1rem;
-    }
-
-    .header-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-    }
-
-    .toggle-button {
-        background-color: transparent;
-        padding: 0.5rem 1rem;
-        border: none;
-        border-radius: 6px;
-    }
-
-    .loading {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-    }
-
-    /* Responsive design */
-    @media (max-width: 768px) {
-        main {
-            padding: 1rem;
-        }
-
-        .searchField {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .info-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    /* Material Icons */
-    .material-symbols-outlined {
-        font-variation-settings:
-        'FILL' 0,
-        'wght' 400,
-        'GRAD' 0,
-        'opsz' 24;
+    .collection {
+        gap: var(--ds-size-1);
+        align-self: flex-start;
     }
 </style>
