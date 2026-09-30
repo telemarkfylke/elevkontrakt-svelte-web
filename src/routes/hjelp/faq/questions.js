@@ -1,6 +1,9 @@
 // FAQ content. roles: who sees the question (null = everyone). answer is trusted HTML written here.
 import { CONTRACT_ROLES, HISTORY_ROLES, BILLING_ROLES, DELIVERY_ROLES, ELEVKONTRAKT_ADMIN } from '$lib/helpers/roles.js'
 
+const BILLING_WRITE_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.billing-readwrite']
+const BARCODE_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-read']
+
 const tag = (text, color) => `<span class="ds-tag" data-color="${color}" data-size="sm">${text}</span>`
 
 export const TOPICS = [
@@ -23,6 +26,22 @@ export const TOPICS = [
           <p class="ds-paragraph">Den som står som <strong>ansvarlig</strong> på avtalen:</p>
           <ul class="ds-list"><li>Er eleven 18 år eller eldre, er eleven selv ansvarlig.</li><li>Er eleven under 18 år, er det foresatt som signerte avtalen.</li></ul>
           <p class="ds-paragraph">Det gjelder både ratene og tilleggstjenester som lader eller egenandel.</p>`
+      },
+      {
+        q: 'Hvordan søker jeg i oversikten?',
+        roles: null,
+        answer: `
+          <p class="ds-paragraph">Du kan søke på navnet til eleven eller den ansvarlige, elevnummer, e-post, skole, klasse, trinn og hvem som har signert.</p>
+          <ul class="ds-list"><li>Skill flere søkeord med semikolon. <code>Bamble;2ABC</code> viser elever som treffer begge.</li>
+            <li>Skriv <code>signert:ja</code> eller <code>signert:nei</code> for å se avtaler som er eller ikke er signert. Det kan kombineres med andre søkeord: <code>Bamble;signert:nei</code>.</li></ul>
+          <p class="ds-paragraph">Søk og filtre kan ikke brukes samtidig. Tøm søket for å bruke filtrene, eller nullstill filtrene for å søke.</p>`
+      },
+      {
+        q: 'Hvordan ser jeg alle detaljene om en avtale?',
+        roles: null,
+        answer: `
+          <p class="ds-paragraph">Klikk på raden i oversikten. Da åpnes et panel til høyre med elev, ansvarlig, PC-status og betalinger.</p>
+          <p class="ds-paragraph">Har du tilgang til å endre avtalen, finner du <strong>Rediger</strong> øverst i panelet. Du kan også bruke <strong>Rediger</strong> direkte på raden.</p>`
       },
       {
         q: 'Hvorfor ser jeg bare elever fra min skole?',
@@ -56,6 +75,23 @@ export const TOPICS = [
             <li><strong>Alt er gjort opp:</strong> avtalen ligger i <strong>Historikk</strong>. Søk på elevens navn.</li></ul>`
       },
       {
+        q: 'Hvorfor får jeg ikke flyttet en avtale til Historikk?',
+        roles: [ELEVKONTRAKT_ADMIN],
+        who: 'Administrator',
+        answer: `
+          <p class="ds-paragraph">En avtale kan bare flyttes til Historikk når alt er gjort opp. Har avtalen en faktura eller rate som ikke er ${tag('Betalt', 'success')} eller ${tag('Kreditert', 'plomme')}, blir flyttingen stoppet. Meldingen viser hvilke fakturaer det gjelder.</p>
+          <p class="ds-paragraph">Vent til fakturaen er betalt, eller få den kreditert i Xledger. Statusen hentes fra Xledger hver morgen, så du kan flytte avtalen dagen etter.</p>
+          <p class="ds-paragraph">Historikk er et endelig arkiv. Koblingen til Pureservice fjernes når avtalen flyttes dit.</p>`
+      },
+      {
+        q: 'Kan jeg angre en sletting?',
+        roles: [ELEVKONTRAKT_ADMIN],
+        who: 'Administrator',
+        answer: `
+          <p class="ds-paragraph">Ikke i Elevavtaler. En slettet avtale vises ingen steder i løsningen. Er en avtale slettet ved en feil, ta kontakt med den som forvalter Elevavtaler.</p>
+          <p class="ds-paragraph">Gjelder det en elev som har sluttet, er det som regel bedre å flytte avtalen til <strong>Har sluttet</strong> eller <strong>Historikk</strong>.</p>`
+      },
+      {
         q: 'Eleven har signert på papir. Hvordan registrerer jeg avtalen?',
         roles: CONTRACT_ROLES,
         who: 'Skole og IT-servicedesk',
@@ -85,7 +121,22 @@ export const TOPICS = [
         roles: CONTRACT_ROLES,
         who: 'Skole og IT-servicedesk',
         answer: `
+          <p class="ds-paragraph">Du registrerer PC-status med <strong>Rediger</strong> på avtalen. Har du registrert feil, kan du ikke angre det selv.</p>
           <p class="ds-paragraph">Ta kontakt med en administrator. En administrator kan angre en utlevering, en innlevering eller et utkjøp.</p>`
+      },
+      {
+        q: 'Hvordan kopierer jeg brukernavnet til eleven?',
+        roles: BARCODE_ROLES,
+        answer: `
+          <p class="ds-paragraph">Klikk på strekkoden i oversikten. Brukernavnet kopieres, og strekkoden vises i stort format, så den er enkel å skanne.</p>`
+      },
+      {
+        q: 'Kan jeg hente ut oversikten til Excel?',
+        roles: DELIVERY_ROLES,
+        who: 'IT-servicedesk',
+        answer: `
+          <p class="ds-paragraph">Ja. Klikk <strong>Eksporter CSV</strong> øverst i Oversikt. Filen åpnes i Excel.</p>
+          <p class="ds-paragraph">Den har med alle avtalene i fanen du står i, uansett søk og filtre: navn, e-post, skole, trinn, klasse, signering, PC-status med dato og hvem som registrerte, status på de tre ratene, ansvarlig og avtaletype.</p>`
       },
       {
         q: 'Hva er utleveringsmodus?',
@@ -118,6 +169,15 @@ export const TOPICS = [
           <ul class="ds-list"><li><strong>Før kl. 01.00:</strong> slett fakturaen under <strong>Fakturaer</strong> og lag en ny under <strong>Fakturering</strong>.</li>
             <li><strong>Etter kl. 01.00:</strong> fakturaen er sendt og kan ikke slettes. Ta kontakt med en administrator og få fakturaen kreditert i Xledger.</li></ul>
           <p class="ds-paragraph">En faktura kan ikke endres etter at den er laget.</p>`
+      },
+      {
+        q: 'Jeg får beskjed om at eleven allerede har en faktura som ikke er sendt.',
+        roles: BILLING_WRITE_ROLES,
+        who: 'Fakturering',
+        answer: `
+          <p class="ds-paragraph">En elev kan bare ha én faktura for tilleggstjenester som ikke er sendt til Xledger. Det hindrer at samme produkt blir fakturert to ganger.</p>
+          <ul class="ds-list"><li>Skal noe legges til, slett den ventende fakturaen under <strong>Fakturaer</strong> og lag en ny med alt som skal med.</li>
+            <li>Ellers kan du vente til fakturaen er sendt kl. 01.00, og lage den nye i morgen.</li></ul>`
       },
       {
         q: 'Hvorfor ble prisen på ratene en annen enn jeg så da jeg lagde fakturaen?',
@@ -186,7 +246,7 @@ export const TOPICS = [
         q: 'Jeg ser ikke en side jeg trenger, eller får beskjed om at jeg ikke har tilgang.',
         roles: null,
         answer: `
-          <p class="ds-paragraph">Hva du ser i menyen, styres av rollen din i Elevavtaler. Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang. Oppgi at henvendelsen gjelder rollen din i Elevavtaler.</p>`
+          <p class="ds-paragraph">Hva du ser i menyen, styres av rollen din i Elevavtaler. Har du en rolle for fakturering, ser du <strong>Fakturaer</strong>. Med skrivetilgang ser du også <strong>Fakturering</strong>, der fakturaene lages. Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang. Oppgi at henvendelsen gjelder rollen din i Elevavtaler.</p>`
       }
     ]
   }

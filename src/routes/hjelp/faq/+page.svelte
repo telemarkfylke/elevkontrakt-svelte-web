@@ -197,6 +197,13 @@
         font-weight: 600;
     }
 
+    .answer :global(code) {
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 0.9em;
+        padding: 0 0.3em;
+        border-radius: 3px;
+        background: var(--ds-color-neutral-surface-tinted);
+    }
 
     .none {
         display: grid;

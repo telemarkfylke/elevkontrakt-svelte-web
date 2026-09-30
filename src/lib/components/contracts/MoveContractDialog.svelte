@@ -56,7 +56,7 @@
     {#if contract}
         {#if mode === 'delete'}
             <h2 class="ds-heading" data-size="sm" id="move-title">Slette avtalen til {contract.elevInfo?.navn}?</h2>
-            <p class="ds-paragraph">Avtalen flyttes til slettede avtaler og vises ikke lenger i oversikten. En administrator kan hente den tilbake.</p>
+            <p class="ds-paragraph">Avtalen vises ikke lenger noe sted i Elevavtaler, og du kan ikke angre dette selv. Har eleven sluttet, er det som regel bedre å flytte avtalen.</p>
         {:else}
             <h2 class="ds-heading" data-size="sm" id="move-title">Flytt avtalen til {contract.elevInfo?.navn}</h2>
             <DsSelect label="Ny plassering" bind:value={target} error={targetError}>
