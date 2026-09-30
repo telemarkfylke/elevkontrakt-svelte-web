@@ -11,7 +11,7 @@
         <header>
             <h1 class="ds-heading" data-size="lg">Hjelp</h1>
             <p class="ds-paragraph" data-variant="long">
-                Veiledning og svar på spørsmål om hvordan du bruker Elevkontrakt.
+                Veiledning og svar på spørsmål om hvordan du bruker Elevavtaler.
             </p>
         </header>
 
@@ -22,7 +22,7 @@
                 <li>
                     <DsCard href="/hjelp/faq">
                         <h3 class="ds-heading" data-size="xs">Ofte stilte spørsmål</h3>
-                        <p class="ds-paragraph" data-size="sm">Svar på vanlige spørsmål om Elevkontrakt.</p>
+                        <p class="ds-paragraph" data-size="sm">Svar på vanlige spørsmål om Elevavtaler.</p>
                     </DsCard>
                 </li>
             </ul>

@@ -19,6 +19,15 @@ export const isElevkontraktAdmin = (token) => token?.roles?.includes(ELEVKONTRAK
 /** The roles /contract admits. */
 export const CONTRACT_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write']
 
+/** The roles /history admits. */
+export const HISTORY_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.skoleadministrator-write']
+
+/** The roles that can see invoices. */
+export const BILLING_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.billing-readwrite', 'elevkontrakt.billing-read']
+
+/** The roles that see utleveringsmodus on Oversikt. */
+export const DELIVERY_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.itservicedesk-readwrite']
+
 /**
  * @param {Object} token - the decoded elevkontrakt token
  * @param {String[]} roles
