@@ -8,8 +8,7 @@
      * each belongs to a different person: the admin checks the number, an archive administrator
      * fixes a missing saksnummer, and an unreachable archive is nobody's fault.
      */
-    import IconSpinner from '$lib/components/IconSpinner.svelte'
-    import Alert from '$lib/components/alert.svelte'
+    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
     import DsInput from '$lib/components/ds/DsInput.svelte'
     import DsButton from '$lib/components/ds/DsButton.svelte'
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
@@ -185,17 +184,28 @@
 
 {#await getElevkontraktToken(true)}
     <div class="loading">
-        <IconSpinner width={'32px'} />
+        <DsSpinner size="sm" title="Laster" />
     </div>
 {:then token}
     {#if !token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))}
-        <Alert type="error" title="Feil" message="Du har ikke tilgang til å opprette en avtale. Vennligst ta kontakt med din administrator for å få tilgang." position="static" />
+        <h1 class="ds-heading" data-size="lg">Opprett elevavtaler</h1>
+        <DsAlert color="warning" heading="Du har ikke tilgang til å opprette avtaler">
+            <p class="ds-paragraph" data-size="sm">Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang.</p>
+            <p class="ds-paragraph" data-size="sm">Oppgi at henvendelsen gjelder rollen din i Elevavtaler.</p>
+        </DsAlert>
     {:else}
         <h1 class="ds-heading" data-size="lg">Opprett elevavtaler</h1>
         <p class="ds-paragraph">
             Her kan du opprette en elevavtale for en elev som ikke har en digital avtale.
             Fyll inn elevens fødselsnummer og trykk «Hent elev».
         </p>
+
+        <!-- Shown here, where the next elev is looked up. -->
+        {#if successMessage}
+            <DsAlert color="success" dismissible on:dismiss={() => (successMessage = '')}>
+                <p class="ds-paragraph" data-size="sm">{successMessage}</p>
+            </DsAlert>
+        {/if}
 
         <DsCard>
             <p class="ds-heading" data-size="2xs">Papirversjon av skjemaene</p>
@@ -262,7 +272,10 @@
 
             {#if submittedData}
                 {#if isLoading}
-                    <div class="loading"><IconSpinner width={'32px'} /></div>
+                    <div class="loading">
+                        <DsSpinner size="sm" />
+                        <p class="ds-paragraph" data-size="sm">Oppretter avtalen …</p>
+                    </div>
                 {:else}
                     <DsCard color="warning">
                         <p class="ds-heading" data-size="2xs">Er du sikker på at du vil opprette avtalen?</p>
@@ -275,11 +288,11 @@
             {/if}
         {/if}
 
-        {#if successMessage}
-            <Alert type="success" title="Suksess" message={successMessage} dismissible={true} on:close={() => (successMessage = '')} autoClose={true} autoCloseDelay={10000} position="fixed-top" />
-        {/if}
+        <!-- Shown by the button that failed. -->
         {#if errorMessage}
-            <Alert type="error" title="Feil" message={errorMessage} dismissible={true} on:close={() => (errorMessage = '')} autoClose={true} autoCloseDelay={10000} position="fixed-top" />
+            <DsAlert color="danger" heading="Avtalen ble ikke opprettet" dismissible on:dismiss={() => (errorMessage = '')}>
+                <p class="ds-paragraph" data-size="sm">{errorMessage}</p>
+            </DsAlert>
         {/if}
     {/if}
 {/await}
@@ -306,7 +319,9 @@
 
     .loading {
         display: flex;
+        align-items: center;
         justify-content: center;
+        gap: var(--ds-size-3, 0.75rem);
         padding: 2rem;
     }
 </style>

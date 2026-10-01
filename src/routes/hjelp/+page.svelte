@@ -1,17 +1,15 @@
 <script>
     import AdminOnly from '$lib/components/AdminOnly.svelte'
     import RoleOnly from '$lib/components/RoleOnly.svelte'
-    import DsScope from '$lib/components/ds/DsScope.svelte'
     import DsCard from '$lib/components/ds/DsCard.svelte'
     import { CONTRACT_ROLES } from '$lib/helpers/roles.js'
 </script>
 
-<DsScope>
     <main>
         <header>
             <h1 class="ds-heading" data-size="lg">Hjelp</h1>
             <p class="ds-paragraph" data-variant="long">
-                Veiledning og svar på spørsmål om hvordan du bruker Elevkontrakt.
+                Veiledning og svar på spørsmål om hvordan du bruker Elevavtaler.
             </p>
         </header>
 
@@ -22,7 +20,7 @@
                 <li>
                     <DsCard href="/hjelp/faq">
                         <h3 class="ds-heading" data-size="xs">Ofte stilte spørsmål</h3>
-                        <p class="ds-paragraph" data-size="sm">Svar på vanlige spørsmål om Elevkontrakt.</p>
+                        <p class="ds-paragraph" data-size="sm">Svar på vanlige spørsmål om Elevavtaler.</p>
                     </DsCard>
                 </li>
             </ul>
@@ -61,7 +59,6 @@
             </section>
         </AdminOnly>
     </main>
-</DsScope>
 
 <style>
     main {

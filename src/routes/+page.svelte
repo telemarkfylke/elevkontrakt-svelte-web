@@ -1,1643 +1,693 @@
 <script>
-    import { goto } from '$app/navigation';
-    import IconSpinner from '$lib/components/IconSpinner.svelte';
-    import Input from '$lib/components/Input.svelte';
-    import Modal from '$lib/components/Modal.svelte';
-    import Select from '$lib/components/Select.svelte';
-    import Table from '$lib/components/Table.svelte';
-    import { getContracts, getElevkontraktToken, getExtendedUserInfo, updateContractInfo, deleteContract, moveContract } from '$lib/useApi';
-    import { error } from '@sveltejs/kit';
-    import { onMount } from 'svelte';
-    import { get } from 'svelte/store';
+    /**
+     * Oversikt: all elevavtaler the user may see. Search or filter, open a contract in the side panel,
+     * and edit, move or delete it there. Administrators and IT-servicedesk also get delivery mode and export.
+     */
+    import DsAlert from '$lib/components/ds/DsAlert.svelte'
+    import DsButton from '$lib/components/ds/DsButton.svelte'
+    import DsCheckbox from '$lib/components/ds/DsCheckbox.svelte'
+    import DsDialog from '$lib/components/ds/DsDialog.svelte'
+    import DsDropdown from '$lib/components/ds/DsDropdown.svelte'
+    import DsInput from '$lib/components/ds/DsInput.svelte'
+    import DsPagination from '$lib/components/ds/DsPagination.svelte'
+    import DsSelect from '$lib/components/ds/DsSelect.svelte'
+    import DsTabs from '$lib/components/ds/DsTabs.svelte'
+    import DsTag from '$lib/components/ds/DsTag.svelte'
+    import StatusTag from '$lib/components/StatusTag.svelte'
+    import ContractCard from '$lib/components/ContractCard.svelte'
+    import Barcode from '$lib/components/contracts/Barcode.svelte'
+    import EditContractDialog from '$lib/components/contracts/EditContractDialog.svelte'
+    import MoveContractDialog from '$lib/components/contracts/MoveContractDialog.svelte'
+    import { yesNoInfo } from '$lib/helpers/status.js'
+    import { isElevkontraktAdmin, hasAnyRole, ELEVKONTRAKT_ADMIN, BILLING_ROLES } from '$lib/helpers/roles.js'
+    import { searchContracts, filterContracts, schoolsIn, classesIn, contractType, isNewThisYear, missingInFint, sortContracts } from '$lib/helpers/contractFilters.js'
+    import { getContracts, getElevkontraktToken, getExtendedUserInfo } from '$lib/useApi'
+    import { loadInvoiceData, invoicesFor, countInvoices } from '$lib/helpers/contractInvoices.js'
 
-    let headers
-    let deliveryHeaders
-    let response
-    let token
-    let responseCopy
+    const IT = 'elevkontrakt.itservicedesk-readwrite'
+    const SCHOOL_WRITE = 'elevkontrakt.skoleadministrator-write'
+    const SCHOOL_READ = 'elevkontrakt.skoleadministrator-read'
+    const PER_PAGE = 30
 
-    let updatedValues = {
-        rate1: {
-            status: '',
-            faktureringsår: '',
-            sum: '',
-            editReason: '',
-            editReasonCustom: ''
-        },
-        rate2: {
-            status: '',
-            faktureringsår: '',
-            sum: '',
-            editReason: '',
-            editReasonCustom: ''
-        },
-        rate3: {
-            status: '',
-            faktureringsår: '',
-            sum: '',
-            editReason: '',
-            editReasonCustom: ''
-        }
-    }
+    // Columns, in order. path is what the column shows and sorts on.
+    const COLUMNS = [
+        { key: 'navn', label: 'Navn', path: 'elevInfo.navn', sortable: true },
+        { key: 'skole', label: 'Skole', path: 'elevInfo.skole', sortable: true },
+        { key: 'klasse', label: 'Klasse', path: 'elevInfo.klasse', sortable: true },
+        { key: 'barcode', label: 'Strekkode', help: 'Klikk på strekkoden for å kopiere brukernavnet' },
+        { key: 'signert', label: 'Signert', path: 'isSigned', yesNo: true },
+        { key: 'signertav', label: 'Signert av', path: 'signedBy.navn', sortable: true },
+        { key: 'utlevert', label: 'PC utlevert', path: 'pcInfo.released', sortable: true, yesNo: true },
+        { key: 'innlevert', label: 'PC innlevert', path: 'pcInfo.returned', sortable: true, yesNo: true },
+        { key: 'kjopt', label: 'PC kjøpt ut', path: 'pcInfo.boughtOut', sortable: true, yesNo: true },
+        { key: 'rate1', label: 'Faktura 1', path: 'fakturaInfo.rate1.status', sortable: true, status: true },
+        { key: 'rate2', label: 'Faktura 2', path: 'fakturaInfo.rate2.status', sortable: true, status: true },
+        { key: 'rate3', label: 'Faktura 3', path: 'fakturaInfo.rate3.status', sortable: true, status: true },
+        { key: 'fakturaer', label: 'Fakturaer', path: 'invoiceCount', sortable: true }, // admin and billing roles only
+        { key: 'ansvarlig', label: 'Ansvarlig', path: 'ansvarligInfo.navn', sortable: true },
+        { key: 'type', label: 'Avtaletype', path: 'unSignedskjemaInfo.kontraktType', sortable: true }
+    ]
+    const DELIVERY_COLUMNS = ['barcode', 'navn', 'skole', 'signert', 'dokument']
+    const DOCUMENT_COLUMN = { key: 'dokument', label: 'Dokumentnummer', path: 'signedSkjemaInfo.archiveDocumentNumber' }
 
-    let showSearchInfo = false
-    let showModal = false
-    let isProcessing = false
-    let isFilterApplied = false
-    let deliveryModeActive = false
-    let enabledActions = false
-    let unLockPCFields = false
-    let unLockUpdateFields = false
-    let editAsAdmin = false
-    let preHistoryActive = false
+    let token = null
+    let contracts = []
+    let loadState = 'loading' // loading | ready | error
+    let collection = 'regular'
+    let tab = 'regular'
+    let delivery = false
+    let query = ''
+    let type = ''
+    let school = ''
+    let klasse = ''
+    let sort = { path: null, dir: 'ascending' }
+    let page = 1
+    let flash = ''
+    let selectedId = null
+    // All invoices the user may see, fetched the first time the panel opens.
+    let allInvoices = null
+    let invoiceSettings = null
+    let invoicesState = 'idle' // idle | loading | ready | error
+    let panelOpen = false
+    let editOpen = false
+    let moveOpen = false
+    let moveMode = 'move'
 
-
-    let statusCode = 0
-    let actionClicked
-    let contractToBeEdited
-    let saveErrorMessage = ""
-    $: searchValue = ''
-    $: searchResults = []
-
-    const reloadPage = () => {
-        const thisPage = window.location.pathname;
-        // Check if the current page is the same as the one we want to go to
-        if (thisPage === '/') {
-            // If the current page is the same, reload the page
-            window.location.reload();
-            return;
-        }
-        // If the current page is different, use goto to navigate to the new page
-        // This will also reload the page
-        goto('/').then(
-            () => goto(thisPage)
-        )
-    }
-
-    const contracts = async (token, targetCollection) => {
-        isProcessing = true
-        // Enable actions for administrators
-        if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))) {
-            enabledActions = true
-        }
-        if(!token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite'].includes(r))) {
-            try {
+    async function load () {
+        loadState = contracts.length ? loadState : 'loading'
+        try {
+            let result
+            if (hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT])) {
+                result = await getContracts(false, collection)
+            } else if (token.previewSchool) {
+                result = await getContracts(token.previewSchool, collection)
+            } else {
                 const { data } = await getExtendedUserInfo(token.upn)
-                response = await getContracts(data.companyName, targetCollection)
-            } catch (error) {
-                throw error(500, 'Noe gikk galt med å hente avtaler')
-            }           
-
-        } else {
-            try {
-                response = await getContracts(false, targetCollection)
-            } catch (error) {
-                throw error(500, 'Noe gikk galt med å hente avtaler')
+                result = await getContracts(data.companyName, collection)
             }
-        }
-        // Create headers and data from response
-        // Create fullview headers and keys
-        headers = 
-                [
-                    {
-                        label: "Navn",
-                        key: "elevInfo.navn",
-                        extra: [
-                            { 
-                                label: "Elevnummer",
-                                key: "elevInfo.elevnr"
-                            },
-                            {
-                                label: "Epost",
-                                key: "elevInfo.upn"
-                            }
-                        ]
-                    }, 
-                    {
-                        label: "Skole",
-                        key: "elevInfo.skole",
-                        extra: [ 
-                            {
-                                label: "Trinn",
-                                key: "elevInfo.trinn"
-                            },
-                        ]
-                    },
-                    {
-                        label: "Klasse",
-                        key: "elevInfo.klasse"
-                    },
-                    {
-                        label: "QrKode",
-                        key: "elevInfo.upn",
-                        extra: []
-                    },
-                    {
-                        label: "Status signering",
-                        key: "isSigned"
-                    },
-                    {
-                        label: "Signert av",
-                        key: "signedBy.navn",
-                        extra: [
-                            { 
-                                label: "Signert dato",
-                                key: "signedSkjemaInfo.createdTimeStamp"
-                            },
-                            {
-                                label: "Dokumentnummer",
-                                key: "signedSkjemaInfo.archiveDocumentNumber"
-                            }
-                        ]
-                    },
-                    {
-                        label: "PC - Utlevert",
-                        key: "pcInfo.released",
-                        extra: [
-                            {
-                                label: "Utlevert av",
-                                key: "pcInfo.releaseBy",
-                            },
-                            {
-                                label: "Utlevert dato",
-                                key: "pcInfo.releasedDate"
-                            }
-                        ]
-                    },
-                    {
-                        label: "PC - Innlevert",
-                        key: "pcInfo.returned",
-                        extra: [
-                            {
-                                label: "Motatt av",
-                                key: "pcInfo.returnedBy"
-                            },
-                            {
-                                label: "Innlevert dato",
-                                key: "pcInfo.returnedDate"
-                            },
-                        ]
-                    },
-                    {
-                        label: "PC - Kjøpt ut",
-                        key: "pcInfo.boughtOut",
-                        extra: [
-                            {
-                                label: "Registrert kjøpt ut av",
-                                key: "pcInfo.buyOutBy"
-                            },
-                            {
-                                label: "Kjøpt ut dato",
-                                key: "pcInfo.buyOutDate"
-                            }
-                        ]
-                    },
-                    {
-                        label: "Faktura 1",
-                        key: "fakturaInfo.rate1.status",
-                        extra: [
-                            {
-                                label: "Faktureringsår",
-                                key: "fakturaInfo.rate1.faktureringsår"
-                            },
-                            {
-                                label: "Sum",
-                                key: "fakturaInfo.rate1.sum"
-                            },
-                            {
-                                label: "Betalt dato",
-                                key: "fakturaInfo.rate1.betaltDato"
-                            },
-                            {
-                                label: "Løpenummer",
-                                key: "fakturaInfo.rate1.løpenummer"
-                            },
-                            {
-                                label: "Grunn til oppdatering",
-                                key: "fakturaInfo.rate1.editReason"
-                            },
-                            {
-                                label: "Oppdatering fritekst",
-                                key: "fakturaInfo.rate1.editReasonCustom"
-                            },
-                            {
-                                label: "Faktureringsdato",
-                                key: "fakturaInfo.rate1.faktureringsDato",
-                            }
-                        ]
-                    },
-                    {
-                        label: "Faktura 2",
-                        key: "fakturaInfo.rate2.status",
-                        extra: [
-                            {
-                                label: "Faktureringsår",
-                                key: "fakturaInfo.rate2.faktureringsår"
-                            },
-                            {
-                                label: "Sum",
-                                key: "fakturaInfo.rate2.sum"
-                            },
-                            {
-                                label: "Betalt dato",
-                                key: "fakturaInfo.rate2.betaltDato"
-                            },
-                            {
-                                label: "Løpenummer",
-                                key: "fakturaInfo.rate2.løpenummer"
-                            },
-                            {
-                                label: "Grunn til oppdatering",
-                                key: "fakturaInfo.rate2.editReason"
-                            },
-                            {
-                                label: "Oppdatering fritekst",
-                                key: "fakturaInfo.rate2.editReasonCustom"
-                            },
-                            {
-                                label: "Faktureringsdato",
-                                key: "fakturaInfo.rate2.faktureringsDato",
-                            }
-                        ]
-                    },
-                    {
-                        label: "Faktura 3",
-                        key: "fakturaInfo.rate3.status",
-                        extra: [
-                            {
-                                label: "Faktureringsår",
-                                key: "fakturaInfo.rate3.faktureringsår"
-                            },
-                            {
-                                label: "Sum",
-                                key: "fakturaInfo.rate3.sum"
-                            },
-                            {
-                                label: "Betalt dato",
-                                key: "fakturaInfo.rate3.betaltDato"
-                            },
-                            {
-                                label: "Løpenummer",
-                                key: "fakturaInfo.rate3.løpenummer"
-                            },
-                            {
-                                label: "Grunn til oppdatering",
-                                key: "fakturaInfo.rate3.editReason"
-                            },
-                            {
-                                label: "Oppdatering fritekst",
-                                key: "fakturaInfo.rate3.editReasonCustom"
-                            },
-                            {
-                                label: "Faktureringsdato",
-                                key: "fakturaInfo.rate3.faktureringsDato",
-                            }
-                        ]
-                    },
-                    {
-                        label: "Ansvarlig",
-                        key: "ansvarligInfo.navn"
-                    },
-                    {
-                        label: "Avtale type",
-                        key: "unSignedskjemaInfo.kontraktType"
-                    },
-            ]
-        
-        // Remove unwanted keys from the headers array
-        if(!token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-read'].includes(r))) {
-            // Show QRcode only for administrator and IT service desk
-            headers = headers.filter(header => header.label !== 'QrKode') 
-        }
-        
-        responseCopy = JSON.parse(JSON.stringify(response.result))  
-        isProcessing = false                  
-        return response.result
-    }
-
-    // Function to toggle preHistoryActive and reload contracts with the target collection
-    // True = pcIkkeInnlevert, False = regular
-    const preHistoryMode = async (token, targetCollection) => {
-        preHistoryActive = !preHistoryActive
-        contracts(token, targetCollection) 
-    }
-
-    const deliveryMode = () => {
-        // Create a new headers array with only the headers that is needed for the delivery mode
-        deliveryModeActive = !deliveryModeActive
-        if(deliveryModeActive === true) {
-            deliveryHeaders = headers.filter(header => header.label === 'QrKode' || header.label === 'Navn' || header.label === 'Skole' || header.label === 'Status signering')
-            deliveryHeaders.push({
-                label: 'Dokumentnummer',
-                key: 'signedSkjemaInfo.archiveDocumentNumber'
-            })
+            contracts = result?.result ?? []
+            loadState = 'ready'
+        } catch {
+            loadState = 'error'
         }
     }
 
-    const search = (searchValue) => {
-        const filterFunc = (dataArray) => {
-            const sv = searchValue.toLowerCase();
-            const svArray = sv.split(';').filter(s => s !== '');
+    const ready = getElevkontraktToken(true).then(async t => {
+        token = t
+        await load()
+        return t
+    })
 
-            // Special handling for isSigned:true or isSigned:false
-            const isSignedSearch = svArray.find(s => s.startsWith('signert:'));
-            let filteredData = dataArray;
+    // Who may do what. Same rules as before.
+    $: isAdmin = isElevkontraktAdmin(token)
+    $: canEdit = hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT, SCHOOL_WRITE])
+    $: showTools = hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT])
+    $: showBarcode = hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT, SCHOOL_READ])
 
-            if (isSignedSearch) {
-                let value = isSignedSearch.split(':')[1];
-                // Normalize value to lowercase for comparison
-                value = value.toLowerCase();    
-                // Convert 'ja' to 'true' and 'nei' to 'false'
-                // This allows for searching with 'signert:ja' or 'signert:nei' 
-                if (value === 'ja') {
-                    value = 'true';
-                } else if (value === 'nei') {
-                    value = 'false';
-                } else {
-                    // If the value is not true or false, we can skip filtering
-                    return filteredData;
-                }
-                filteredData = filteredData.filter(item => {
-                    // Normalize both to string for comparison
-                    return String(item.isSigned).toLowerCase() === value;
-                });
-                // Remove isSigned from further search
-                svArray.splice(svArray.indexOf(isSignedSearch), 1);
-            }
+    $: columns = delivery
+        ? DELIVERY_COLUMNS.map(key => key === 'dokument' ? DOCUMENT_COLUMN : COLUMNS.find(c => c.key === key))
+        : COLUMNS.filter(c => (c.key !== 'barcode' || showBarcode) && (c.key !== 'fakturaer' || canSeeInvoices))
 
-            // A recursive function that takes the dataArray and the svArray and returns the filtered dataArray
-            const filterRecursive = (dataArray, svArray) => {
-                if (svArray.length === 0) {
-                    return dataArray;
-                }
-                const currentSv = svArray[0];
-                const filtered = dataArray.filter(item => {
-                    // Check if the currentSv is in any of the keys in the item
-                    return Object.keys(item).some(key => {
-                        if (typeof item[key] === 'string') {
-                            return item[key].toLowerCase().includes(currentSv);
-                        } else if (typeof item[key] === 'object' && item[key] !== null) {
-                            // If the key is an object, check if any of the values in the object contains the currentSv
-                            return Object.values(item[key]).some(value => typeof value === 'string' && value.toLowerCase().includes(currentSv));
-                        }
-                        return false;
-                    });
-                });
-                // Call the function recursively with the filtered data and the rest of the svArray
-                return filterRecursive(filtered, svArray.slice(1));
-            };
-            return filterRecursive(filteredData, svArray);
-        };
-        searchResults = filterFunc(response.result);
+    // Search and filters can't be combined, as before.
+    $: filterActive = Boolean(type || school || klasse)
+    $: searching = Boolean(query.trim())
+    $: found = searching ? searchContracts(contracts, query) : filterContracts(contracts, { type, school, klasse })
+    $: visible = sort.path === 'invoiceCount'
+        ? [...found].sort((a, b) => ((invoiceCounts?.[a._id] ?? 0) - (invoiceCounts?.[b._id] ?? 0)) * (sort.dir === 'descending' ? -1 : 1))
+        : sortContracts(found, sort.path, sort.dir)
+    $: totalPages = Math.max(1, Math.ceil(visible.length / PER_PAGE))
+    $: if (page > totalPages) page = totalPages
+    $: rows = visible.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+    $: query, type, school, klasse, collection, (page = 1)
+    $: schools = schoolsIn(contracts)
+    $: classes = school ? classesIn(contracts, school) : []
+    $: counts = { leie: contracts.filter(c => contractType(c) === 'leieavtale').length, laan: contracts.filter(c => contractType(c) === 'låneavtale').length }
+    $: if (token && tab !== collection) switchCollection(tab)
+    $: selected = contracts.find(c => c._id === selectedId) ?? null
+    $: canSeeInvoices = hasAnyRole(token, BILLING_ROLES)
+    $: if (token && canSeeInvoices && invoicesState === 'idle') loadInvoices()
+    // Invoices per contract, for the Fakturaer column.
+    $: invoiceCounts = allInvoices ? countInvoices(allInvoices) : null
+    $: contractInvoices = canSeeInvoices && selected
+        ? (allInvoices ? invoicesFor(allInvoices, selected._id) : null)
+        : undefined
+
+    const valueAt = (contract, path) => path.split('.').reduce((value, key) => value?.[key], contract)
+    const show = (value) => value === undefined || value === null || value === '' || String(value).toLowerCase() === 'ukjent' ? '' : value
+    const rowState = (contract, delivery) => delivery ? (isNewThisYear(contract) ? 'new' : 'old') : (missingInFint(contract) ? 'fint' : '')
+
+    function sortBy (path) {
+        sort = { path, dir: sort.path === path && sort.dir === 'ascending' ? 'descending' : 'ascending' }
     }
 
-    const handleModalButtonClicks = async (clickedButton, action, token) => {
-        if(clickedButton === 'Lagre') {
-            // Handle save action
-            isProcessing = true
-            let response
-            if(action === "utlever") {
-                const utleverpc = document.getElementById('utleverpc')?.checked
-                if(utleverpc === true) {
-                    try {
-                        response = await updateContractInfo(contractToBeEdited._id, { releasePC: "true", upn: token.upn }, preHistoryActive ? 'pcIkkeInnlevert' : 'regular')
-                    } catch (error) {
-                        saveErrorMessage = "Noe gikk galt, prøv igjen senere"
-                        isProcessing = false
-                    }
-                } else {
-                    saveErrorMessage = "Du må krysse av for å utlevere PC"
-                    isProcessing = false
-                }
-            } else if (action === "innlever/utkjop") {
-                const innleverpc = document.getElementById('innleverpc')?.checked
-                const utkjoppc = document.getElementById('utkjoppc')?.checked
-                if(!innleverpc && !utkjoppc) {
-                    saveErrorMessage = "Du må krysse av for å registrere innlevering eller utkjøp av PC"
-                    isProcessing = false
-                    return
-                }
-                if(innleverpc === true && utkjoppc === true) {
-                    saveErrorMessage = "Du kan ikke registrere både innlevering og utkjøp av PC samtidig"
-                    isProcessing = false
-                    return
-                }
-                if(utkjoppc === true) {
-                    try {
-                        response = await updateContractInfo(contractToBeEdited._id, { buyOutPC: "true", upn: token.upn }, preHistoryActive ? 'pcIkkeInnlevert' : 'regular' )
-                    } catch (error) {
-                        saveErrorMessage = "Noe gikk galt, prøv igjen senere"
-                        isProcessing = false
-                    }
-                } else {
-                    // saveErrorMessage = "Du må krysse av for å registrere utkjop av PC"
-                    isProcessing = false
-                }
-                if(innleverpc === true) {
-                    try {
-                        response = await updateContractInfo(contractToBeEdited._id, { returnPC: "true", upn: token.upn }, preHistoryActive ? 'pcIkkeInnlevert' : 'regular' )
-                    } catch (error) {
-                        saveErrorMessage = "Noe gikk galt, prøv igjen senere"
-                        isProcessing = false
-                    }
-                } else {
-                    // saveErrorMessage = "Du må krysse av for å registrere inn PC"
-                    isProcessing = false
-                }   
-            } else if (action === "oppdater") {
-                const fieldsChanged = fieldsHaveChanged()
-                if(fieldsChanged.hasChanged) {
-                    // Build the object to be sent to the API
-                    const updateData = { data: {} }
-                    for (const [key, value] of Object.entries(fieldsChanged.fieldsChanged)) {
-                        updateData.data[`fakturaInfo.${key}`] = value.toString()
-                    }
-                    // Return ID and the updateData and updateData = true to the API
-                    /**
-                     * E.G
-                     * {
-                     *  contractID: contractToBeEdited._id,
-                     *  updateData: true,
-                     *  data: {
-                     *      'fakturaInfo.rate1.status': 'Fakturert',
-                     *      'fakturaInfo.rate1.faktureringsår': 2024,
-                     *      'fakturaInfo.rate1.sum': 2000,
-                     *      changeLog: [
-                     *          {
-                     *              field: 'fakturaInfo.rate1.status',
-                     *              oldValue: 'Ikke fakturert',
-                     *              newValue: 'Fakturert',
-                     *              timestamp: new Date().toISOString(),
-                     *              changedBy: token.upn
-                     *          },
-                     *          {
-                     *              field: 'fakturaInfo.rate1.faktureringsår',
-                     *              oldValue: 2023,
-                     *              newValue: 2024,
-                     *              timestamp: new Date().toISOString(),
-                     *              changedBy: token.upn
-                     *          },
-                     *          {
-                     *              field: 'fakturaInfo.rate1.sum',
-                     *              oldValue: 1000,
-                     *              newValue: 2000,
-                     *              timestamp: new Date().toISOString(),
-                     *              changedBy: token.upn
-                     *          }
-                     *      ]
-                     *  }
-                     * }
-                    */
-                    updateData.changeLog = []
-                    for (const [key, value] of Object.entries(fieldsChanged.fieldsChanged)) {
-                        updateData.changeLog.push({
-                            field: `fakturaInfo.${key}`,
-                            oldValue: contractToBeEdited.fakturaInfo[key.split('.')[0]][key.split('.')[1]],
-                            newValue: value,
-                            timestamp: new Date().toISOString(),
-                            changedBy: token.upn
-                        })
-                    }
-                    updateData.contractID = contractToBeEdited._id
-                    updateData.updateData = true
+    function resetFilters () {
+        type = ''
+        school = ''
+        klasse = ''
+    }
 
-                    response = await updateContractInfo(contractToBeEdited._id, updateData, preHistoryActive ? 'pcIkkeInnlevert' : 'regular')
-                } else {
-                    saveErrorMessage = "Ingen endringer å lagre"
-                    isProcessing = false
-                    return
-                }
-            } else if (action === "slett") {
-                try {
-                    response = await moveContract(contractToBeEdited._id, 'deleted', preHistoryActive ? 'pcIkkeInnlevert' : 'regular')
-                } catch (error) {
-                    saveErrorMessage = "Noe gikk galt, prøv igjen senere"
-                    isProcessing = false
-                }
-            } else if (action === "adminEdit") {
-                const utleverpc = document.getElementById('utleverpc')?.checked
-                const reverserUtleverpc = document.getElementById('reverserUtleverpc')?.checked
-                const innleverpc = document.getElementById('innleverpc')?.checked
-                const reverserInnleverpc = document.getElementById('reverserInnleverpc')?.checked
-                const utkjoppc = document.getElementById('utkjoppc')?.checked
-                const reverserUtkjoppc = document.getElementById('reverserUtkjoppc')?.checked
+    async function switchCollection (next) {
+        collection = next
+        panelOpen = false
+        flash = ''
+        contracts = []
+        await load()
+    }
 
-                // Check if more than 1 option is checked
-                let actionsToPerform = 0
-                let actionData = {
-                    upn: token.upn
-                }
-                if(utleverpc) {
-                    actionsToPerform++
-                    actionData.releasePC = "true"
-                }
-                if(reverserUtleverpc) {
-                    actionsToPerform++
-                    actionData.releasePC = "false"
-                }
-                if(innleverpc) {
-                    actionsToPerform++
-                    actionData.returnPC = "true"
-                }
-                if(reverserInnleverpc) {
-                    actionsToPerform++
-                    actionData.returnPC = "false"
-                }
-                if(utkjoppc) {
-                    actionsToPerform++
-                    actionData.buyOutPC = "true"
-                }
-                if(reverserUtkjoppc) {
-                    actionsToPerform++
-                    actionData.buyOutPC = "false"
-                }
-                if(actionsToPerform > 1) {
-                    saveErrorMessage = "Du kan kun utføre én handling av gangen"
-                    isProcessing = false
-                    return
-                } else if (actionsToPerform === 0) {
-                    saveErrorMessage = "Du må velge en handling for å kunne lagre"
-                    isProcessing = false
-                    return
-                } else {
-                    try {
-                        response = await updateContractInfo(contractToBeEdited._id, actionData, preHistoryActive ? 'pcIkkeInnlevert' : 'regular')
-                    } catch (error) {
-                        saveErrorMessage = "Noe gikk galt, prøv igjen senere"
-                        isProcessing = false
-                    }
-                }
-            } else if (action === 'flytt') {
-                const nyPlassering = document.getElementById('nyPlassering')?.value
-                if(nyPlassering === '') {
-                    saveErrorMessage = "Du må velge en ny plassering for avtalen"
-                    isProcessing = false
-                    return
-                } else if (nyPlassering === 'historisk') {
-                    // Handle flytt to historisk
-                    try {
-                        response = await moveContract(contractToBeEdited._id, 'historic', preHistoryActive ? 'pcIkkeInnlevert' : 'regular') 
-                    } catch (error) {
-                        saveErrorMessage = "Noe gikk galt, prøv igjen senere"
-                        isProcessing = false
-                    }
-                }
-                else if (nyPlassering === 'regular') {
-                    // Handle flytt to regular
-                    try {
-                        response = await moveContract(contractToBeEdited._id, 'regular', preHistoryActive ? 'pcIkkeInnlevert' : 'regular') 
-                    } catch (error) {
-                        saveErrorMessage = "Noe gikk galt, prøv igjen senere"
-                        isProcessing = false
-                    }
-                }
-                else if (nyPlassering === 'pcIkkeInnlevert') {
-                    // Handle flytt to pcIkkeInnlevert
-                    try {
-                        response = await moveContract(contractToBeEdited._id, 'pcIkkeInnlevert', preHistoryActive ? 'pcIkkeInnlevert' : 'regular') 
-                    } catch (error) {
-                        saveErrorMessage = "Noe gikk galt, prøv igjen senere"
-                        isProcessing = false
-                    }
-                }
-            } else {
-                saveErrorMessage = "Noe gikk galt, prøv igjen senere"
-                isProcessing = false
-            }
-            if(response && response?.status === 200) {
-                showModal = false
-                saveErrorMessage = ""
-                reloadPage()
-            } else if (response && response?.status !== 200) {
-                // Prefer the API's own message when it sent one - the strings are already written as norwegian end-user text (e.g. the 409 that blocks archiving a contract with unsettled invoices). Plain-text error bodies leave data as a string, so the lookup yields undefined and we fall back to the generic message
-                const serverMessage = response?.data?.error
-                const invoiceDetail = Array.isArray(response?.data?.invoices)
-                    ? response.data.invoices.map(invoice => `${invoice.type}: ${invoice.status}`).join(', ')
-                    : ''
-                saveErrorMessage = serverMessage
-                    ? (invoiceDetail ? `${serverMessage} (${invoiceDetail})` : serverMessage)
-                    : "Noe gikk galt, prøv igjen senere"
-                isProcessing = false
-            } else {
-                saveErrorMessage = "Noe gikk galt, prøv igjen senere"
-                isProcessing = false
-            }
-        } else if (clickedButton === 'Avbryt') {
-            // Handle close action
-            saveErrorMessage = ""
-            showModal = false
+    async function loadInvoices () {
+        invoicesState = 'loading'
+        try {
+            ({ invoices: allInvoices, settings: invoiceSettings } = await loadInvoiceData(token))
+            invoicesState = 'ready'
+        } catch {
+            invoicesState = 'error'
         }
     }
 
-    const exportData = () => {
-        // Export data to CSV with selectable headers and fields
-        // 1. Define available headers and their keys
-        const availableHeaders = [
-            // { label: "Fulltnavn", key: "elevInfo.navn" },
-            { label: "Fornavn", key: "elevInfo.fornavn" },
-            { label: "Etternavn", key: "elevInfo.etternavn" },
-            // { label: "Elevnummer", key: "elevInfo.elevnr" },
-            { label: "Epost", key: "elevInfo.upn" },
-            { label: "Skole", key: "elevInfo.skole" },
-            { label: "Trinn", key: "elevInfo.trinn" },
-            { label: "Klasse", key: "elevInfo.klasse" },
-            { label: "Status signering", key: "isSigned" },
-            { label: "Signert av", key: "signedBy.navn" },
-            // { label: "Signert dato", key: "signedSkjemaInfo.createdTimeStamp" },
-            // { label: "Dokumentnummer", key: "signedSkjemaInfo.archiveDocumentNumber" },
-            { label: "PC - Utlevert", key: "pcInfo.released" },
-            { label: "Utlevert av", key: "pcInfo.releasedBy" },
-            { label: "Utlevert dato", key: "pcInfo.releasedDate" },
-            { label: "PC - Innlevert", key: "pcInfo.returned" },
-            { label: "Motatt av", key: "pcInfo.returnedBy" },
-            { label: "Innlevert dato", key: "pcInfo.returnedDate" },
-            { label: "Faktura 1", key: "fakturaInfo.rate1.status" },
-            { label: "Faktura 2", key: "fakturaInfo.rate2.status" },
-            { label: "Faktura 3", key: "fakturaInfo.rate3.status" },
-            { label: "Ansvarlig", key: "ansvarligInfo.navn" },
-            { label: "Avtale type", key: "unSignedskjemaInfo.kontraktType" }
-        ];
-        /**
-         * Keep for later, maybe we want to let the user select which columns to export (maybe not)
-         */
-        // // 2. Prompt user for which columns to export, prompt is good enough for Tormod
-        // const selectedLabels = prompt(
-        //     "Skriv inn hvilke kolonner du vil eksportere, separert med komma:\n" +
-        //     availableHeaders.map(h => h.label).join(", "),
-        //     availableHeaders.map(h => h.label).join(", ")
-        // );
-        // if (!selectedLabels) return;
-        // const selected = selectedLabels.split(",").map(s => s.trim()).filter(Boolean);
-        // const selectedHeaders = availableHeaders.filter(h => selected.includes(h.label));
-        // if (selectedHeaders.length === 0) {
-        //     alert("Ingen gyldige kolonner valgt.");
-        //     return;
-        // }
-
-        // 3. Helper to get nested value by key string (e.g. "elevInfo.navn")
-        const getValue = (obj, key) => {
-            return key.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : ""), obj);
-        }
-
-        // 4. Build CSV rows
-        const csvRows = [availableHeaders.map(h => `"${h.label}"`).join(",") ]
-        response.result.forEach(row => {
-            csvRows.push(
-            availableHeaders.map(h => {
-                let val = getValue(row, h.key)
-                if (typeof val === "boolean") val = val ? "Ja" : "Nei"
-                if (val === null || val === undefined) val = ""
-                return `"${String(val).replace(/"/g, '""')}"`
-            }).join(",")
-            )
-        });
-
-        // 5. Download CSV
-        const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `elevavtaler-${new Date().toISOString().slice(0, 10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    function openContract (contract) {
+        selectedId = contract._id
+        panelOpen = true
     }
 
-    const countContracts = () => {
-        let count = {}
-
-        // Count the number of contracts if type leieavtale and låneavtale
-        response.result.forEach(contract => {
-            if (contract.unSignedskjemaInfo.kontraktType.toLowerCase() === 'leieavtale' || contract.unSignedskjemaInfo.kontraktType.toLowerCase() === 'låneavtale') {
-                if (count[contract.unSignedskjemaInfo.kontraktType.toLowerCase()]) {
-                    count[contract.unSignedskjemaInfo.kontraktType.toLowerCase()] += 1;
-                } else {
-                    count[contract.unSignedskjemaInfo.kontraktType.toLowerCase()] = 1;
-                }
-            }
-        });
-        // If there is no contracts of type leieavtale or låneavtale, return 0
-        if (Object.keys(count).length === 0) {
-            return 0;
-        }
-
-        return count
+    function openEdit (contract) {
+        selectedId = contract._id
+        editOpen = true
     }
 
-    const assignActionBasedOnRole = (token) => {
-        // If the user is an administrator or IT service desk, enable actions
-        // NB! Assign actions based on roles, not on enabledActions variable
-        if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))) {
-            if(preHistoryActive) {
-                return ['Rediger', 'Flytt']
-            } else {
-                return ['Rediger', 'Slett', 'Flytt']
-            }
-        } 
-        if (token.roles.some((r) => ['elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))) {
-            return ['Rediger']
-        } 
-        if (!token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))) {
-            return []
-        }
+    function openMove (contract, mode) {
+        selectedId = contract._id
+        moveMode = mode
+        moveOpen = true
     }
 
-    const fieldsHaveChanged = () => {
-        // Check if any of the fields in contractToBeEdited have changed compared to the original response data
-
-        // Check if fakturaInfo.rateX.status, .fakturaInfo.rateX.faktureringsår, fakturaInfo.rateX.sum have changed
-        let fieldsChanged = {}
-        for (let i = 1; i <= 3; i++) {
-            if (updatedValues[`rate${i}`].status !== '' && updatedValues[`rate${i}`].status !== contractToBeEdited.fakturaInfo[`rate${i}`].status) fieldsChanged[`rate${i}.status`] = updatedValues[`rate${i}`].status
-            if (updatedValues[`rate${i}`].faktureringsår !== '' && updatedValues[`rate${i}`].faktureringsår !== contractToBeEdited.fakturaInfo[`rate${i}`].faktureringsår) fieldsChanged[`rate${i}.faktureringsår`] = updatedValues[`rate${i}`].faktureringsår
-            if (updatedValues[`rate${i}`].sum !== '' && updatedValues[`rate${i}`].sum !== contractToBeEdited.fakturaInfo[`rate${i}`].sum) fieldsChanged[`rate${i}.sum`] = updatedValues[`rate${i}`].sum
-            if (updatedValues[`rate${i}`].editReason !== '' ) fieldsChanged[`rate${i}.editReason`] = updatedValues[`rate${i}`].editReason;
-            if (updatedValues[`rate${i}`].editReasonCustom !== '' ) fieldsChanged[`rate${i}.editReasonCustom`] = updatedValues[`rate${i}`].editReasonCustom;
-        }
-
-        return { hasChanged: Object.keys(fieldsChanged).length > 0, fieldsChanged }
+    // After a save the list is fetched again in place; the panel stays open on an edited contract.
+    async function saved (event, closePanel) {
+        flash = event.detail
+        if (closePanel) panelOpen = false
+        await load()
     }
 
-    const unLockFieldsHandler = (fieldToUnlock) => {
-        if (fieldToUnlock === "PC") {
-            unLockPCFields = !unLockPCFields
-            unLockUpdateFields = false
-        } else if (fieldToUnlock === "Update") {
-            unLockUpdateFields = !unLockUpdateFields
-            unLockPCFields = false
-        } else if (fieldToUnlock === "Admin") {
-            // Reset updatedValues when toggling editAsAdmin
-            updatedValues = {
-                rate1: {
-                    status: '',
-                    faktureringsår: '',
-                    sum: '',
-                    editReason: '',
-                    editReasonCustom: ''
-                },
-                rate2: {
-                    status: '',
-                    faktureringsår: '',
-                    sum: '',
-                    editReason: '',
-                    editReasonCustom: ''
-                },
-                rate3: {
-                    status: '',
-                    faktureringsår: '',
-                    sum: '',
-                    editReason: '',
-                    editReasonCustom: ''
-                }
-            }
-            editAsAdmin = !editAsAdmin
-        }
+    // CSV export: the same columns as before.
+    function exportCsv () {
+        const headers = [
+            ['Fornavn', 'elevInfo.fornavn'], ['Etternavn', 'elevInfo.etternavn'], ['Epost', 'elevInfo.upn'], ['Skole', 'elevInfo.skole'],
+            ['Trinn', 'elevInfo.trinn'], ['Klasse', 'elevInfo.klasse'], ['Status signering', 'isSigned'], ['Signert av', 'signedBy.navn'],
+            ['PC - Utlevert', 'pcInfo.released'], ['Utlevert av', 'pcInfo.releasedBy'], ['Utlevert dato', 'pcInfo.releasedDate'],
+            ['PC - Innlevert', 'pcInfo.returned'], ['Motatt av', 'pcInfo.returnedBy'], ['Innlevert dato', 'pcInfo.returnedDate'],
+            ['Faktura 1', 'fakturaInfo.rate1.status'], ['Faktura 2', 'fakturaInfo.rate2.status'], ['Faktura 3', 'fakturaInfo.rate3.status'],
+            ['Ansvarlig', 'ansvarligInfo.navn'], ['Avtale type', 'unSignedskjemaInfo.kontraktType']
+        ]
+        const cell = (value) => `"${String(typeof value === 'boolean' ? (value ? 'Ja' : 'Nei') : (value ?? '')).replace(/"/g, '""')}"`
+        const lines = [headers.map(([label]) => cell(label)).join(','), ...contracts.map(c => headers.map(([, path]) => cell(valueAt(c, path))).join(','))]
+        const link = document.createElement('a')
+        link.href = encodeURI('data:text/csv;charset=utf-8,' + lines.join('\n'))
+        link.download = `elevavtaler-${new Date().toISOString().slice(0, 10)}.csv`
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
     }
-
-    const getCorrectYear = (rateNumber) => {
-        // Returns the correct billing year based on the rate number and current month
-        // We follow a school year from August to June next year
-        const currentDate = new Date();
-        const currentYear = currentDate.getFullYear();
-        const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
-        if (currentMonth >= 8) { // August to December
-            return currentYear + rateNumber;
-        } else { // January to July
-            return currentYear + rateNumber - 1;
-        }
-    }
-
 </script>
 
-<main>
-    {#await getElevkontraktToken(true)}
-        <div class="loading">
-            <IconSpinner width={"32px"} />
-        </div>
-    {:then token}
-        {#await contracts(token)}
-            <Table columns={[]} data={[]} loading={true} />
-        {:then contractData}
-        {#if isProcessing}
-            <div class="loading">
-                <IconSpinner width={"32px"} />
-            </div>
-        {:else}
-            <div class="page-container">
-                <div class="info-container">
-                    {#if showSearchInfo === false}
-                        <button class="info-button" on:click={() => showSearchInfo = !showSearchInfo}>Hva kan du søke på? 
-                            <span class="material-symbols-outlined">keyboard_arrow_down</span>
-                        </button>
-                    {:else}
-                        <button class="info-button" on:click={() => showSearchInfo = !showSearchInfo}>Hva kan du søke på? 
-                            <span class="material-symbols-outlined">keyboard_arrow_up</span>
-                        </button>
-                        <div class="info-list">
-                            <ul>
-                                <li>Eleven/Ansvarlig sitt navn</li>
-                                <li>Eleven sitt elevnummer</li>
-                                <li>Eleven sin epost</li>
-                            </ul>
-                            <ul>
-                                <li>Hvem som har signert</li>
-                                <li>Skole, Klasse og Trinn</li>
-                            </ul>
-                        </div>
-                        <div class="isSigned-info">
-                            <p>Ønsker du å søke etter status på signeringen kan du bruke filteret "Kun signerte avtaler".</p>
-                            <p>Om du ønsker å søke etter flere verdier, kan du bruke semikolon (;) som skille.</p>
-                            <p>F.eks Bamble;2ABC</p>
-                            <p>Vil du søke etter signerte avtaler, kan du bruke "signert:ja" som filter.</p>
-                            <p>Vil du søke etter ikke-signerte avtaler, kan du bruke "signert:nei" som filter.</p>
-                            <p>Dette kan du kombinere med andre filtre for mer spesifikke søk.</p>
-                            <p>F.eks Bamble;2ABC;signert:ja</p>
-                        </div>
-                    {/if}
+    <main>
+        {#await ready}
+            <h1 class="ds-heading" data-size="lg">Oversikt</h1>
+            <div class="table-wrap" aria-busy="true"><div class="skeleton">{#each Array(8) as _}<div class="skel"></div>{/each}</div></div>
+        {:then}
+            <div class="page-head">
+                <div>
+                    <h1 class="ds-heading" data-size="lg">Oversikt</h1>
+                    <p class="ds-paragraph lead" data-size="sm">
+                        {collection === 'pcIkkeInnlevert' ? 'Elever som har sluttet, der PC-en ikke er innlevert eller ratene ikke er betalt.' : `Alle elevavtaler${hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT]) ? ' i fylket' : ' for skolen din'}.`}
+                    </p>
                 </div>
-                <div class="icon-input" style="width: 80vw; max-width: 50rem;">
-                    {#if !isFilterApplied}
-                            <span class="material-symbols-outlined">search</span>
-                            <input type="text" style="width: 40vw" bind:value={searchValue} on:input={() => { search(searchValue) }} placeholder="Søk" />
-                    {:else}
-                        <span class="material-symbols-outlined">search</span>
-                        <input type="text" style="width: 40vw" bind:value={searchValue} on:input={() => { search(searchValue) }} placeholder="Du kan ikke søke når filter er i bruk" disabled/>
-                    {/if}
-                </div>
-                {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite'].includes(r))}
-                    <div class="hidden-buttons">
-                        {#if deliveryModeActive === false}
-                            <div class="delivery-button">
-                                <button on:click={ () => deliveryMode() }>Utleveringsmodus</button>
-                            </div>
-                        {:else}
-                            <div class="delivery-button">
-                                <button on:click={ () => deliveryMode() }>Tilbake til normalmodus</button>
-                            </div>
-                        {/if}
-                        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite'].includes(r))}
-                            <div class="delivery-button">
-                                <button on:click={() => exportData()}>Eksporter data</button>
-                            </div>
-                        {/if}
-                        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                            {#if preHistoryActive}
-                                <div class="delivery-button">
-                                    <button on:click={() => preHistoryMode(token, 'regular')}>Vis elever</button>
-                                </div>
-                            {:else}
-                                <div class="delivery-button">
-                                    <button on:click={() => preHistoryMode(token, 'pcIkkeInnlevert')}>Vis elever som har sluttet</button>
-                                </div>
-                            {/if}
-                        {/if}
+                {#if showTools && loadState === 'ready'}
+                    <div class="page-actions">
+                        <DsCheckbox type="switch" label="Utleveringsmodus" bind:checked={delivery} />
+                        <DsButton variant="secondary" size="sm" on:click={exportCsv}><span class="material-symbols-outlined" aria-hidden="true">download</span>Eksporter CSV</DsButton>
                     </div>
                 {/if}
-                <div class="table-container">
-                    <!-- Table -->
-                    {#if searchValue.length > 0}
-                        <!-- Table that shows the searchresults -->
-                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={searchResults} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={true} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive} itemsPerPage={30}/>
-                    {:else if preHistoryActive === true}
-                        <!-- Table that shows all contracts in historic -->
-                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={response.result} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive} itemsPerPage={30}/>
-                    {:else}
-                        <!-- Table that shows all contracts -->
-                        <Table columns={deliveryModeActive ? deliveryHeaders : headers} data={contractData} loading={false} actions={{enabled: (enabledActions === true && deliveryModeActive === false), actions: assignActionBasedOnRole(token)}} bind:clickedAction={actionClicked} bind:contractToBeEdited={contractToBeEdited} bind:buttonClicked={showModal} isSearchActive={false} bind:isFilterApplied={isFilterApplied} bind:deliveryModeActive={deliveryModeActive} itemsPerPage={30}/>
-                    {/if}
-                    <!-- Edit modal -->
-                    {#key showModal}
-                        {#if actionClicked === 'Rediger'}
-                            {#if isProcessing === true}
-                                <Modal bind:showModal={showModal} disableClickOutSide={true} disableStandardButton={true}>
-                                    <div slot="header">
-                                        <h2>Rediger avtale</h2>
-                                    </div>
-                                    <div slot="mainContent">
-                                        <div class="info-container">
-                                            <p>Avtale for: <strong>{contractToBeEdited.elevInfo.navn}</strong></p>
-                                            <p>Avtale type: <strong>{contractToBeEdited.unSignedskjemaInfo.kontraktType}</strong></p>
-                                            <br>
-                                            <IconSpinner width="50px" />
-                                            <p>Lagrer endring...</p>
-                                        </div>
-                                    </div>
-                                </Modal>
-                            {:else}
-                                <Modal bind:showModal={showModal} disableClickOutSide={true} disableStandardButton={true} >
-                                    <div slot="header">
-                                        <h2>Rediger Avtale</h2>
-                                    </div>
-                                    <div slot="mainContent">
-                                        <p>Avtale for: <strong>{contractToBeEdited.elevInfo.navn}</strong></p>
-                                        <p>Avtale type: <strong>{contractToBeEdited.unSignedskjemaInfo.kontraktType}</strong></p>
-                                        <br>
-                                        <div class="edit-admin-instructions">
-                                            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                <p>Du er admin og har mulighet til å redigere alt uten diverse sjekker, ha tunga rett i munn og vær forsiktig.</p>
-                                                {#if !editAsAdmin}
-                                                    <button style="background-color: var(--nype);" on:click={() => unLockFieldsHandler("Admin")}>
-                                                        Rediger som Admin
-                                                    </button>
-                                                {:else}
-                                                    <button style="background-color: var(--nype);" on:click={() => unLockFieldsHandler("Admin")}>
-                                                        Avbryt redigering som Admin
-                                                    </button>
-                                                {/if}
-                                            {/if}
-                                        </div>
-                                        {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))}
-                                            {#if !unLockPCFields}
-                                                <button style="margin-bottom: 1rem;" on:click={() => unLockFieldsHandler("PC")}>
-                                                    Rediger PC-status 🔓
-                                                </button>
-                                            {:else}
-                                                <button style="margin-bottom: 1rem;" on:click={() => unLockFieldsHandler("PC")}>
-                                                    Avbryt redigering 🔒
-                                                </button>
-                                            {/if}
-                                            {#if unLockPCFields && !editAsAdmin}
-                                                {#if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false"}
-                                                    <div class="checkbox-container">
-                                                        <p>Du kan levere ut pcen. Husk å krysse av og lagre.</p>
-                                                        <br>
-                                                        <div class="checkbox-item">
-                                                            <label for="utleverpc">Utlever PC?</label>
-                                                            <input type="checkbox" id="utleverpc" name="utleverpc" value="true" style="margin: 0.2rem;"/> 
-                                                            {#if saveErrorMessage.length > 0} 
-                                                                <p style="color: red;">*</p>
-                                                            {:else}
-                                                                <p>*</p>
-                                                            {/if}
-                                                        </div>
-                                                    </div>
-                                                {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false"}
-                                                    <!-- {#if (contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() !== "fakturert" && contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() !== "fakturert" && contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() !== "fakturert")} -->
-                                                        <p>PCen er alt utlevert, skal den leveres inn? Husk å endre status</p>
-                                                        <br>
-                                                        <div class="checkbox-container">
-                                                            <div class="checkbox-item">
-                                                                <label for="innleverpc">Registrer inn PC?</label>
-                                                                <input type="checkbox" id="innleverpc" name="innleverpc" value="true" style="margin: 0.2rem;"/> 
-                                                                {#if saveErrorMessage.length > 0} 
-                                                                    <p style="color: red;">*</p>
-                                                                {:else}
-                                                                    <p>*</p>
-                                                                {/if}
-                                                            </div>
-                                                        </div>
-                                                    <!-- {/if} -->
-                                                    {#if (contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() !== "ikke fakturert" && contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() !== "ikke fakturert" && contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() !== "ikke fakturert")}
-                                                        <div class="checkbox-container">    
-                                                            <div class="checkbox-item">
-                                                                <label for="utkjoppc">Registrer PC som utkjøpt?</label>
-                                                                <input type="checkbox" id="utkjoppc" name="utkjoppc" value="true" style="margin: 0.2rem;"/> 
-                                                                {#if saveErrorMessage.length > 0} 
-                                                                    <p style="color: red;">*</p>
-                                                                {:else}
-                                                                    <p>*</p>
-                                                                {/if}
-                                                            </div>
-                                                        </div>
-                                                    {/if}
-                                                {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false"}
-                                                    <p>PCen er alt utlevert, skal den leveres inn?</p>
-                                                {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "true"}
-                                                    <p>PCen er alt innlevert</p>
-                                                    <p>Mener du at dette er feil, kontakt en administrator.</p>
-                                                {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.boughtOut === "true"} 
-                                                    <p>PCen er alt kjøpt ut</p>
-                                                    <p>Mener du at dette er feil, kontakt en administrator.</p>
-                                                {:else}
-                                                    <p>Du kan ikke redigere pc-status, dette kan være av ulike grunner: </p>
-                                                    <div class="info-list" style="background-color: white; border-color:white;">
-                                                        <ul>
-                                                            <li>Avtalen er ikke signert</li>
-                                                            <li>PCen er allerede innlevert</li>
-                                                            <li>PCen er allerede kjøpt ut</li>
-                                                            <li>En eller flere fakturaer har status "Ikke fakturert"</li>
-                                                        </ul>
-                                                    </div>
-                                                {/if}
-                                            {:else if unLockPCFields && editAsAdmin}
-                                                <div class="checkbox-container-admin">
-                                                    <p>Du redigerer som admin, du kan krysse av for hva du ønsker å registrere. (Kun 1 valg om gangen)</p>
-                                                    <br>
-                                                    <p>Velg en handling:</p>
-                                                    {#if contractToBeEdited.pcInfo.released === "false"} 
-                                                        <div class="checkbox-item">
-                                                            <label for="utleverpc">Utlever PC?</label>
-                                                            <input type="checkbox" id="utleverpc" name="utleverpc" value="true" style="margin: 0.2rem;"/> 
-                                                            {#if saveErrorMessage.length > 0} 
-                                                                <p style="color: red;">*</p>
-                                                            {:else}
-                                                                <p>*</p>
-                                                            {/if}
-                                                        </div>
-                                                    {:else if contractToBeEdited.pcInfo.released === "true"}
-                                                        <div class="checkbox-item">
-                                                            <label for="reverserUtleverpc">Angre utlevering av PC?</label>
-                                                            <input type="checkbox" id="reverserUtleverpc" name="reverserUtleverpc" value="true" style="margin: 0.2rem;"/> 
-                                                            {#if saveErrorMessage.length > 0} 
-                                                                <p style="color: red;">*</p>
-                                                            {:else}
-                                                                <p>*</p>
-                                                            {/if}
-                                                        </div>
-                                                    {/if}
-                                                    {#if contractToBeEdited.pcInfo.returned === "false"}
-                                                        <div class="checkbox-item">
-                                                            <label for="innleverpc">Registrer inn PC?</label>
-                                                            <input type="checkbox" id="innleverpc" name="innleverpc" value="true" style="margin: 0.2rem;"/> 
-                                                            {#if saveErrorMessage.length > 0} 
-                                                                <p style="color: red;">*</p>
-                                                            {:else}
-                                                                <p>*</p>
-                                                            {/if}
-                                                        </div>
-                                                    {:else if contractToBeEdited.pcInfo.returned === "true"}
-                                                        <div class="checkbox-item">
-                                                            <label for="reverserInnleverpc">Angre innregistrering av PC?</label>
-                                                            <input type="checkbox" id="reverserInnleverpc" name="reverserInnleverpc" value="true" style="margin: 0.2rem;"/> 
-                                                            {#if saveErrorMessage.length > 0} 
-                                                                <p style="color: red;">*</p>
-                                                            {:else}
-                                                                <p>*</p>
-                                                            {/if}
-                                                        </div>
-                                                    {/if}
-                                                    {#if contractToBeEdited.pcInfo.boughtOut === "true"}
-                                                        <div class="checkbox-item">
-                                                            <label for="reverserUtkjoppc">Angre utkjøpt av PC?</label>
-                                                            <input type="checkbox" id="reverserUtkjoppc" name="reverserUtkjoppc" value="true" style="margin: 0.2rem;"/> 
-                                                            {#if saveErrorMessage.length > 0} 
-                                                                <p style="color: red;">*</p>
-                                                            {:else}
-                                                                <p>*</p>
-                                                            {/if}
-                                                        </div>
-                                                    {:else if contractToBeEdited.pcInfo.boughtOut === "false"}
-                                                        <div class="checkbox-item">
-                                                            <label for="utkjoppc">Registrer PC som utkjøpt?</label>
-                                                            <input type="checkbox" id="utkjoppc" name="utkjoppc" value="true" style="margin: 0.2rem;"/> 
-                                                            {#if saveErrorMessage.length > 0} 
-                                                                <p style="color: red;">*</p>
-                                                            {:else}
-                                                                <p>*</p>
-                                                            {/if}
-                                                        </div>
-                                                    {/if}
-                                                </div>
-                                            {/if}
-                                        {/if}
-                                        {#if contractToBeEdited.isSigned === "true" && contractToBeEdited.unSignedskjemaInfo.kontraktType.toLowerCase() === "leieavtale" && contractToBeEdited.pcInfo.returned === "false"}
-                                            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))}
-                                                {#if !unLockUpdateFields}
-                                                    <button style="margin-bottom: 1rem;" on:click={() => unLockFieldsHandler("Update")}>
-                                                        Rediger betalinger 🔓
-                                                    </button>
-                                                {:else}
-                                                    <button style="margin-bottom: 1rem;" on:click={() => unLockFieldsHandler("Update")}>
-                                                        Avbryt redigering 🔒
-                                                    </button>
-                                                {/if}
-                                                {#if unLockUpdateFields}
-                                                    <div class={editAsAdmin ? "faktura-edit-section-admin" : "faktura-edit-section"}>
-                                                        <h4>Faktura 1</h4>
-                                                        {#if contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate1.status.toLowerCase() === "skal ikke betale"}
-                                                            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                <div class="faktura-edit-section-input">
-                                                                    <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate1.sum}" bind:value={updatedValues.rate1.sum} placeholder={contractToBeEdited.fakturaInfo.rate1.sum} /> -->
-                                                                    <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate1.faktureringsår}" bind:value={updatedValues.rate1.faktureringsår}>
-                                                                        <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
-                                                                        <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
-                                                                        <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
-                                                                    </Select>
-                                                                </div>
-                                                            {/if}
-                                                            <div class="faktura-edit-section-input">
-                                                                <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate1.status}" bind:value={updatedValues.rate1.status}>
-                                                                    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                        <option value="Ikke Fakturert">Ikke Fakturert</option>
-                                                                        <option value="Fakturert">Fakturert</option>
-                                                                        <option value="Betalt">Betalt</option>
-                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                        <option value="Kreditert">Kreditert</option>
-                                                                    {:else}
-                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                    {/if}
-                                                                </Select>
-                                                            </div>
-                                                            <div class="faktura-edit-section-input">
-                                                                <Select label="Grunn til redigering" bind:value={updatedValues.rate1.editReason}>
-                                                                    <option value="">Velg grunn</option>
-                                                                    <option value="Feil faktureringsår">Feil faktureringsår</option>
-                                                                    <option value="Feil status">Feil status</option>
-                                                                    <option value="Elev slutter">Elev slutter</option>
-                                                                    <option value="Utkjøp av PC">Utkjøp av PC</option>
-                                                                    <option value="Privat PC">Privat PC</option>
-                                                                    <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
-                                                                </Select>
-                                                            </div>
-                                                            <div class="faktura-edit-section-input">
-                                                                <Input type="text" label={`Grunn til redigering fritekst (${updatedValues.rate1.editReasonCustom.length}/128)`} maxlength={128} bind:value={updatedValues.rate1.editReasonCustom} placeholder="Fritekst"/>
-                                                            </div>
-                                                        {:else if editAsAdmin}
-                                                            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                <div class="faktura-edit-section-input">
-                                                                    <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate1.sum}" bind:value={updatedValues.rate1.sum} placeholder={contractToBeEdited.fakturaInfo.rate1.sum} /> -->
-                                                                    <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate1.faktureringsår}" bind:value={updatedValues.rate1.faktureringsår}>
-                                                                        <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
-                                                                        <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
-                                                                        <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
-                                                                    </Select>
-                                                                </div>
-                                                            {/if}
-                                                            <div class="faktura-edit-section-input">
-                                                                <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate1.status}" bind:value={updatedValues.rate1.status}>
-                                                                    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                        <option value="Ikke Fakturert">Ikke Fakturert</option>
-                                                                        <option value="Fakturert">Fakturert</option>
-                                                                        <option value="Betalt">Betalt</option>
-                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                        <option value="Kreditert">Kreditert</option>
-                                                                    {:else}
-                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                    {/if}
-                                                                </Select>
-                                                            </div>
-                                                            <div class="faktura-edit-section-input">
-                                                                <Select label="Grunn til redigering" bind:value={updatedValues.rate1.editReason}>
-                                                                    <option value="">Velg grunn</option>
-                                                                    <option value="Feil faktureringsår">Feil faktureringsår</option>
-                                                                    <option value="Feil status">Feil status</option>
-                                                                    <option value="Elev slutter">Elev slutter</option>
-                                                                    <option value="Utkjøp av PC">Utkjøp av PC</option>
-                                                                    <option value="Privat PC">Privat PC</option>
-                                                                    <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
-                                                                </Select>
-                                                            </div>
-                                                            <div class="faktura-edit-section-input">
-                                                                <Input type="text" label={`Grunn til redigering fritekst (${updatedValues.rate1.editReasonCustom.length}/128)`} maxlength={128} bind:value={updatedValues.rate1.editReasonCustom} placeholder="Fritekst"/>
-                                                            </div>
-                                                        {:else}
-                                                            <p>Faktura 1 er allerede håndtert, kan ikke endre sum, status eller faktureringsår</p>
-                                                        {/if}
-                                                    </div>
-                                                    <div class={editAsAdmin ? "faktura-edit-section-admin" : "faktura-edit-section"}>
-                                                        <h4>Faktura 2</h4>
-                                                        {#if contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate2.status.toLowerCase() === "skal ikke betale"}
-                                                            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                <div class="faktura-edit-section-input">
-                                                                    <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate2.sum}" bind:value={updatedValues.rate2.sum} placeholder={contractToBeEdited.fakturaInfo.rate2.sum} /> -->
-                                                                    <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate2.faktureringsår}" bind:value={updatedValues.rate2.faktureringsår}>
-                                                                        <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
-                                                                        <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
-                                                                        <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
-                                                                    </Select>
-                                                                </div>
-                                                            {/if}
-                                                            <div class="faktura-edit-section-input">
-                                                                <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate2.status}" bind:value={updatedValues.rate2.status}>
-                                                                    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                        <option value="Ikke Fakturert">Ikke Fakturert</option>
-                                                                        <option value="Fakturert">Fakturert</option>
-                                                                        <option value="Betalt">Betalt</option>
-                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                        <option value="Kreditert">Kreditert</option>
-                                                                    {:else}
-                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                    {/if}
-                                                                </Select>
-                                                            </div>
-                                                            <div class="faktura-edit-section-input">
-                                                                <Select label="Grunn til redigering" bind:value={updatedValues.rate2.editReason}>
-                                                                    <option value="">Velg grunn</option>
-                                                                    <option value="Feil faktureringsår">Feil faktureringsår</option>
-                                                                    <option value="Feil status">Feil status</option>
-                                                                    <option value="Elev slutter">Elev slutter</option>
-                                                                    <option value="Utkjøp av PC">Utkjøp av PC</option>
-                                                                    <option value="Privat PC">Privat PC</option>
-                                                                    <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
-                                                                </Select>
-                                                            </div>
-                                                            <div class="faktura-edit-section-input">
-                                                                <Input type="text" label={`Grunn til redigering fritekst (${updatedValues.rate2.editReasonCustom.length}/128)`} maxlength={128} bind:value={updatedValues.rate2.editReasonCustom} placeholder="Fritekst"/>
-                                                            </div>
-                                                        {:else if editAsAdmin}
-                                                            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                <div class="faktura-edit-section-input">
-                                                                    <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate2.sum}" bind:value={updatedValues.rate2.sum} placeholder={contractToBeEdited.fakturaInfo.rate2.sum} /> -->
-                                                                    <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate2.faktureringsår}" bind:value={updatedValues.rate2.faktureringsår}>
-                                                                        <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
-                                                                        <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
-                                                                        <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
-                                                                    </Select>
-                                                                </div>
-                                                            {/if}
-                                                            <div class="faktura-edit-section-input">
-                                                                <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate2.status}" bind:value={updatedValues.rate2.status}>
-                                                                    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                        <option value="Ikke Fakturert">Ikke Fakturert</option>
-                                                                        <option value="Fakturert">Fakturert</option>
-                                                                        <option value="Betalt">Betalt</option>
-                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                        <option value="Kreditert">Kreditert</option>
-                                                                    {:else}
-                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                    {/if}
-                                                                </Select>
-                                                            </div>
-                                                            <div class="faktura-edit-section-input">
-                                                                <Select label="Grunn til redigering" bind:value={updatedValues.rate2.editReason}>
-                                                                    <option value="">Velg grunn</option>
-                                                                    <option value="Feil faktureringsår">Feil faktureringsår</option>
-                                                                    <option value="Feil status">Feil status</option>
-                                                                    <option value="Elev slutter">Elev slutter</option>
-                                                                    <option value="Utkjøp av PC">Utkjøp av PC</option>
-                                                                    <option value="Privat PC">Privat PC</option>
-                                                                    <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
-                                                                </Select>
-                                                            </div>
-                                                            <div class="faktura-edit-section-input">
-                                                                <Input type="text" label={`Grunn til redigering fritekst (${updatedValues.rate2.editReasonCustom.length}/128)`} maxlength={128} bind:value={updatedValues.rate2.editReasonCustom} placeholder="Fritekst"/>
-                                                            </div>
-                                                        {:else}
-                                                            <p>Faktura 2 er allerede håndtert, kan ikke endre sum, status eller faktureringsår</p>
-                                                        {/if}   
-                                                    </div>
-                                                    <div class={editAsAdmin ? "faktura-edit-section-admin" : "faktura-edit-section"}>
-                                                        <h4>Faktura 3</h4>
-                                                        {#if contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "ikke fakturert" || contractToBeEdited.fakturaInfo.rate3.status.toLowerCase() === "skal ikke betale"}
-                                                            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                <div class="faktura-edit-section-input">
-                                                                    <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate3.sum}" bind:value={updatedValues.rate3.sum} placeholder={contractToBeEdited.fakturaInfo.rate3.sum} /> -->
-                                                                    <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate3.faktureringsår}" bind:value={updatedValues.rate3.faktureringsår}>
-                                                                        <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
-                                                                        <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
-                                                                        <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
-                                                                    </Select>
-                                                                </div>
-                                                            {/if}
-                                                            <div class="faktura-edit-section-input">
-                                                                <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate3.status}" bind:value={updatedValues.rate3.status}>
-                                                                    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                        <option value="Ikke Fakturert">Ikke Fakturert</option>
-                                                                        <option value="Fakturert">Fakturert</option>
-                                                                        <option value="Betalt">Betalt</option>
-                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                        <option value="Kreditert">Kreditert</option>
-                                                                    {:else}
-                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                    {/if}
-                                                                </Select>
-                                                            </div>
-                                                            <div class="faktura-edit-section-input">
-                                                                <Select label="Grunn til redigering" bind:value={updatedValues.rate3.editReason}>
-                                                                    <option value="">Velg grunn</option>
-                                                                    <option value="Feil faktureringsår">Feil faktureringsår</option>
-                                                                    <option value="Feil status">Feil status</option>
-                                                                    <option value="Elev slutter">Elev slutter</option>
-                                                                    <option value="Utkjøp av PC">Utkjøp av PC</option>
-                                                                    <option value="Privat PC">Privat PC</option>
-                                                                    <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
-                                                                </Select>
-                                                            </div>
-                                                            <div class="faktura-edit-section-input">
-                                                                <Input type="text" label={`Grunn til redigering fritekst (${updatedValues.rate3.editReasonCustom.length}/128)`} maxlength={128} bind:value={updatedValues.rate3.editReasonCustom} placeholder="Fritekst"/>
-                                                            </div>
-                                                        {:else if editAsAdmin}
-                                                            {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                <div class="faktura-edit-section-input">
-                                                                    <!-- <Input type="text" label="Endre sum fra: {contractToBeEdited.fakturaInfo.rate3.sum}" bind:value={updatedValues.rate3.sum} placeholder={contractToBeEdited.fakturaInfo.rate3.sum} /> -->
-                                                                    <Select label="Endre faktureringsår fra: {contractToBeEdited.fakturaInfo.rate3.faktureringsår}" bind:value={updatedValues.rate3.faktureringsår}>
-                                                                        <option value={getCorrectYear(0)}>{getCorrectYear(0)}</option>
-                                                                        <option value={getCorrectYear(1)}>{getCorrectYear(1)}</option>
-                                                                        <option value={getCorrectYear(2)}>{getCorrectYear(2)}</option>
-                                                                    </Select>
-                                                                </div>
-                                                            {/if}
-                                                            <div class="faktura-edit-section-input">
-                                                                <Select label="Endre status fra: {contractToBeEdited.fakturaInfo.rate3.status}" bind:value={updatedValues.rate3.status}>
-                                                                    {#if token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))}
-                                                                        <option value="Ikke Fakturert">Ikke Fakturert</option>
-                                                                        <option value="Fakturert">Fakturert</option>
-                                                                        <option value="Betalt">Betalt</option>
-                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                        <option value="Kreditert">Kreditert</option>
-                                                                    {:else}
-                                                                        <option value="Skal ikke betale">Skal ikke betale</option>
-                                                                    {/if}
-                                                                </Select>
-                                                            </div>
-                                                            <div class="faktura-edit-section-input">
-                                                                <Select label="Grunn til redigering" bind:value={updatedValues.rate3.editReason}>
-                                                                    <option value="">Velg grunn</option>
-                                                                    <option value="Feil faktureringsår">Feil faktureringsår</option>
-                                                                    <option value="Feil status">Feil status</option>
-                                                                    <option value="Elev slutter">Elev slutter</option>
-                                                                    <option value="Utkjøp av PC">Utkjøp av PC</option>
-                                                                    <option value="Privat PC">Privat PC</option>
-                                                                    <option value="Overgang fra annet fylke">Overgang fra annet fylke</option>
-                                                                </Select>
-                                                            </div>
-                                                            <div class="faktura-edit-section-input">
-                                                                <Input type="text" label={`Grunn til redigering, fritekst (${updatedValues.rate3.editReasonCustom.length}/128)`} maxlength={128} bind:value={updatedValues.rate3.editReasonCustom} placeholder="Fritekst"/>
-                                                            </div>
-                                                        {:else}
-                                                            <p>Faktura 3 er allerede håndtert, kan ikke endre sum, status eller faktureringsår</p>
-                                                        {/if}   
-                                                    </div>
-                                                {/if}
-                                            {/if}
-                                        {/if}
-                                        <br>
-                                        {#if saveErrorMessage.length > 0}
-                                            <p style="color: red;"> <strong>{saveErrorMessage} ❗</strong></p>
-                                        {/if}
-                                    </div>
-                                    <div slot="saveButton">
-                                        {#if (unLockPCFields === true)}
-                                            {#if editAsAdmin}
-                                                <button on:click={() => handleModalButtonClicks('Lagre', 'adminEdit', token)}>Lagre som admin</button>
-                                            {:else if contractToBeEdited.isSigned === "true" && contractToBeEdited.pcInfo.released === "false"}
-                                                <button on:click={() => handleModalButtonClicks('Lagre', 'utlever', token)}>Lagre Utlevering</button>
-                                            {:else if contractToBeEdited.pcInfo.released === "true" && contractToBeEdited.pcInfo.returned === "false"}
-                                                <button on:click={() => handleModalButtonClicks('Lagre', 'innlever/utkjop', token)}>Lagre Innlevering</button>
-                                            {/if}
-                                        {:else if unLockUpdateFields === true}
-                                            {#if editAsAdmin}
-                                                <button on:click={() => handleModalButtonClicks('Lagre', 'oppdater', token)}>Lagre Oppdatering som Admin</button>
-                                            {:else}
-                                                <button on:click={() => handleModalButtonClicks('Lagre', 'oppdater', token)}>Lagre Oppdatering</button>
-                                            {/if}
-                                        {:else}
-                                            <button disabled on:click={() => handleModalButtonClicks('Lagre')}>Lagre</button>
-                                        {/if}
-                                        <button on:click={() => handleModalButtonClicks('Avbryt')}>Avbryt</button>
-                                    </div>
-                                </Modal>
-                            {/if}
-                        {/if}
-                        {#if actionClicked === 'Slett'}
-                            <Modal bind:showModal={showModal} disableClickOutSide={true} disableStandardButton={true}>
-                                <div slot="header">
-                                    <h2>Slett avtale</h2>
-                                </div>
-                                <div slot="mainContent">
-                                    <p>Er du sikker på at du vil slette avtalen for: <strong>{contractToBeEdited.elevInfo.navn}</strong>?</p>
-                                    <p>Dette kan ikke angres(joda :P)!</p>
-                                    {#if saveErrorMessage.length > 0}
-                                        <!-- max-width holder api-meldinger til en lesbar bredde - uten den strekker den flex-baserte modalen seg til én lang linje -->
-                                        <p style="color: red; max-width: 35em;"> <strong>{saveErrorMessage}❗</strong></p>
-                                    {/if}
-                                    {#if isProcessing === true}
-                                        <IconSpinner width="50px" />
-                                        <p>Lagrer endring...</p>
-                                    {/if}
-                                </div>
-                                <div slot="saveButton">
-                                    <button disabled={isProcessing} on:click={() => handleModalButtonClicks('Lagre', 'slett')}>Slett</button>
-                                    <button disabled={isProcessing} on:click={() => handleModalButtonClicks('Avbryt')}>Avbryt</button>
-                                </div>
-                            </Modal>
-                        {/if}
-                        {#if actionClicked === 'Flytt'}
-                            <Modal bind:showModal={showModal} disableClickOutSide={true} disableStandardButton={true}>
-                                <div slot="header">
-                                    <h2>Flytt avtale</h2>
-                                </div>
-                                <div slot="mainContent">
-                                    <p>Velg hvor du ønsker å flytte avtalen til: <strong>{contractToBeEdited.elevInfo.navn}</strong>?</p>
-                                    <label for="nyPlassering">Velg ny plassering:</label>
-                                    <select id="nyPlassering">
-                                        <option value="">Velg ny plassering</option>
-                                        <option value="historisk">Historisk</option>
-                                        {#if preHistoryActive === true}
-                                            <option value="regular">Ordinær gruppe</option>
-                                        {/if}
-                                        {#if preHistoryActive === false}
-                                            <option value="pcIkkeInnlevert">PC Ikke Innlevert/Rater Ikke Betalt</option>
-                                        {/if}
-                                    </select>
-                                    {#if saveErrorMessage.length > 0}
-                                        <!-- max-width holder api-meldinger til en lesbar bredde - uten den strekker den flex-baserte modalen seg til én lang linje -->
-                                        <p style="color: red; max-width: 35em;"> <strong>{saveErrorMessage}❗</strong></p>
-                                    {/if}
-                                    {#if isProcessing === true}
-                                        <IconSpinner width="50px" />
-                                        <p>Lagrer endring...</p>
-                                    {/if}
-                                </div>
-                                <div slot="saveButton">
-                                    <button disabled={isProcessing} on:click={() => handleModalButtonClicks('Lagre', 'flytt')}>Flytt</button>
-                                    <button disabled={isProcessing} on:click={() => handleModalButtonClicks('Avbryt')}>Avbryt</button>
-                                </div>
-                            </Modal>
-                        {/if}
-                    {/key}
-                </div>
-                <div>
-                    <p>Antall leieavtaler: {countContracts().leieavtale || 0}</p>
-                    <p>Antall låneavtaler: {countContracts().låneavtale || 0}</p>
-                </div>
             </div>
-        {/if}
-        {:catch error}
-            <p>{error.message}</p>
+
+            {#if flash}
+                <DsAlert color="success" dismissible on:dismiss={() => (flash = '')}><p class="ds-paragraph" data-size="sm">{flash}</p></DsAlert>
+            {/if}
+
+            {#if loadState === 'error'}
+                <DsAlert color="danger" heading="Vi fikk ikke hentet avtalene">
+                    <p class="ds-paragraph" data-size="sm">Last inn siden på nytt. Kontakt servicedesk hvis feilen fortsetter.</p>
+                    <p class="ds-paragraph" data-size="sm"><DsButton variant="secondary" size="sm" on:click={load}><span class="material-symbols-outlined" aria-hidden="true">refresh</span>Prøv igjen</DsButton></p>
+                </DsAlert>
+            {:else}
+                <div class="controls">
+                    <div class="filter-bar" role="search">
+                        <div class="fb-search">
+                            <DsInput label="Søk" type="search" icon="search" placeholder="Navn, elevnummer, e-post, skole eller klasse" autocomplete="off" disabled={filterActive} bind:value={query} />
+                            <button class="ds-button help" data-variant="tertiary" data-size="sm" data-icon type="button" popovertarget="search-help" aria-label="Hva kan du søke på?">
+                                <span class="material-symbols-outlined" aria-hidden="true">help</span>
+                            </button>
+                            <div class="ds-popover search-help" popover id="search-help" data-placement="bottom-start">
+                                <p class="ds-heading" data-size="2xs">Hva kan du søke på?</p>
+                                <ul class="ds-list" data-size="sm">
+                                    <li>Navnet til eleven eller den ansvarlige, elevnummer og e-post</li>
+                                    <li>Hvem som har signert, skole, klasse og trinn</li>
+                                    <li>Flere søkeord skilles med semikolon: <code>Bamble;2ABC</code></li>
+                                    <li><code>signert:ja</code> eller <code>signert:nei</code>, også sammen med andre ord: <code>Bamble;signert:ja</code></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <DsSelect label="Skole" disabled={searching} bind:value={school} on:change={() => (klasse = '')}>
+                            <option value="">Alle skoler</option>
+                            {#each schools as name}<option value={name}>{name}</option>{/each}
+                        </DsSelect>
+                        <DsSelect label="Klasse" disabled={searching || !school} bind:value={klasse}>
+                            <option value="">{school ? 'Alle klasser' : 'Velg skole først'}</option>
+                            {#each classes as name}<option value={name}>{name}</option>{/each}
+                        </DsSelect>
+                        <DsSelect label="Avtaletype" disabled={searching} bind:value={type}>
+                            <option value="">Alle</option>
+                            <option value="Leieavtale">Leieavtale</option>
+                            <option value="Låneavtale">Låneavtale</option>
+                        </DsSelect>
+                    </div>
+                    {#if searching}
+                        <p class="ds-paragraph bar-status" data-size="sm" role="status">
+                            <span class="material-symbols-outlined" aria-hidden="true">filter_alt</span>
+                            <strong>{visible.length} treff</strong> på «{query.trim()}». Filtrene er av mens du søker.
+                            <button class="ds-link link-btn" type="button" on:click={() => (query = '')}>Tøm søket</button>
+                        </p>
+                    {:else if filterActive}
+                        <p class="ds-paragraph bar-status" data-size="sm" role="status">
+                            <span class="material-symbols-outlined" aria-hidden="true">filter_alt</span>
+                            Viser <strong>{visible.length} av {contracts.length}</strong> avtaler. Søket er av mens et filter er i bruk.
+                            <button class="ds-link link-btn" type="button" on:click={resetFilters}>Nullstill filtre</button>
+                        </p>
+                    {/if}
+                </div>
+
+                {#snippet list()}
+
+                    {#if delivery}
+                        <p class="legend ds-paragraph" data-size="sm">
+                            <span><i class="swatch new"></i>Ny elev i år</span><span><i class="swatch old"></i>Elev fra tidligere år</span>
+                            <span class="muted">Skann eller klikk strekkoden for å kopiere brukernavnet.</span>
+                        </p>
+                    {:else if contracts.some(missingInFint)}
+                        <p class="legend ds-paragraph" data-size="sm"><span><i class="swatch fint"></i>Ikke funnet i FINT på over 5 dager</span></p>
+                    {/if}
+
+                    {#if loadState === 'loading'}
+                        <div class="table-wrap" aria-busy="true"><div class="skeleton">{#each Array(8) as _}<div class="skel"></div>{/each}</div></div>
+                    {:else if !rows.length}
+                        <div class="table-wrap">
+                            <div class="empty">
+                                <span class="material-symbols-outlined" aria-hidden="true">search_off</span>
+                                <p class="ds-heading" data-size="2xs">Ingen avtaler passer</p>
+                                <p class="ds-paragraph" data-size="sm">{searching ? `Ingen treff på «${query.trim()}». Sjekk stavemåten eller søk på noe annet.` : 'Ingen avtaler passer filtrene. Prøv å nullstille dem.'}</p>
+                            </div>
+                        </div>
+                    {:else}
+                        <div class="table-wrap" class:delivery>
+                            <table class="ds-table" data-size="sm" data-border>
+                                <thead>
+                                    <tr>
+                                        {#each columns as column, i (column.key)}
+                                            {#if column.sortable && !delivery}
+                                                <th class:sticky={i === 0} aria-sort={sort.path === column.path ? sort.dir : 'none'}><button type="button" on:click={() => sortBy(column.path)}>{column.label}</button></th>
+                                            {:else}
+                                                <th class:sticky={i === 0}>
+                                                    {column.label}
+                                                    {#if column.help}<button class="th-help" type="button" data-tooltip={column.help}><span class="material-symbols-outlined" aria-hidden="true">help</span></button>{/if}
+                                                </th>
+                                            {/if}
+                                        {/each}
+                                        {#if canEdit && !delivery}<th>Handlinger</th>{/if}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {#each rows as contract (contract._id)}
+                                        {@const state = rowState(contract, delivery)}
+                                        <tr data-row={state || undefined} class:clickable={!delivery} on:click={(event) => { if (!delivery && !event.target.closest('button, a, [popover]')) openContract(contract) }}>
+                                            {#each columns as column, i (column.key)}
+                                                <td class:sticky={i === 0}>
+                                                    {#if column.key === 'navn'}
+                                                        <span class="who">
+                                                            {#if delivery}
+                                                                <strong>{contract.elevInfo?.navn}</strong>
+                                                            {:else}
+                                                                <button class="ds-link link-btn name" type="button" on:click={() => openContract(contract)}>{contract.elevInfo?.navn}</button>
+                                                            {/if}
+                                                            <small>{show(contract.elevInfo?.elevnr)}</small>
+                                                        </span>
+                                                        {#if !delivery && missingInFint(contract)}<DsTag color="warning">FINT</DsTag>{/if}
+                                                    {:else if column.key === 'barcode'}
+                                                        <Barcode upn={contract.elevInfo?.upn} large={delivery} />
+                                                    {:else if column.yesNo}
+                                                        {@const yn = yesNoInfo(valueAt(contract, column.path))}
+                                                        <DsTag color={yn.color}>{yn.label}</DsTag>
+                                                    {:else if column.status}
+                                                        <StatusTag status={valueAt(contract, column.path)} />
+                                                    {:else if column.key === 'fakturaer'}
+                                                        {#if invoiceCounts}
+                                                            <span class="invoice-count" class:none={!invoiceCounts[contract._id]}>{invoiceCounts[contract._id] ?? 0}</span>
+                                                        {:else if invoicesState === 'error'}
+                                                            <span class="invoice-count none" title="Vi fikk ikke hentet fakturaene">–</span>
+                                                        {:else}
+                                                            <span class="invoice-count none" aria-label="Henter">…</span>
+                                                        {/if}
+                                                    {:else}
+                                                        {show(valueAt(contract, column.path)) || '–'}
+                                                    {/if}
+                                                </td>
+                                            {/each}
+                                            {#if canEdit && !delivery}
+                                                <td class="actions">
+                                                    <DsButton variant="secondary" size="sm" on:click={() => openEdit(contract)}><span class="material-symbols-outlined" aria-hidden="true">edit</span>Rediger</DsButton>
+                                                    {#if isAdmin}
+                                                        <DsDropdown label="Flere handlinger for {contract.elevInfo?.navn}">
+                                                            <li><button class="ds-button" data-variant="tertiary" type="button" on:click={() => openMove(contract, 'move')}><span class="material-symbols-outlined" aria-hidden="true">drive_file_move</span>Flytt avtale</button></li>
+                                                            {#if collection === 'regular'}
+                                                                <li><button class="ds-button" data-variant="tertiary" data-color="danger" type="button" on:click={() => openMove(contract, 'delete')}><span class="material-symbols-outlined" aria-hidden="true">delete</span>Slett avtale</button></li>
+                                                            {/if}
+                                                        </DsDropdown>
+                                                    {/if}
+                                                </td>
+                                            {/if}
+                                        </tr>
+                                    {/each}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="table-foot">
+                            <p class="ds-paragraph" data-size="sm">
+                                Viser {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, visible.length)} av {visible.length} avtaler
+                                {#if !searching && !filterActive}<span class="muted">· {counts.leie} leieavtaler · {counts.laan} låneavtaler</span>{/if}
+                            </p>
+                            <DsPagination bind:current={page} total={totalPages} />
+                        </div>
+                    {/if}
+                {/snippet}
+
+                {#if isAdmin}
+                    <DsTabs tabs={[{ value: 'regular', label: 'Elever' }, { value: 'pcIkkeInnlevert', label: 'Har sluttet' }]} bind:value={tab} label="Hvilke elever" size="sm">
+                        <div class="table-block">{@render list()}</div>
+                    </DsTabs>
+                {:else}
+                    <div class="table-block">{@render list()}</div>
+                {/if}
+
+                <DsDialog bind:open={panelOpen} placement="right" width="clamp(min(100vw, 36rem), 66vw, 64rem)" labelledby="panel-title" closeLabel="Lukk panelet">
+                    {#if selected}
+                        <div class="panel-head">
+                            <div>
+                                <h2 class="ds-heading" data-size="md" id="panel-title">{selected.elevInfo?.navn}</h2>
+                                <p class="ds-paragraph muted" data-size="sm">{selected.elevInfo?.skole} · {selected.elevInfo?.klasse} · {selected.unSignedskjemaInfo?.kontraktType}{selected.elevInfo?.elevnr ? ` · elevnr. ${selected.elevInfo.elevnr}` : ''}</p>
+                            </div>
+                            {#if canEdit}
+                                <div class="panel-actions">
+                                    <DsButton size="sm" on:click={() => openEdit(selected)}><span class="material-symbols-outlined" aria-hidden="true">edit</span>Rediger</DsButton>
+                                    {#if isAdmin}
+                                        <DsButton variant="secondary" size="sm" on:click={() => openMove(selected, 'move')}><span class="material-symbols-outlined" aria-hidden="true">drive_file_move</span>Flytt</DsButton>
+                                        {#if collection === 'regular'}
+                                            <DsButton variant="tertiary" color="danger" size="sm" on:click={() => openMove(selected, 'delete')}><span class="material-symbols-outlined" aria-hidden="true">delete</span>Slett</DsButton>
+                                        {/if}
+                                    {/if}
+                                </div>
+                            {/if}
+                        </div>
+                        {#key selected}
+                            <ContractCard contract={selected} {token} bare invoices={contractInvoices} {invoicesState} settings={invoiceSettings} />
+                        {/key}
+                    {/if}
+                </DsDialog>
+
+                <!-- Opened on top of the panel, which stays where it was. -->
+                <EditContractDialog contract={selected} {token} {collection} bind:open={editOpen} on:saved={(event) => saved(event, false)} />
+                <MoveContractDialog contract={selected} {collection} mode={moveMode} bind:open={moveOpen} on:saved={(event) => saved(event, true)} />
+            {/if}
         {/await}
-    {/await}
-</main>
+    </main>
 
 <style>
-  main {
-    display: flex;
-    justify-content: center;
-    height: 100%;
-    width: 100%;
-  }
-  .page-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-  }
-  .table-container {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-  }
-  .icon-input {
-        display: flex;
-        align-items: center;
-        margin: 1rem 0rem 1rem 0rem;
-        padding: 0.5rem 0.5rem 0.5rem 0.5rem;
-        border: 1px solid var(--himmel);
-        width: 100%;
-        border-radius: 5px;
-    }
-    .icon-input input:focus {
-        outline: none;
-    }
-    .icon-input input::placeholder {
-        /* Not --himmel: it is now the designmanual's #009BC2, which sits at ~3.3:1 on white and
-           fails WCAG AA for text. Borders keep --himmel; text does not. */
-        color: var(--vann);
-    }
-    .icon-input input:focus::placeholder {
-        color: transparent;
-    }
-    .icon-input input {
-        padding: 5px 16px 5px 5px;
-        border: 1px solid var(--himmel);
-        flex-grow: 1;
-    }
-    .icon-input span {
-        padding: 0rem 0rem 0rem 0rem;
-        font-size: 1.5rem;
-    }
-    .info-container {
+    main {
+        padding: var(--ds-size-4, 1rem) var(--ds-size-4, 1rem) 4rem;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        gap: var(--ds-size-5);
+        max-width: 100%;
     }
-    .info-button {
-        all: unset;
+
+    .lead,
+    .muted {
+        color: var(--ds-color-neutral-text-subtle);
+    }
+
+    .page-head {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: var(--ds-size-3) var(--ds-size-6);
+    }
+
+    .page-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--ds-size-3) var(--ds-size-5);
+    }
+
+    .controls {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-2);
+    }
+
+    .filter-bar {
+        display: grid;
+        grid-template-columns: minmax(16rem, 2fr) repeat(3, minmax(10rem, 1fr));
+        gap: var(--ds-size-3);
+        align-items: end;
+    }
+
+    @media (max-width: 1100px) {
+        .filter-bar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .fb-search { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 560px) {
+        .filter-bar { grid-template-columns: 1fr; }
+    }
+
+    .fb-search {
+        position: relative;
+    }
+
+    .help {
+        position: absolute;
+        top: 0;
+        left: 2.6rem;
+        min-height: 1.6rem !important;
+        min-width: 1.6rem !important;
+        padding: 0 !important;
+    }
+
+    .search-help {
+        max-width: 26rem;
+    }
+
+    code {
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 0.88em;
+        background: var(--ds-color-neutral-surface-tinted);
+        padding: 0 0.3em;
+        border-radius: 3px;
+    }
+
+    .bar-status {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem;
+        color: var(--ds-color-neutral-text-subtle);
+    }
+
+    .bar-status strong { color: var(--ds-color-neutral-text-default); }
+
+    .link-btn {
+        background: none;
+        border: 0;
+        padding: 0;
+        font: inherit;
         cursor: pointer;
-        display: flex;
-        flex-direction: row;
-        font-size: larger;
+        text-align: left;
     }
-    .info-button:focus {
-        outline: revert;
-    }
-    .info-button:hover {
-        /* --himmel is a border/background tone; as text on white it fails AA. See the placeholder. */
-        color: var(--vann);
-    }
-    .info-button span {
-        font-size: 1.5rem;
-    }
-    .info-list {
-        display: flex;
-        flex-direction: row;
-        justify-content: space-around;
-        margin: 1rem 0rem 0rem 0rem;
-        border: 1px solid var(--vann-50);
-        background-color: var(--vann-30);
-        width: 100%;
-    }
-    .info-list ul {
+
+    .table-block {
+        padding-top: var(--ds-size-3);
         display: flex;
         flex-direction: column;
-        list-style-type: none;
+        gap: var(--ds-size-3);
     }
-    .info-list ul li {
-        margin: 0.5rem 0rem 0.5rem 0rem;
-    }
-    .isSigned-info {
-        border: 1px solid var(--vann-50);
-        background-color: var(--vann-30);
-        padding: 1rem;
+
+    .legend {
         display: flex;
-        flex-direction: column;
-        justify-content: center;
+        flex-wrap: wrap;
         align-items: center;
+        gap: var(--ds-size-2) var(--ds-size-4);
     }
-    .checkbox-container {
-        display: flex;
+
+    .swatch {
+        display: inline-block;
+        width: 0.9rem;
+        height: 0.9rem;
+        border-radius: 3px;
+        vertical-align: -2px;
+        margin-inline-end: 0.35rem;
+        border: 1px solid var(--ds-color-neutral-border-subtle);
+    }
+
+    .swatch.new { background: var(--ds-color-success-surface-tinted); }
+    .swatch.old { background: var(--ds-color-danger-surface-tinted); }
+    .swatch.fint { background: var(--ds-color-warning-surface-tinted); }
+
+    .table-wrap {
+        overflow: auto;
+        max-height: 70vh;
+        border: 1px solid var(--ds-color-neutral-border-subtle);
+        border-radius: var(--ds-border-radius-lg);
+    }
+
+    .ds-table {
+        --dsc-table-padding: 0.6rem 0.8rem;
+        min-width: 100%;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ds-table th {
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--ds-color-accent-background-tinted);
+    }
+
+    .ds-table td {
+        vertical-align: middle;
+        background: var(--ds-color-neutral-background-default);
+    }
+
+    .ds-table .sticky {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        box-shadow: inset -1px 0 0 var(--ds-color-neutral-border-subtle);
+    }
+
+    .ds-table th.sticky { z-index: 3; }
+
+    tr[data-row='new'] > td { background: var(--ds-color-success-surface-tinted); }
+    tr[data-row='old'] > td { background: var(--ds-color-danger-surface-tinted); }
+    tr[data-row='fint'] > td { background: var(--ds-color-warning-surface-tinted); }
+
+    tr.clickable { cursor: pointer; }
+    tr.clickable:hover > td { background: var(--ds-color-neutral-surface-hover); }
+
+    .who {
+        display: inline-flex;
         flex-direction: column;
-        align-items: flex-start;
-        border: 2px solid var(--vann-50);
-        margin: 1rem 0rem 1rem 0rem;
-        padding: 1rem;
+        line-height: 1.25;
+        min-width: 11rem;
+        vertical-align: middle;
     }
 
-    .checkbox-container p {
-        font-size: large;
+    .who small {
+        color: var(--ds-color-neutral-text-subtle);
+        font-size: 0.8rem;
     }
 
-    .checkbox-container-admin {
+    .name { font-weight: 700; }
+
+    .th-help {
+        all: unset;
+        cursor: help;
+        vertical-align: -3px;
+        border-radius: var(--ds-border-radius-full);
+        color: var(--ds-color-accent-text-subtle);
+    }
+
+    .th-help:focus-visible { outline: 3px solid var(--ds-color-focus-outer); }
+
+    .th-help .material-symbols-outlined { font-size: 1rem; }
+
+    .actions { white-space: nowrap; }
+
+    .invoice-count {
+        display: block;
+        text-align: right;
+        font-weight: 600;
+    }
+
+    .invoice-count.none {
+        font-weight: 400;
+        color: var(--ds-color-neutral-text-subtle);
+    }
+
+    .table-foot {
         display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        border: 2px solid var(--nype-50);
-        margin: 1rem 0rem 1rem 0rem;
-        padding: 1rem;
-    }
-
-    .checkbox-container-admin p {
-        font-size: large;
-    }
-
-    .checkbox-item {
-        display: flex;
-        flex-direction: row;
-        justify-content: flex-start;
+        flex-wrap: wrap;
         align-items: center;
-    }
-    .delivery-button {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin: 0rem 0rem 1rem 0rem;
-    }
-    .hidden-buttons {
-        display: flex;
-        flex-direction: row;
-        justify-content: space-around;
-        width: 100%;
-        max-width: 50rem;
-    }
-    .edit-admin-instructions {
-        border: 1px solid var(--nype-50);
-        background-color: var(--nype-30);
-        padding: 1rem;
-        margin-bottom: 1rem;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
-    .edit-admin-instructions p {
-        font-size: large;
-        margin: 0rem 0rem 1rem 0rem;
+        justify-content: space-between;
+        gap: var(--ds-size-3);
+        font-variant-numeric: tabular-nums;
     }
 
-    .faktura-edit-section {
-        border: 2px solid var(--vann-50);
-        /* background-color: var(--himmel-30); */
-        padding: 1rem;
-        margin-bottom: 1rem;
+    .empty {
+        display: grid;
+        place-items: center;
+        gap: var(--ds-size-2);
+        padding: 3rem var(--ds-size-4);
+        text-align: center;
+    }
+
+    .empty .material-symbols-outlined {
+        font-size: 2rem;
+        color: var(--ds-color-neutral-text-subtle);
+    }
+
+    .panel-head {
         display: flex;
         flex-direction: column;
-        width: 100%;
-    }
-    .faktura-edit-section h4 {
-        margin-bottom: 1rem;
-    }
-    .faktura-edit-section p {
-        font-size: larger;
+        gap: var(--ds-size-3);
+        padding-bottom: var(--ds-size-4);
+        border-bottom: 1px solid var(--ds-color-neutral-border-subtle);
     }
 
-    .faktura-edit-section-input {
-        margin-bottom: 1rem;
+    .panel-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ds-size-2);
     }
 
-    .faktura-edit-section-admin {
-        border: 2px solid var(--nype-50);
-        /* background-color: var(--himmel-30); */
-        padding: 1rem;
-        margin-bottom: 1rem;
+    .skeleton {
         display: flex;
         flex-direction: column;
-        width: 100%;
+        gap: var(--ds-size-2);
+        padding: var(--ds-size-4);
     }
 
-    .faktura-edit-section-admin h4 {
-        margin-bottom: 1rem;
+    .skel {
+        height: 2.2rem;
+        border-radius: var(--ds-border-radius-md);
+        background: linear-gradient(90deg, var(--ds-color-neutral-surface-tinted), var(--ds-color-neutral-background-tinted), var(--ds-color-neutral-surface-tinted));
+        background-size: 200% 100%;
+        animation: shimmer 1.4s linear infinite;
     }
 
-    .faktura-edit-section-admin p {
-        font-size: large;
+    @keyframes shimmer {
+        to { background-position: -200% 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .skel { animation: none; }
     }
 </style>

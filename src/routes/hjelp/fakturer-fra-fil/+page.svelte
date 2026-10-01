@@ -1,10 +1,8 @@
 <script>
     import AdminOnly from '$lib/components/AdminOnly.svelte'
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
-    import DsScope from '$lib/components/ds/DsScope.svelte'
 </script>
 
-<DsScope>
     <AdminOnly>
         <main>
             <h1 class="ds-heading" data-size="lg">Veiledning for fakturering fra fil</h1>
@@ -219,7 +217,6 @@
             </p>
         </main>
     </AdminOnly>
-</DsScope>
 
 <style>
     /* Designsystemet spaces list items for prose; --ds-size-3 between one-word items is too much. */

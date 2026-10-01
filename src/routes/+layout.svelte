@@ -1,305 +1,247 @@
 <script>
-    import '../app.css';
+    import '../app.css'
     import { login, getMsalClient } from '../lib/auth/msal-auth.js'
     import { getElevkontraktToken } from '../lib/useApi.js'
-    import { afterUpdate, beforeUpdate, onMount, tick } from 'svelte'
+    import { onMount } from 'svelte'
     import { page } from '$app/stores'
-    import { goto } from '$app/navigation'
+    import { goto, afterNavigate } from '$app/navigation'
+    import DsScope from '$lib/components/ds/DsScope.svelte'
+    import DsAlert from '$lib/components/ds/DsAlert.svelte'
+    import DsDialog from '$lib/components/ds/DsDialog.svelte'
+    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
+    import NavMenu from '$lib/components/NavMenu.svelte'
+    import UserMenu from '$lib/components/UserMenu.svelte'
+    import { setPreview, previewRoleInfo } from '$lib/helpers/rolePreview.js'
+    import { hasAnyRole, ELEVKONTRAKT_ADMIN, CONTRACT_ROLES, HISTORY_ROLES, BILLING_ROLES } from '$lib/helpers/roles.js'
     import logoTFK from '$lib/assets/logo.svg'
     import logoVFK from '$lib/assets/VFK_logo.svg'
     import favTFK from '$lib/assets/favicon-32x32.png'
     import favVFK from '$lib/assets/vestfold-favicon-32x32.png'
-    import IconSpinner from '../lib/components/IconSpinner.svelte'
-    
+
+    const appTitle = 'Elevavtaler'
+    const telemark = import.meta.env.VITE_COUNTY === 'Telemark'
+    const logo = telemark ? logoTFK : logoVFK
+    const iconPath = telemark ? favTFK : favVFK
+    const BILLING_WRITE_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.billing-readwrite']
+
+    // Menu groups. roles: null means everyone. Empty groups are hidden.
+    const GROUPS = [
+        { title: 'Avtaler', items: [
+            { title: 'Oversikt', href: '/', icon: 'home', roles: null },
+            { title: 'Opprett avtale', href: '/contract', icon: 'assignment', roles: CONTRACT_ROLES },
+            { title: 'Historikk', href: '/history', icon: 'archive', roles: HISTORY_ROLES }
+        ] },
+        { title: 'Faktura', items: [
+            { title: 'Fakturering', href: '/billing', icon: 'receipt_long', roles: BILLING_WRITE_ROLES },
+            { title: 'Fakturaer', href: '/invoices', icon: 'receipt', roles: BILLING_ROLES },
+            { title: 'Fakturer fra fil', href: '/fakturer-fra-fil', icon: 'upload_file', roles: [ELEVKONTRAKT_ADMIN] }
+        ] },
+        { title: 'Admin', items: [
+            { title: 'Innstillinger', href: '/config', icon: 'settings', roles: [ELEVKONTRAKT_ADMIN] }
+        ] }
+    ]
+    const HELP = { title: 'Hjelp', href: '/hjelp', icon: 'help' }
+
     let account = null
+    let menuOpen = false
 
     onMount(async () => {
-      const authenticate = async () => {
         const msalClient = await getMsalClient()
-        if (msalClient.getActiveAccount()) {
-          account = msalClient.getActiveAccount()
-        }
+        if (msalClient.getActiveAccount()) account = msalClient.getActiveAccount()
         if (!account) {
-          const loginResponse = await login(false, $page.url.pathname) // Sends you to ms auth, and redirects you back here with the msalClient set with active account
-          account = loginResponse.account
-          if ($page.url.pathname !== loginResponse.loginRequestUrl) {
-            goto(loginResponse.loginRequestUrl, { replaceState: false, invalidateAll: true })
-          }
+            // Sends you to MS login, and back here with an active account
+            const loginResponse = await login(false, $page.url.pathname)
+            account = loginResponse.account
+            if ($page.url.pathname !== loginResponse.loginRequestUrl) {
+                goto(loginResponse.loginRequestUrl, { replaceState: false, invalidateAll: true })
+            }
         }
-      }
-      authenticate()   
-      return () => {
-        // console.log('Destroyyyy')
-        // on destroy (probs just wipe state)
-      }
     })
 
-    const appTitle = "Elevavtaler"
-    let logo = ""
-    let iconPath = ""
-    if(import.meta.env.VITE_COUNTY === 'Telemark') {
-      logo = logoTFK
-      iconPath = favTFK
-    } else {
-      logo = logoVFK
-      iconPath = favVFK
-    }
+    afterNavigate(() => { menuOpen = false })
 
-    const isActiveRoute = (route, currentRoute) => {
-      if (currentRoute === route) return true
-      if (route.length > 1 && currentRoute.substring(0, route.length) === route) return true
-      return false
-    }
-
-    const getInitials = (name) => {
-      const firstInitial = name.substring(0,1)
-      const nameList = name.split(' ')
-      if (nameList.length < 2) return firstInitial
-      const lastInitial = nameList[nameList.length-1].substring(0,1)
-      return `${firstInitial}.${lastInitial}`
-    }
-
-    $: sideMenuItems = [
-    {
-      title: 'Hjem',
-      href: '/',
-      icon: 'home'
-    },
-    {
-      title: 'Hjelp',
-      href: '/hjelp',
-      icon: 'help'
-    }
-  ]
-  const checkRoles = async (token) => {
-    if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))) {
-      sideMenuItems.splice(1, 0, {
-        title: 'Opprett avtale',
-        href: '/contract',
-        icon: 'assignment'
-      })
-    }
-    if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))) {
-      sideMenuItems.splice(2, 0, {
-        title: 'Historikk',
-        href: '/history',
-        icon: 'archive'
-      })
-    }
-    if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.billing-readwrite'].includes(r))) {
-      sideMenuItems.splice(3, 0, {
-        title: 'Fakturering',
-        href: '/billing',
-        icon: 'receipt_long'
-      })
-    }
-    if(token.roles.some((r) => ['elevkontrakt.administrator-readwrite'].includes(r))) {
-      sideMenuItems.splice(4, 0, {
-        title: 'Se Fakturaer',
-        href: '/invoices',
-        icon: 'receipt'
-      })
-      sideMenuItems.splice(5, 0, {
-        title: 'Fakturer fra fil',
-        href: '/fakturer-fra-fil',
-        icon: 'upload_file'
-      })
-      sideMenuItems.splice(6, 0, {
-        title: 'Instillinger',
-        href: '/config',
-        icon: 'settings'
-      })
-    }
-  }
+    const groupsFor = (token) => GROUPS
+        .map(group => ({ ...group, items: group.items.filter(item => !item.roles || hasAnyRole(token, item.roles)) }))
+        .filter(group => group.items.length)
 </script>
 
-
 <svelte:head>
-    <link rel="icon" type="image/svg" href={iconPath} />
+    <link rel="icon" type="image/png" href={iconPath} />
     <title>{appTitle}</title>
 </svelte:head>
-{#if !account}
-  <div class="loading">
-    <IconSpinner width={"32px"} />
-  </div>
-{:else}
-  {#await getElevkontraktToken(true)}
-    <div class="loading">
-      <IconSpinner width={"32px"} />
-    </div>
-  {:then token}
-    {#await checkRoles(token)}
-      <div class="loading">
-        <IconSpinner width={"32px"} />
-      </div>
-    {:then}
-      {#if token.roles.length === 0}
-        <div class="contentContainer">
-          <h3>Du har ikke tilgang til denne applikasjonen.</h3>
-          <h3>Kontakt servicedesk på din lokasjon om du trenger tilgang</h3>
-        </div>
-      {:else}
-        <div class="layout">
-          <div class="fakesidebartotakeupspace">
-            <p>Jeg burde ikke synes</p>
-          </div>
-          <div class="sidebar">
-            <a class="logoLink inward-focus-within" href="/">
-              <img class="logo" src={logo} alt="Fylkekommunens logo" />
-            </a>
-            {#each sideMenuItems as menuItem}
-              <a href={menuItem.href} class="menuLink inward-focus-within">
-                <div class="menuItem{isActiveRoute(menuItem.href, $page.url.pathname) ? ' active' : ''}">
-                  <span class="material-symbols-outlined">{menuItem.icon}</span>
-                  <div>{menuItem.title}</div>
+
+<DsScope>
+    {#if !account}
+        <div class="center-state"><DsSpinner size="sm" title="Logger inn" /><p class="ds-paragraph" data-size="sm">Logger inn …</p></div>
+    {:else}
+        {#await getElevkontraktToken(true)}
+            <div class="center-state"><DsSpinner size="sm" title="Laster" /><p class="ds-paragraph" data-size="sm">Laster …</p></div>
+        {:then token}
+            {#if !token?.roles?.length}
+                <div class="center-state">
+                    <div class="no-access">
+                        <h1 class="ds-heading" data-size="md">{appTitle}</h1>
+                        <DsAlert color="warning" heading="Du har ikke tilgang til Elevavtaler">
+                            <p class="ds-paragraph" data-size="sm">Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang.</p>
+                            <p class="ds-paragraph" data-size="sm">Oppgi at henvendelsen gjelder rollen din i Elevavtaler.</p>
+                        </DsAlert>
+                    </div>
                 </div>
-              </a>
-            {/each}
-          </div>
-          <div class="pageContent">
-            <div class="topbar">
-              <h1>{appTitle}</h1>
-              <div class="userContainer">
-                <div class="displayName">
-                  <span>
-                    {token.name}
-                  </span>
+            {:else}
+                {@const groups = groupsFor(token)}
+                <div class="app">
+                    <aside class="sidebar">
+                        <a class="logo" href="/"><img src={logo} alt="Fylkeskommunens logo, til Oversikt" /></a>
+                        <NavMenu {groups} bottom={[HELP]} path={$page.url.pathname} id="side" />
+                    </aside>
+                    <div class="main">
+                        <header class="topbar">
+                            <button class="ds-button menu-btn" data-variant="tertiary" data-size="sm" type="button" aria-haspopup="dialog" on:click={() => (menuOpen = true)}>
+                                <span class="material-symbols-outlined" aria-hidden="true">menu</span>Meny
+                            </button>
+                            <p class="ds-heading app-name" data-size="xs">{appTitle}</p>
+                            <UserMenu {token} />
+                        </header>
+                        {#if token.previewRole}
+                            <div class="preview-bar" role="status">
+                                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+                                <p class="ds-paragraph" data-size="sm">Du ser løsningen som <strong>{previewRoleInfo(token.previewRole)?.label}</strong>{#if token.previewSchool} ved <strong>{token.previewSchool}</strong>{/if}. Handlinger du gjør, bruker fortsatt administratortilgangen din.</p>
+                                <button class="ds-button" data-variant="secondary" data-color="neutral" data-size="sm" type="button" on:click={() => setPreview(null)}>Tilbake til administrator</button>
+                            </div>
+                        {/if}
+                        <div class="content">
+                            <slot />
+                        </div>
+                    </div>
                 </div>
-                <div class="displayNameMobile">
-                  <span>
-                    {getInitials(token.name)}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div class="contentContainer">
-              <slot></slot>
-            </div>
-          </div>
-        </div>
-      {/if}
-    {/await}
-  {/await}
-{/if}
+
+                <DsDialog bind:open={menuOpen} placement="left" width="min(20rem, 88vw)" label="Meny" closeLabel="Lukk meny">
+                    <p class="ds-heading" data-size="xs">{appTitle}</p>
+                    <NavMenu {groups} bottom={[HELP]} path={$page.url.pathname} id="drawer" />
+                </DsDialog>
+            {/if}
+        {/await}
+    {/if}
+</DsScope>
 
 <style>
-  .contentContainer {
-    padding: 1rem 4rem;
-    height: 100%;
-    width: 100%;
-  }
-  .content {
-    margin: 0rem auto 0rem auto;
-  }
-  .layout {
-    display: flex;
-  }
-  .fakesidebartotakeupspace, .sidebar {
-    width: 8rem;
-    flex-direction: column;
-    flex-shrink: 0;
-    align-items: center;
-    padding: 1.5rem 0rem;
-    display: flex;
-    height: 100%;
-    background-color: var(--vann-30);
-  }
-  .sidebar {
-    position: fixed;
-  }
-  .menubarMobile {
-    display: none;
-  }
-  .logoLink {
-    padding-bottom: 2rem;
-  }
-  .logo {
-    width: 8rem;
-  }
-  .menuLink, .menuLinkMobile, .logoLink {
-    /*border-bottom: 1px solid var(--primary-color);*/
-    text-decoration: none;
-    color: var(--font-color);
-  }
-  .menuItem {
-    width: 8rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 1rem 0rem;
-    cursor: pointer;
-  }
-  .menuItem span {
-    font-size: 1.5rem;
-  }
-  .menuItem.active, .menuItemMobile.active {
-    font-weight: bold;
-    background-color: var(--vann-40);
-  }
-  .menuItem:hover, .menuItemMobile:hover {
-    background-color: var(--vann-10);
-  }
-  .pageContent {
-    flex-grow: 1;
-    max-width: 80rem;
-    margin: 0rem auto;
-    padding: 0rem;
-  }
-  .topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 2rem;
-    border-bottom: 2px solid var(--vann-30);
-  }
-  .userContainer .displayName, .displayNameMobile {
-    display: flex;
-    flex-direction: column;
-  }
+    .center-state {
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--ds-size-3);
+        padding: var(--ds-size-6);
+        color: var(--ds-color-accent-text-default);
+    }
 
-  /* Smaller devices */
-  @media only screen and (max-width: 768px) {
-    .fakesidebartotakeupspace, .sidebar {
-      display: none;
+    .no-access {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-3);
+        max-width: 30rem;
+        color: var(--ds-color-neutral-text-default);
     }
-    .menubarMobile {
-      z-index: 100;
-      position: fixed;
-      bottom: 0rem;
-      align-items: center;
-      justify-content: space-between;
-      display: flex;
-      width: 100vw;
-      background-color: var(--vann-30);
-      overflow: scroll;
+
+    .app {
+        display: flex;
+        min-height: 100dvh;
+        background: var(--ds-color-neutral-background-default);
+        color: var(--ds-color-neutral-text-default);
     }
-    .menuLinkMobile {
-      flex-grow: 1;
+
+    /* The sidebar and topbar stay put while the page scrolls. */
+    .sidebar {
+        position: sticky;
+        top: 0;
+        width: 15rem;
+        height: 100dvh;
+        flex-shrink: 0;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-6);
+        padding: var(--ds-size-5) var(--ds-size-3);
+        background: var(--ds-color-accent-background-tinted);
+        border-inline-end: 1px solid var(--ds-color-accent-border-subtle);
     }
-    .menuItemMobile {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 1rem 1rem;
-      cursor: pointer;
+
+    .logo {
+        display: block;
+        padding-inline: var(--ds-size-2);
+        border-radius: var(--ds-border-radius-md);
     }
-    .menuItem span {
-      font-size: 1.5rem;
+
+    .logo img {
+        display: block;
+        width: 100%;
+        max-width: 11rem;
     }
+
+    .logo:focus-visible {
+        outline: 3px solid var(--ds-color-focus-outer);
+    }
+
+    .main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
     .topbar {
-      padding: 0rem 1rem;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: var(--ds-size-3);
+        min-height: 4rem;
+        padding: var(--ds-size-3) var(--ds-size-6);
+        background: var(--ds-color-neutral-background-default);
+        border-bottom: 1px solid var(--ds-color-neutral-border-subtle);
     }
-    .contentContainer {
-      padding: 1rem 1rem 5rem 1rem;
+
+    .app-name {
+        margin-inline-end: auto;
     }
-    .pathtracker {
-      padding: 0.4rem 1rem;
+
+    .menu-btn {
+        display: none;
     }
-    .userContainer .displayName {
-      display: none;
+
+    .preview-bar {
+        position: sticky;
+        top: 4rem;
+        z-index: 9;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--ds-size-2) var(--ds-size-3);
+        padding: var(--ds-size-2) var(--ds-size-6);
+        background: var(--ds-color-warning-surface-tinted);
+        border-bottom: 1px solid var(--ds-color-warning-border-subtle);
+        color: var(--ds-color-warning-text-default);
     }
-    .userContainer .displayNameMobile {
-      display: flex;
+
+    .preview-bar p {
+        flex: 1 1 20rem;
     }
-  }
+
+    .content {
+        flex: 1;
+        width: 100%;
+        max-width: 80rem;
+        margin-inline: auto;
+        padding: var(--ds-size-2) var(--ds-size-6) var(--ds-size-6);
+    }
+
+    @media (max-width: 768px) {
+        .sidebar { display: none; }
+        .menu-btn { display: inline-flex; }
+        .topbar { padding: var(--ds-size-2) var(--ds-size-4); }
+        .preview-bar { padding-inline: var(--ds-size-4); }
+        .content { padding: var(--ds-size-2) var(--ds-size-4) var(--ds-size-6); }
+    }
 </style>
