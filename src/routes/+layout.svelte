@@ -232,9 +232,9 @@
     .content {
         flex: 1;
         width: 100%;
-        max-width: 80rem;
+        max-width: 120rem;
         margin-inline: auto;
-        padding: var(--ds-size-2) var(--ds-size-6) var(--ds-size-6);
+        padding: var(--ds-size-2) var(--ds-size-2) var(--ds-size-6);
     }
 
     @media (max-width: 768px) {
@@ -242,6 +242,6 @@
         .menu-btn { display: inline-flex; }
         .topbar { padding: var(--ds-size-2) var(--ds-size-4); }
         .preview-bar { padding-inline: var(--ds-size-4); }
-        .content { padding: var(--ds-size-2) var(--ds-size-4) var(--ds-size-6); }
+        .content { padding: var(--ds-size-2) 0 var(--ds-size-6); }
     }
 </style>

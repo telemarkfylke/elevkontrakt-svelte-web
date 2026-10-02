@@ -272,7 +272,6 @@
 <style>
     main {
         padding: var(--ds-size-4, 1rem);
-        max-width: 84rem;
         display: flex;
         flex-direction: column;
         gap: var(--ds-size-5);
