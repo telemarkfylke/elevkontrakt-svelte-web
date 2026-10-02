@@ -237,6 +237,11 @@
         padding: var(--ds-size-2) var(--ds-size-2) var(--ds-size-6);
     }
 
+    /* Pages with their own max-width sit in the middle. */
+    .content > :global(main) {
+        margin-inline: auto;
+    }
+
     @media (max-width: 768px) {
         .sidebar { display: none; }
         .menu-btn { display: inline-flex; }

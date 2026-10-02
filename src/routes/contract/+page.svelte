@@ -182,129 +182,137 @@
     }
 </script>
 
-{#await getElevkontraktToken(true)}
-    <div class="loading">
-        <DsSpinner size="sm" title="Laster" />
-    </div>
-{:then token}
-    {#if !token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))}
-        <h1 class="ds-heading" data-size="lg">Opprett elevavtaler</h1>
-        <DsAlert color="warning" heading="Du har ikke tilgang til å opprette avtaler">
-            <p class="ds-paragraph" data-size="sm">Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang.</p>
-            <p class="ds-paragraph" data-size="sm">Oppgi at henvendelsen gjelder rollen din i Elevavtaler.</p>
-        </DsAlert>
-    {:else}
-        <h1 class="ds-heading" data-size="lg">Opprett elevavtaler</h1>
-        <p class="ds-paragraph">
-            Her kan du opprette en elevavtale for en elev som ikke har en digital avtale.
-            Fyll inn elevens fødselsnummer og trykk «Hent elev».
-        </p>
-
-        <!-- Shown here, where the next elev is looked up. -->
-        {#if successMessage}
-            <DsAlert color="success" dismissible on:dismiss={() => (successMessage = '')}>
-                <p class="ds-paragraph" data-size="sm">{successMessage}</p>
-            </DsAlert>
-        {/if}
-
-        <DsCard>
-            <p class="ds-heading" data-size="2xs">Papirversjon av skjemaene</p>
-            <ul class="ds-list">
-                <li><a class="ds-link" href="https://telemarkfylke.no/globalassets/tfk/dokumenter/opplaring-og-folkehelse/elev-pc/leieavtale/avtale-leie-elev-pc-og-utlansmidler---revidert-juni-26.pdf" target="_blank" rel="noreferrer">Leieavtale for utskrift</a></li>
-                <li><a class="ds-link" href="https://telemarkfylke.no/globalassets/tfk/dokumenter/opplaring-og-folkehelse/elev-pc/laneavtale/avtale-utlan-elev-pc-og-gratis-laremidler---revidert-juni-26.pdf" target="_blank" rel="noreferrer">Låneavtale for utskrift</a></li>
-                <li><a class="ds-link" href="https://telemarkfylke.no/no/meny/tjenester/opplaring-og-folkehelse/opplaring-i-skole/praktisk-informasjon/laneavtale-pc-og-lan-av-lareboker/Loan-PC-and-textbooks/" target="_blank" rel="noreferrer">Leie- og utlånsavtale på andre språk</a></li>
-            </ul>
-        </DsCard>
-
-        <div class="search">
-            <DsInput
-                label="Elevens fødselsnummer"
-                description="11 siffer. Fiktive fødselsnummer godtas så lenge eleven er registrert i arkivet."
-                bind:value={studentSSN}
-                inputmode="numeric"
-                maxlength={11}
-                error={searchError}
-                readonly={Boolean(identity)}
-                on:input={handleSSNInput}
-            />
-            {#if identity}
-                <!-- Locked once an elev is loaded: editing here unmounts the form and takes the
-                     uploaded PDF with it, so starting over is an explicit choice. -->
-                <DsButton variant="secondary" on:click={startNewLookup}>Bytt elev</DsButton>
-            {:else}
-                <!-- Not disabled for a half-typed number: a disabled ds button renders at 30% opacity,
-                     so it sat unreadable the whole time someone typed. Explains on click instead. -->
-                <DsButton
-                    disabled={isLoadingStudentData}
-                    loading={isLoadingStudentData}
-                    loadingText="Henter …"
-                    on:click={lookupStudent}
-                >
-                    Hent elev
-                </DsButton>
-            {/if}
+<main>
+    {#await getElevkontraktToken(true)}
+        <div class="loading">
+            <DsSpinner size="sm" title="Laster" />
         </div>
-
-        {#if inputType === 'orgnr'}
-            <DsAlert color="info">
-                <p class="ds-paragraph" data-size="sm">
-                    Dette ser ut som et organisasjonsnummer. En organisasjon kan bare være ansvarlig,
-                    ikke elev{#if isElevkontraktAdmin(token)} — legg det inn i ansvarlig-feltet lenger ned i skjemaet{:else}, og bare en administrator kan opprette en avtale der en virksomhet er ansvarlig{/if}.
-                </p>
+    {:then token}
+        {#if !token.roles.some((r) => ['elevkontrakt.administrator-readwrite', 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-write'].includes(r))}
+            <h1 class="ds-heading" data-size="lg">Opprett elevavtaler</h1>
+            <DsAlert color="warning" heading="Du har ikke tilgang til å opprette avtaler">
+                <p class="ds-paragraph" data-size="sm">Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang.</p>
+                <p class="ds-paragraph" data-size="sm">Oppgi at henvendelsen gjelder rollen din i Elevavtaler.</p>
             </DsAlert>
-        {/if}
+        {:else}
+            <h1 class="ds-heading" data-size="lg">Opprett elevavtaler</h1>
+            <p class="ds-paragraph">
+                Her kan du opprette en elevavtale for en elev som ikke har en digital avtale.
+                Fyll inn elevens fødselsnummer og trykk «Hent elev».
+            </p>
 
-        {#if lookupError}
-            <DsAlert color={lookupError.color} heading={lookupError.heading}>
-                <p class="ds-paragraph" data-size="sm">{lookupError.message}</p>
-            </DsAlert>
-        {/if}
+            <!-- Shown here, where the next elev is looked up. -->
+            {#if successMessage}
+                <DsAlert color="success" dismissible on:dismiss={() => (successMessage = '')}>
+                    <p class="ds-paragraph" data-size="sm">{successMessage}</p>
+                </DsAlert>
+            {/if}
 
-        {#if identity}
-            <!-- collapsed, not a flag inside the form: clearing submittedData - on cancel or on a
-                 failed post - brings the filled-in form straight back. -->
-            <ContractForm
-                {identity}
-                {token}
-                collapsed={submittedData !== null}
-                onSubmit={(payload) => (submittedData = payload)}
-            />
+            <DsCard>
+                <p class="ds-heading" data-size="2xs">Papirversjon av skjemaene</p>
+                <ul class="ds-list">
+                    <li><a class="ds-link" href="https://telemarkfylke.no/globalassets/tfk/dokumenter/opplaring-og-folkehelse/elev-pc/leieavtale/avtale-leie-elev-pc-og-utlansmidler---revidert-juni-26.pdf" target="_blank" rel="noreferrer">Leieavtale for utskrift</a></li>
+                    <li><a class="ds-link" href="https://telemarkfylke.no/globalassets/tfk/dokumenter/opplaring-og-folkehelse/elev-pc/laneavtale/avtale-utlan-elev-pc-og-gratis-laremidler---revidert-juni-26.pdf" target="_blank" rel="noreferrer">Låneavtale for utskrift</a></li>
+                    <li><a class="ds-link" href="https://telemarkfylke.no/no/meny/tjenester/opplaring-og-folkehelse/opplaring-i-skole/praktisk-informasjon/laneavtale-pc-og-lan-av-lareboker/Loan-PC-and-textbooks/" target="_blank" rel="noreferrer">Leie- og utlånsavtale på andre språk</a></li>
+                </ul>
+            </DsCard>
 
-            {#if submittedData}
-                {#if isLoading}
-                    <div class="loading">
-                        <DsSpinner size="sm" />
-                        <p class="ds-paragraph" data-size="sm">Oppretter avtalen …</p>
-                    </div>
+            <div class="search">
+                <DsInput
+                    label="Elevens fødselsnummer"
+                    description="11 siffer. Fiktive fødselsnummer godtas så lenge eleven er registrert i arkivet."
+                    bind:value={studentSSN}
+                    inputmode="numeric"
+                    maxlength={11}
+                    error={searchError}
+                    readonly={Boolean(identity)}
+                    on:input={handleSSNInput}
+                />
+                {#if identity}
+                    <!-- Locked once an elev is loaded: editing here unmounts the form and takes the
+                         uploaded PDF with it, so starting over is an explicit choice. -->
+                    <DsButton variant="secondary" on:click={startNewLookup}>Bytt elev</DsButton>
                 {:else}
-                    <DsCard color="warning">
-                        <p class="ds-heading" data-size="2xs">Er du sikker på at du vil opprette avtalen?</p>
-                        <div class="confirm-actions">
-                            <DsButton on:click={() => postToManualContract(submittedData)}>Opprett avtale</DsButton>
-                            <DsButton variant="secondary" on:click={() => (submittedData = null)}>Avbryt</DsButton>
+                    <!-- Not disabled for a half-typed number: a disabled ds button renders at 30% opacity,
+                         so it sat unreadable the whole time someone typed. Explains on click instead. -->
+                    <DsButton
+                        disabled={isLoadingStudentData}
+                        loading={isLoadingStudentData}
+                        loadingText="Henter …"
+                        on:click={lookupStudent}
+                    >
+                        Hent elev
+                    </DsButton>
+                {/if}
+            </div>
+
+            {#if inputType === 'orgnr'}
+                <DsAlert color="info">
+                    <p class="ds-paragraph" data-size="sm">
+                        Dette ser ut som et organisasjonsnummer. En organisasjon kan bare være ansvarlig,
+                        ikke elev{#if isElevkontraktAdmin(token)} — legg det inn i ansvarlig-feltet lenger ned i skjemaet{:else}, og bare en administrator kan opprette en avtale der en virksomhet er ansvarlig{/if}.
+                    </p>
+                </DsAlert>
+            {/if}
+
+            {#if lookupError}
+                <DsAlert color={lookupError.color} heading={lookupError.heading}>
+                    <p class="ds-paragraph" data-size="sm">{lookupError.message}</p>
+                </DsAlert>
+            {/if}
+
+            {#if identity}
+                <!-- collapsed, not a flag inside the form: clearing submittedData - on cancel or on a
+                     failed post - brings the filled-in form straight back. -->
+                <ContractForm
+                    {identity}
+                    {token}
+                    collapsed={submittedData !== null}
+                    onSubmit={(payload) => (submittedData = payload)}
+                />
+
+                {#if submittedData}
+                    {#if isLoading}
+                        <div class="loading">
+                            <DsSpinner size="sm" />
+                            <p class="ds-paragraph" data-size="sm">Oppretter avtalen …</p>
                         </div>
-                    </DsCard>
+                    {:else}
+                        <DsCard color="warning">
+                            <p class="ds-heading" data-size="2xs">Er du sikker på at du vil opprette avtalen?</p>
+                            <div class="confirm-actions">
+                                <DsButton on:click={() => postToManualContract(submittedData)}>Opprett avtale</DsButton>
+                                <DsButton variant="secondary" on:click={() => (submittedData = null)}>Avbryt</DsButton>
+                            </div>
+                        </DsCard>
+                    {/if}
                 {/if}
             {/if}
-        {/if}
 
-        <!-- Shown by the button that failed. -->
-        {#if errorMessage}
-            <DsAlert color="danger" heading="Avtalen ble ikke opprettet" dismissible on:dismiss={() => (errorMessage = '')}>
-                <p class="ds-paragraph" data-size="sm">{errorMessage}</p>
-            </DsAlert>
+            <!-- Shown by the button that failed. -->
+            {#if errorMessage}
+                <DsAlert color="danger" heading="Avtalen ble ikke opprettet" dismissible on:dismiss={() => (errorMessage = '')}>
+                    <p class="ds-paragraph" data-size="sm">{errorMessage}</p>
+                </DsAlert>
+            {/if}
         {/if}
-    {/if}
-{/await}
+    {/await}
+</main>
 
 <style>
+    main {
+        padding: var(--ds-size-4, 1rem) var(--ds-size-4, 1rem) 3rem;
+        max-width: 42rem;
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-size-5);
+    }
+
     .search {
         display: flex;
         gap: var(--ds-size-3, 0.75rem);
         align-items: flex-end;
         flex-wrap: wrap;
-        margin-block: var(--ds-size-6, 1.5rem);
-        max-width: 42rem;
     }
 
     .search > :global(.ds-field) {
