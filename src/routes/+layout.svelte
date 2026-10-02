@@ -232,7 +232,7 @@
     .content {
         flex: 1;
         width: 100%;
-        max-width: 120rem;
+        max-width: 140rem;
         margin-inline: auto;
         padding: var(--ds-size-2) var(--ds-size-2) var(--ds-size-6);
     }

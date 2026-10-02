@@ -241,10 +241,11 @@
                 <div class="controls">
                     <div class="filter-bar" role="search">
                         <div class="fb-search">
-                            <DsInput label="Søk" type="search" icon="search" placeholder="Navn, elevnummer, e-post, skole eller klasse" autocomplete="off" disabled={filterActive} bind:value={query} />
-                            <button class="ds-button help" data-variant="tertiary" data-size="sm" data-icon type="button" popovertarget="search-help" aria-label="Hva kan du søke på?">
-                                <span class="material-symbols-outlined" aria-hidden="true">help</span>
-                            </button>
+                            <DsInput label="Søk" type="search" icon="search" placeholder="Navn, elevnummer, e-post, skole eller klasse" autocomplete="off" disabled={filterActive} bind:value={query}>
+                                <button slot="label" class="ds-button help" data-variant="tertiary" data-size="sm" data-icon type="button" popovertarget="search-help" aria-label="Hva kan du søke på?">
+                                    <span class="material-symbols-outlined" aria-hidden="true">help</span>
+                                </button>
+                            </DsInput>
                             <div class="ds-popover search-help" popover id="search-help" data-placement="bottom-start">
                                 <p class="ds-heading" data-size="2xs">Hva kan du søke på?</p>
                                 <ul class="ds-list" data-size="sm">
@@ -483,9 +484,6 @@
     }
 
     .help {
-        position: absolute;
-        top: 0;
-        left: 2.6rem;
         min-height: 1.6rem !important;
         min-width: 1.6rem !important;
         padding: 0 !important;

@@ -25,7 +25,12 @@
 </script>
 
 <div class="ds-field">
-    {#if label}
+    {#if label && $$slots.label}
+        <div class="label-row">
+            <label class="ds-label" for={id}>{label}</label>
+            <slot name="label" />
+        </div>
+    {:else if label}
         <label class="ds-label" for={id}>{label}</label>
     {/if}
     {#if description}
@@ -58,6 +63,13 @@
 </div>
 
 <style>
+    /* Label with something next to it, e.g. a help button. */
+    .label-row {
+        display: flex;
+        align-items: center;
+        gap: var(--ds-size-1);
+    }
+
     .input-wrap {
         position: relative;
     }
