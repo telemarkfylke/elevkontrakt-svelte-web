@@ -1,9 +1,7 @@
 <script>
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
-    import DsScope from '$lib/components/ds/DsScope.svelte'
 </script>
 
-<DsScope>
     <main>
         <p class="ds-paragraph" data-size="sm"><a class="ds-link" href="/hjelp">← Tilbake til hjelp</a></p>
 
@@ -173,7 +171,6 @@
             </table>
         </div>
     </main>
-</DsScope>
 
 <style>
     /* Tighter than Designsystemet's default, which spaces list items for prose. */

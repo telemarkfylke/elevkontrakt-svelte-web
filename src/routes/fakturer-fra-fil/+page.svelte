@@ -9,7 +9,6 @@
     import DsCard from '$lib/components/ds/DsCard.svelte'
     import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
     import { startBulkInvoice, getBulkRun, listBulkRuns } from '$lib/useApi.js'
-    import DsScope from '$lib/components/ds/DsScope.svelte'
 
     const POLL_MS = 2000
     const MAX_POLL_FAILURES = 5
@@ -203,7 +202,6 @@
     $: report = finished?.report ?? null
 </script>
 
-<DsScope>
     <AdminOnly>
         <main>
             <h1 class="ds-heading" data-size="lg">Fakturer fra fil</h1>
@@ -431,18 +429,26 @@
                                     <td>
                                         <div class="row-actions">
                                             <button
-                                                class="action-btn"
+                                                class="ds-button"
+                                                data-variant="tertiary"
+                                                data-size="sm"
+                                                data-icon
+                                                type="button"
                                                 on:click={() => openRun(run.runId)}
                                                 aria-label="Åpne rapporten fra {run.startedAt ? new Date(run.startedAt).toLocaleString('nb-NO') : run.runId}"
-                                                title="Åpne rapporten"
+                                                data-tooltip="Åpne rapporten"
                                             >
                                                 <span class="material-symbols-outlined" aria-hidden="true">description</span>
                                             </button>
                                             <button
-                                                class="action-btn"
+                                                class="ds-button"
+                                                data-variant="tertiary"
+                                                data-size="sm"
+                                                data-icon
+                                                type="button"
                                                 on:click={() => copyRunId(run.runId)}
                                                 aria-label="Kopier kjøre-id"
-                                                title={copiedRunId === run.runId ? 'Kopiert' : 'Kopier kjøre-id'}
+                                                data-tooltip={copiedRunId === run.runId ? 'Kopiert' : 'Kopier kjøre-id'}
                                             >
                                                 <span class="material-symbols-outlined" aria-hidden="true">
                                                     {copiedRunId === run.runId ? 'check' : 'content_copy'}
@@ -475,7 +481,6 @@
             </section>
         </main>
     </AdminOnly>
-</DsScope>
 
 <style>
     /* Designsystemet spaces list items for prose; --ds-size-3 between one-word items is too much. */
@@ -530,38 +535,10 @@
         gap: var(--ds-size-2, 0.5rem);
     }
 
-    /* Same icon-button treatment as the row actions in fakturaoversikten. */
     .row-actions {
         display: flex;
         align-items: center;
         gap: 0.3rem;
-    }
-
-    .action-btn {
-        all: unset;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 2rem;
-        height: 2rem;
-        border-radius: 6px;
-        color: var(--vann-70);
-        transition: background 0.1s, color 0.1s;
-    }
-
-    .action-btn:hover {
-        background: var(--vann-10);
-        color: var(--vann);
-    }
-
-    .action-btn:focus-visible {
-        outline: 2px solid var(--vann);
-        outline-offset: 2px;
-    }
-
-    .action-btn .material-symbols-outlined {
-        font-size: 1.25rem;
     }
 
     .details-body {

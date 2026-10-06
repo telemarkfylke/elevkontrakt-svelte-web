@@ -1,11 +1,7 @@
 /**
- * Cascade layer order. The first @layer statement the browser sees fixes the order, so app.css and the
- * /contract layout (before it imports @digdir/designsystemet-css) both declare it. Duplicates are harmless.
+ * Cascade layer order: app-base < ds < app-overrides. The first @layer statement loaded sets it,
+ * so app.css declares the same order. Change both together.
  *
- * Names are flat on purpose: `app.base` would sit wholly before or after `ds`, never between ds.base
- * and ds.components. An earlier nested version let `* { padding: 0; margin: 0 }` flatten every
- * Designsystemet component.
- *
- * app-base < ds < app-overrides: our defaults lose to Designsystemet; app-overrides gets the last word.
+ * Flat names on purpose: a dotted name like app.base can't sit between ds.base and ds.components.
  */
 @layer app-base, ds, app-overrides;
