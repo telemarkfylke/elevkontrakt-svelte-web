@@ -583,3 +583,67 @@ export const listBulkRuns = async (limit = 25) => {
     return []
   }
 }
+
+// ---------- Tilganger (EntraID groups) ----------
+// Failures return the server's { error, reason } so the GUI can say what went wrong.
+const accessFailure = (error) => error.response ?? { status: 500, data: { error: 'Fikk ikke kontakt med Elevavtaler. Prøv igjen om litt.', reason: 'network' } }
+
+/**
+ * The access groups with their members.
+ *
+ * @returns {Promise<Object>} axios response, data is an array of groups
+ */
+export const getAccessGroups = async () => {
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/accessGroups`
+  try {
+    return await axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
+  } catch (error) {
+    return accessFailure(error)
+  }
+}
+
+/**
+ * Employees matching the query, marked with isMember and requirement for the group.
+ *
+ * @param {string} groupId
+ * @param {string} query - name or UPN
+ */
+export const searchAccessGroupCandidates = async (groupId, query) => {
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/accessGroups/${groupId}/search?query=${encodeURIComponent(query)}`
+  try {
+    return await axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
+  } catch (error) {
+    return accessFailure(error)
+  }
+}
+
+/**
+ * @param {string} groupId
+ * @param {string} userId
+ * @param {boolean} force - add even if the requirement is not met
+ */
+export const addAccessGroupMember = async (groupId, userId, force = false) => {
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/accessGroups/${groupId}/members`
+  try {
+    return await axios.post(url, { userId, force }, { headers: { Authorization: `Bearer ${token}` } })
+  } catch (error) {
+    return accessFailure(error)
+  }
+}
+
+/**
+ * @param {string} groupId
+ * @param {string} userId
+ */
+export const removeAccessGroupMember = async (groupId, userId) => {
+  const token = await getElevkontraktToken()
+  const url = `${import.meta.env.VITE_ELEVKONTRAKT_API_URL}/accessGroups/${groupId}/members/${userId}`
+  try {
+    return await axios.delete(url, { headers: { Authorization: `Bearer ${token}` } })
+  } catch (error) {
+    return accessFailure(error)
+  }
+}

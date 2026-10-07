@@ -257,6 +257,16 @@ export const TOPICS = [
           <p class="ds-paragraph">Klikk på navnet ditt øverst til høyre. Da åpnes <strong>Vis som rolle</strong>. Velg rollen, og for skoleadministrator og fakturering også skolen. De rollene ser bare sin egen skole.</p>
           <p class="ds-paragraph">Menyen, knappene og listene blir som for den rollen. En gul linje øverst viser hvilken rolle og skole du ser som. Klikk <strong>Tilbake til administrator</strong> når du er ferdig. Valget varer til du lukker fanen.</p>
           <p class="ds-paragraph">Det endrer bare hva du ser. Alt du gjør, bruker fortsatt administratortilgangen din. Du ser derfor ikke om løsningen ville stoppet rollen. For å teste det trenger du en testbruker med rollen.</p>`
+      },
+      {
+        q: 'Hvordan gir jeg noen tilgang til Elevavtaler?',
+        roles: [ELEVKONTRAKT_ADMIN],
+        who: 'Administrator',
+        answer: `
+          <p class="ds-paragraph">Gå til <strong>Innstillinger → Tilganger</strong>. Hver rolle har sin egen liste. Søk opp den ansatte på navn eller brukernavn under rollen, og klikk <strong>Legg til</strong>. Med <strong>Fjern</strong> tar du rollen bort igjen.</p>
+          <p class="ds-paragraph">Endringen lagres i Entra ID med en gang, men tilgangen gjelder først neste gang personen logger inn i Elevavtaler.</p>
+          <p class="ds-paragraph">Rollene for skoleadministrator og fakturering ser bare sin egen skole. Jobber personen ikke på en skole, får du en advarsel, for da ser personen ingen elever. IT-servicedesk er for ansatte i Digitale tjenester. Du kan legge til personen likevel ved å krysse av for at du bekrefter det. Personer som har en rolle uten å oppfylle kravet, er merket ${tag('Avvik', 'warning')}.</p>
+          <p class="ds-paragraph">Bare administratorer i Teknologi og utvikling kan legge til eller fjerne administratorer. Du kan ikke fjerne deg selv fra Administrator, og den siste administratoren kan ikke fjernes.</p>`
       }
     ]
   }
