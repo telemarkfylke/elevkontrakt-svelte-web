@@ -1,5 +1,6 @@
 <script>
-    // Innstillinger (administrators): rate prices, the two exception lists, and products.
+    // Innstillinger (administrators): rate prices, the two exception lists, products, and access.
+    import AccessGroups from '$lib/components/AccessGroups.svelte'
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
     import DsButton from '$lib/components/ds/DsButton.svelte'
     import DsCheckbox from '$lib/components/ds/DsCheckbox.svelte'
@@ -90,7 +91,8 @@
     $: tabs = [
         { value: 'prices', label: 'Priser', icon: 'payments' },
         { value: 'exceptions', label: 'Unntak', icon: 'person_alert', dot: changes ? 'Ulagrede endringer' : '' },
-        { value: 'products', label: 'Produkter og tjenester', icon: 'storefront', count: products.length }
+        { value: 'products', label: 'Produkter og tjenester', icon: 'storefront', count: products.length },
+        { value: 'access', label: 'Tilganger', icon: 'admin_panel_settings' }
     ]
 
     // ---------- Prices ----------
@@ -135,6 +137,12 @@
         search[list].busy = true
         const response = await searchContracts(query, 'regular', token)
         search[list] = { query, busy: false, results: Array.isArray(response) ? response : [] }
+        pages[list].hits = 1
+    }
+
+    // An emptied field (also the x in the search field) clears the hits.
+    function clearSearch (list) {
+        search[list] = { query: '', results: null, busy: false }
         pages[list].hits = 1
     }
 
@@ -303,7 +311,7 @@
     <main>
         <header>
             <h1 class="ds-heading" data-size="lg">Innstillinger</h1>
-            <p class="ds-paragraph lead" data-size="sm">Priser, unntak og produkter som brukes når elevavtaler faktureres.</p>
+            <p class="ds-paragraph lead" data-size="sm">Priser, unntak og produkter som brukes når elevavtaler faktureres, og hvem som har tilgang til Elevavtaler.</p>
         </header>
 
         {#await ready}
@@ -412,7 +420,7 @@
                                     {/if}
                                     <form class="add-box" role="search" on:submit|preventDefault={() => findStudents(list)}>
                                         <div class="add-row">
-                                            <DsInput label="Legg til elev" type="search" placeholder="Fornavn, etternavn eller begge" autocomplete="off" bind:value={search[list].query} />
+                                            <DsInput label="Legg til elev" type="search" placeholder="Fornavn, etternavn eller begge" autocomplete="off" bind:value={search[list].query} on:input={({ target }) => { if (!target.value) clearSearch(list) }} />
                                             <DsButton type="submit" variant="secondary" size="sm" loading={search[list].busy} loadingText="Søker …">
                                                 <span class="material-symbols-outlined" aria-hidden="true">search</span>Søk
                                             </DsButton>
@@ -444,6 +452,8 @@
                                 </section>
                             {/each}
                         </div>
+                    {:else if value === 'access'}
+                        <AccessGroups me={token.oid} on:say={({ detail }) => say(detail.text, detail.color)} />
                     {:else}
                         <section class="section" aria-labelledby="h-products">
                             <div class="section-head">
