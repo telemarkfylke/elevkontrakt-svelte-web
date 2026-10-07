@@ -140,6 +140,12 @@
         pages[list].hits = 1
     }
 
+    // An emptied field (also the x in the search field) clears the hits.
+    function clearSearch (list) {
+        search[list] = { query: '', results: null, busy: false }
+        pages[list].hits = 1
+    }
+
     const onList = (everyone, fnr) => everyone.some(s => s.fnr === fnr)
 
     // Stored with the same fields as before; the per-contract list from the search is left out.
@@ -414,7 +420,7 @@
                                     {/if}
                                     <form class="add-box" role="search" on:submit|preventDefault={() => findStudents(list)}>
                                         <div class="add-row">
-                                            <DsInput label="Legg til elev" type="search" placeholder="Fornavn, etternavn eller begge" autocomplete="off" bind:value={search[list].query} />
+                                            <DsInput label="Legg til elev" type="search" placeholder="Fornavn, etternavn eller begge" autocomplete="off" bind:value={search[list].query} on:input={({ target }) => { if (!target.value) clearSearch(list) }} />
                                             <DsButton type="submit" variant="secondary" size="sm" loading={search[list].busy} loadingText="Søker …">
                                                 <span class="material-symbols-outlined" aria-hidden="true">search</span>Søk
                                             </DsButton>
