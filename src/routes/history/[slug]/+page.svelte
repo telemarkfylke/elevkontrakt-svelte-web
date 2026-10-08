@@ -1,20 +1,93 @@
 <script>
     // Historikk for one elev: every contract in the link, newest first.
+    import { tick } from 'svelte'
     import { page } from '$app/stores'
     import DsAlert from '$lib/components/ds/DsAlert.svelte'
     import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
     import DsTag from '$lib/components/ds/DsTag.svelte'
     import ContractCard from '$lib/components/ContractCard.svelte'
+    import EditHistoryRatesDialog from '$lib/components/contracts/EditHistoryRatesDialog.svelte'
     import { formatFnr } from '$lib/helpers/formatFnr.js'
     import { contractTime } from '$lib/helpers/contractDate.js'
     import { returnLatestKnownContractInfo } from '$lib/helpers/latestKnownContractInfo'
     import { returnLatestKnownStudentInfo } from '$lib/helpers/latestKnownStudentInfo'
     import { isTrue } from '$lib/helpers/status.js'
-    import { hasAnyRole, HISTORY_ROLES, BILLING_ROLES } from '$lib/helpers/roles.js'
+    import { isRemisseRate } from '$lib/helpers/remisse.js'
+    import { hasAnyRole, isElevkontraktAdmin, HISTORY_ROLES, BILLING_ROLES } from '$lib/helpers/roles.js'
     import { loadInvoiceData, invoicesFor } from '$lib/helpers/contractInvoices.js'
     import { getContractsWithId, getElevkontraktToken } from '$lib/useApi'
 
     const tokenPromise = getElevkontraktToken(true)
+
+    // Contracts live in state so a save can refresh them in place.
+    let allowed = false
+    let contracts = []
+    let loadState = 'loading' // loading | ready | error
+    tokenPromise.then(token => { allowed = hasAnyRole(token, HISTORY_ROLES) }).catch(() => {})
+    // Only a new slug reloads, not other $page updates.
+    $: slug = $page.params.slug
+    $: if (allowed) refresh(slug)
+
+    // Only the latest load counts. afterSave keeps what is shown.
+    // Returns 'ok', 'failed' or 'stale' (a newer load took over).
+    let loadId = 0
+    async function refresh (slug, afterSave = false) {
+        const id = ++loadId
+        if (!afterSave) {
+            loadState = 'loading'
+            flash = ''
+            flashWarning = ''
+            staleWarning = false
+            reloading = false
+            editOpen = false
+        }
+        try {
+            const result = await loadContracts(slug)
+            if (id !== loadId) return 'stale'
+            contracts = result
+            loadState = 'ready'
+            return 'ok'
+        } catch {
+            if (id !== loadId) return 'stale'
+            if (!afterSave) loadState = 'error'
+            return 'failed'
+        }
+    }
+
+    // Registrer innbetaling (remisser), administrators only.
+    let editing = null
+    let editSlug = null // the elev the dialog was opened for
+    let editOpen = false
+    let flash = ''
+    let flashWarning = '' // saved, but the live copy of the rate was not updated
+    let flashEl
+    let staleWarning = false // saved, but the reload failed
+    let reloading = false // reload after a save is running
+    // Not while the shown data may be older than the last save, or the save would get a 409.
+    const canEditRates = (token, contract, busy) => !busy && isElevkontraktAdmin(token) && Object.values(contract.fakturaInfo ?? {}).some(isRemisseRate)
+
+    function editRates (event) {
+        flash = ''
+        flashWarning = ''
+        editing = event.detail
+        editSlug = slug
+        editOpen = true
+    }
+
+    async function saved (event) {
+        // The admin moved to another elev while saving: that page loads on its own.
+        if (editSlug !== slug) return
+        flash = event.detail.message
+        flashWarning = event.detail.warning
+        reloading = true
+        const result = await refresh(slug, true)
+        reloading = false
+        if (result === 'stale') return
+        staleWarning = result === 'failed'
+        // The button the dialog came from may be gone, so focus moves to the message.
+        await tick()
+        flashEl?.focus()
+    }
 
     // Invoices go with the contract they were made for. Only admin and billing roles may fetch them.
     let canSeeInvoices = false
@@ -68,12 +141,31 @@
                     <p class="ds-paragraph" data-size="sm">Historikken er for administratorer og skoleadministratorer. Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang.</p>
                 </DsAlert>
             {:else}
-                {#await loadContracts($page.params.slug)}
+                {#if loadState === 'loading'}
                     <div class="loading" aria-busy="true">
                         <div class="skel tall"></div><div class="skel"></div><div class="skel"></div>
                     </div>
-                {:then contracts}
+                {:else if loadState === 'ready'}
                     {@const first = contracts[0]}
+
+                    {#if flash}
+                        <div class="flash" tabindex="-1" bind:this={flashEl}>
+                            <DsAlert color="success" dismissible on:dismiss={() => (flash = '')}>
+                                <p class="ds-paragraph" data-size="sm">{flash}</p>
+                            </DsAlert>
+                        </div>
+                    {/if}
+                    {#if flashWarning}
+                        <DsAlert color="warning" dismissible on:dismiss={() => (flashWarning = '')}>
+                            <p class="ds-paragraph" data-size="sm">{flashWarning}</p>
+                        </DsAlert>
+                    {/if}
+                    <!-- Not dismissible: it is why Registrer innbetaling is hidden. -->
+                    {#if staleWarning}
+                        <DsAlert color="warning">
+                            <p class="ds-paragraph" data-size="sm">Klarte ikke å hente avtalene på nytt, så siden viser det som sto før endringen. Last inn siden på nytt før du registrerer mer.</p>
+                        </DsAlert>
+                    {/if}
                     {@const student = returnLatestKnownStudentInfo(first)}
                     {@const fromElevavtaler = contracts.filter(c => !fromDigiTroll(c)).length}
 
@@ -106,19 +198,28 @@
                                 invoices={canSeeInvoices ? (allInvoices ? invoicesFor(allInvoices, contract._id) : null) : undefined}
                                 {invoicesState}
                                 settings={invoiceSettings}
+                                editRates={canEditRates(token, contract, reloading || staleWarning)}
+                                on:editRates={editRates}
                             />
                         {/each}
                     </div>
-                {:catch}
+
+                    <EditHistoryRatesDialog contract={editing} bind:open={editOpen} on:saved={saved} />
+                {:else}
                     <DsAlert color="warning" heading="Fant ikke avtalene">
                         <p class="ds-paragraph" data-size="sm">Avtalene i lenken finnes ikke i historikken. De kan være flyttet tilbake til oversikten. Søk etter eleven på nytt.</p>
                     </DsAlert>
-                {/await}
+                {/if}
             {/if}
         {/await}
     </main>
 
 <style>
+    /* Focused by script after a save, so screen readers read the message. */
+    .flash:focus {
+        outline: none;
+    }
+
     main {
         padding: var(--ds-size-4, 1rem);
         max-width: 64rem;

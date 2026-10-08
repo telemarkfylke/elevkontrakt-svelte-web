@@ -3,7 +3,9 @@
      * One contract as a collapsible card: type, source and status when closed; status summary,
      * details and fakturering when open. DigiTroll contracts get tabs, with Rådata for administrators.
      * Pass invoices to add a Fakturaer tab (undefined = no tab).
+     * editRates shows "Registrer innbetaling" and fires `editRates`.
      */
+    import { createEventDispatcher } from 'svelte'
     import DsAlert from './ds/DsAlert.svelte'
     import DsTag from './ds/DsTag.svelte'
     import DsTabs from './ds/DsTabs.svelte'
@@ -17,6 +19,7 @@
     import { returnLatestKnownStudentInfo } from '$lib/helpers/latestKnownStudentInfo'
     import { isTrue, yesNoInfo } from '$lib/helpers/status.js'
     import { isElevkontraktAdmin } from '$lib/helpers/roles.js'
+    import { formatKr, isInkasso, paidSoFar, rateSum } from '$lib/helpers/remisse.js'
 
     export let contract
     export let token
@@ -25,6 +28,9 @@
     export let invoices = undefined // array, or null while loading
     export let invoicesState = 'ready' // loading | ready | error
     export let settings = null
+    export let editRates = false
+
+    const dispatch = createEventDispatcher()
 
     let tab = 'overview'
     let copied = false
@@ -164,7 +170,14 @@
             </div>
         </section>
         <section class="card wide">
-            <h3 class="ds-heading" data-size="2xs"><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>Fakturering</h3>
+            <div class="card-head">
+                <h3 class="ds-heading" data-size="2xs"><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>Fakturering</h3>
+                {#if editRates}
+                    <button class="ds-button" data-variant="secondary" data-size="sm" type="button" on:click={() => dispatch('editRates', contract)}>
+                        <span class="material-symbols-outlined" aria-hidden="true">payments</span>Registrer innbetaling
+                    </button>
+                {/if}
+            </div>
             {#if isLoan}
                 <p class="ds-paragraph" data-size="sm"><StatusTag status="Utlån faktureres ikke" /> Låneavtaler faktureres ikke.</p>
             {:else}
@@ -176,6 +189,15 @@
                                 <dt>Fakturert</dt><dd>{formatShortDate(rate.faktureringsDato) || 'Ingen data'}</dd>
                                 <dt>Betalt</dt><dd>{formatShortDate(rate.betaltDato) || 'Ingen data'}</dd>
                                 <dt>Sum</dt><dd>{rate.sum ? `kr ${rate.sum}` : 'Ingen data'}</dd>
+                                {#if rate.betaltBeløp}
+                                    <dt>Innbetalt</dt><dd>{formatKr(paidSoFar(rate))}{rateSum(rate) !== null ? ` av ${formatKr(rateSum(rate))}` : ''}</dd>
+                                    {#if rate.sistInnbetaltDato && isInkasso(rate)}
+                                        <dt>Sist innbetalt</dt><dd>{formatShortDate(rate.sistInnbetaltDato)}</dd>
+                                    {/if}
+                                {/if}
+                                {#if rate.editReasonCustom}
+                                    <dt>Forklaring</dt><dd>{rate.editReasonCustom}</dd>
+                                {/if}
                             </dl>
                         </div>
                     {/each}
@@ -386,6 +408,14 @@
 
     .card.wide {
         grid-column: 1 / -1;
+    }
+
+    .card-head {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--ds-size-2);
     }
 
     .card h3 {
