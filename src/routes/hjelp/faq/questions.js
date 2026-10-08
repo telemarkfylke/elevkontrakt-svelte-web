@@ -85,6 +85,31 @@ export const TOPICS = [
           <p class="ds-paragraph">Historikk er et endelig arkiv. Koblingen til Pureservice fjernes når avtalen flyttes dit.</p>`
       },
       {
+        q: 'Hvordan registrerer jeg en innbetaling fra en remisse?',
+        roles: [ELEVKONTRAKT_ADMIN],
+        who: 'Administrator',
+        answer: `
+          <p class="ds-paragraph">Gjelder remissen en rate med status ${tag('Overført inkasso', 'danger')} på en avtale i Historikk, søk opp eleven og åpne avtalen. Trykk <strong>Registrer innbetaling</strong> under Fakturering.</p>
+          <ul class="ds-list"><li>Skriv beløpet fra remissen på riktig faktura. Det legges til det som er betalt fra før, så du kan registrere delbetalinger.</li>
+            <li>${tag('Betalt', 'success')} kan bare velges når hele summen er betalt. Da velges det for deg, og du bekrefter ved å lagre.</li>
+            <li>Har du skrevet feil beløp, trykk <strong>Rett innbetalt beløp</strong> og skriv det som faktisk er betalt.</li>
+            <li>Har du satt en rate til Betalt ved en feil, sett den tilbake til Overført inkasso og rett innbetalt beløp.</li>
+            <li>Rettes innbetalt beløp ned, må du skrive en forklaring.</li></ul>
+          <p class="ds-paragraph">Rater som er betalt på vanlig måte gjennom Xledger, kan ikke endres her.</p>
+          <p class="ds-paragraph">Har eleven en nyere avtale som har arvet de samme ratene, oppdateres raten der også. Alle endringer lagres med hvem som gjorde dem og når.</p>`
+      },
+      {
+        q: 'Eleven har betalt inn mer enn det som gjenstår. Hva gjør jeg?',
+        roles: [ELEVKONTRAKT_ADMIN],
+        who: 'Administrator',
+        answer: `
+          <p class="ds-paragraph">Du kan ikke registrere mer enn det som gjenstår på en faktura. Del beløpet opp slik:</p>
+          <ul class="ds-list"><li>Registrer det som gjenstår på fakturaen remissen gjelder.</li>
+            <li>Har avtalen en annen faktura med status ${tag('Overført inkasso', 'danger')}, registrerer du resten der.</li>
+            <li>Ellers kontakt økonomiavdelingen. De ordner tilbakebetalingen.</li></ul>
+          <p class="ds-paragraph">Skriv i <strong>Forklaring</strong> hvordan beløpet ble fordelt, for eksempel «Remisse 1 500 kr, 1 359 kr på faktura 1, 141 kr tilbakebetales». Forklaringen vises under fakturaen på avtalen.</p>`
+      },
+      {
         q: 'Kan jeg angre en sletting?',
         roles: [ELEVKONTRAKT_ADMIN],
         who: 'Administrator',
