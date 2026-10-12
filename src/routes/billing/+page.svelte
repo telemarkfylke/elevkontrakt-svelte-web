@@ -2,12 +2,12 @@
     // Fakturering: find the elev to invoice. Administrators can also search among elever who have left.
     import { tick } from 'svelte'
     import { get } from 'svelte/store'
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
-    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
-    import StudentSearch from '$lib/components/StudentSearch.svelte'
-    import { hasAnyRole, isElevkontraktAdmin, ELEVKONTRAKT_ADMIN } from '$lib/helpers/roles.js'
-    import { billingTargetCollection } from '$lib/store'
-    import { getElevkontraktToken, getSearchScope } from '$lib/useApi'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
+    import DsSpinner from '#lib/components/ds/DsSpinner.svelte'
+    import StudentSearch from '#lib/components/StudentSearch.svelte'
+    import { hasAnyRole, isElevkontraktAdmin, ELEVKONTRAKT_ADMIN } from '#lib/helpers/roles.js'
+    import { billingTargetCollection } from '#lib/store'
+    import { getElevkontraktToken, getSearchScope } from '#lib/useApi'
 
     const BILLING_WRITE_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.billing-readwrite']
 

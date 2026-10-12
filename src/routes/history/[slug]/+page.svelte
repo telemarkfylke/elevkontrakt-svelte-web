@@ -1,21 +1,22 @@
 <script>
     // Historikk for one elev: every contract in the link, newest first.
     import { tick } from 'svelte'
-    import { page } from '$app/stores'
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
-    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
-    import DsTag from '$lib/components/ds/DsTag.svelte'
-    import ContractCard from '$lib/components/ContractCard.svelte'
-    import EditHistoryRatesDialog from '$lib/components/contracts/EditHistoryRatesDialog.svelte'
-    import { formatFnr } from '$lib/helpers/formatFnr.js'
-    import { contractTime } from '$lib/helpers/contractDate.js'
-    import { returnLatestKnownContractInfo } from '$lib/helpers/latestKnownContractInfo'
-    import { returnLatestKnownStudentInfo } from '$lib/helpers/latestKnownStudentInfo'
-    import { isTrue } from '$lib/helpers/status.js'
-    import { isRemisseRate } from '$lib/helpers/remisse.js'
-    import { hasAnyRole, isElevkontraktAdmin, HISTORY_ROLES, BILLING_ROLES } from '$lib/helpers/roles.js'
-    import { loadInvoiceData, invoicesFor } from '$lib/helpers/contractInvoices.js'
-    import { getContractsWithId, getElevkontraktToken } from '$lib/useApi'
+    import { page } from '$app/state'
+    import { afterNavigate } from '$app/navigation'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
+    import DsSpinner from '#lib/components/ds/DsSpinner.svelte'
+    import DsTag from '#lib/components/ds/DsTag.svelte'
+    import ContractCard from '#lib/components/ContractCard.svelte'
+    import EditHistoryRatesDialog from '#lib/components/contracts/EditHistoryRatesDialog.svelte'
+    import { formatFnr } from '#lib/helpers/formatFnr.js'
+    import { contractTime } from '#lib/helpers/contractDate.js'
+    import { returnLatestKnownContractInfo } from '#lib/helpers/latestKnownContractInfo'
+    import { returnLatestKnownStudentInfo } from '#lib/helpers/latestKnownStudentInfo'
+    import { isTrue } from '#lib/helpers/status.js'
+    import { isRemisseRate } from '#lib/helpers/remisse.js'
+    import { hasAnyRole, isElevkontraktAdmin, HISTORY_ROLES, BILLING_ROLES } from '#lib/helpers/roles.js'
+    import { loadInvoiceData, invoicesFor } from '#lib/helpers/contractInvoices.js'
+    import { getContractsWithId, getElevkontraktToken } from '#lib/useApi'
 
     const tokenPromise = getElevkontraktToken(true)
 
@@ -24,8 +25,9 @@
     let contracts = []
     let loadState = 'loading' // loading | ready | error
     tokenPromise.then(token => { allowed = hasAnyRole(token, HISTORY_ROLES) }).catch(() => {})
-    // Only a new slug reloads, not other $page updates.
-    $: slug = $page.params.slug
+    // Only a new slug reloads, not other page updates.
+    let slug = page.params.slug
+    afterNavigate(() => { slug = page.params.slug })
     $: if (allowed) refresh(slug)
 
     // Only the latest load counts. afterSave keeps what is shown.

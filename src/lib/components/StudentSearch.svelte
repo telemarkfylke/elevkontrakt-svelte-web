@@ -8,9 +8,9 @@
     import DsAlert from './ds/DsAlert.svelte'
     import DsTag from './ds/DsTag.svelte'
     import DsPagination from './ds/DsPagination.svelte'
-    import { formatFnr } from '$lib/helpers/formatFnr'
-    import { formatShortDate } from '$lib/helpers/formatDate'
-    import { searchContracts } from '$lib/useApi'
+    import { formatFnr } from '#lib/helpers/formatFnr'
+    import { formatShortDate } from '#lib/helpers/formatDate'
+    import { searchContracts } from '#lib/useApi'
 
     export let token
     export let collection // e.g. 'history', 'regular', 'pcIkkeInnlevert'

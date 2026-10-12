@@ -1,10 +1,10 @@
 <script>
     // Historikk: search for an elev by name. One row per elev, with all their contracts.
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
-    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
-    import StudentSearch from '$lib/components/StudentSearch.svelte'
-    import { hasAnyRole, HISTORY_ROLES } from '$lib/helpers/roles.js'
-    import { getElevkontraktToken, getSearchScope } from '$lib/useApi'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
+    import DsSpinner from '#lib/components/ds/DsSpinner.svelte'
+    import StudentSearch from '#lib/components/StudentSearch.svelte'
+    import { hasAnyRole, HISTORY_ROLES } from '#lib/helpers/roles.js'
+    import { getElevkontraktToken, getSearchScope } from '#lib/useApi'
 
     const tokenPromise = getElevkontraktToken(true)
     const scopePromise = tokenPromise.then(token => hasAnyRole(token, HISTORY_ROLES) ? getSearchScope(token) : { school: null })

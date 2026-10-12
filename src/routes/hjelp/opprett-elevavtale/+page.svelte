@@ -1,5 +1,5 @@
 <script>
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
 </script>
 
     <main>

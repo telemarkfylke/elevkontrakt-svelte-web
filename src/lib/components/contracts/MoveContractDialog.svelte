@@ -5,7 +5,7 @@
     import DsButton from '../ds/DsButton.svelte'
     import DsDialog from '../ds/DsDialog.svelte'
     import DsSelect from '../ds/DsSelect.svelte'
-    import { moveContract } from '$lib/useApi'
+    import { moveContract } from '#lib/useApi'
 
     export let contract
     export let collection = 'regular'

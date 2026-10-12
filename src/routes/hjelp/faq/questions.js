@@ -1,5 +1,5 @@
 // FAQ content. roles: who sees the question (null = everyone). answer is trusted HTML written here.
-import { CONTRACT_ROLES, HISTORY_ROLES, BILLING_ROLES, DELIVERY_ROLES, ELEVKONTRAKT_ADMIN } from '$lib/helpers/roles.js'
+import { CONTRACT_ROLES, HISTORY_ROLES, BILLING_ROLES, DELIVERY_ROLES, ELEVKONTRAKT_ADMIN } from '#lib/helpers/roles.js'
 
 const BILLING_WRITE_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.billing-readwrite']
 const BARCODE_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.itservicedesk-readwrite', 'elevkontrakt.skoleadministrator-read']
