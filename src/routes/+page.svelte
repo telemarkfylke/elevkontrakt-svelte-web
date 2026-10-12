@@ -102,6 +102,7 @@
     $: isAdmin = isElevkontraktAdmin(token)
     $: canEdit = hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT, SCHOOL_WRITE])
     $: showTools = hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT])
+    $: showExportButton = hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT, SCHOOL_WRITE])
     $: showBarcode = hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT, SCHOOL_READ])
 
     $: columns = delivery
@@ -220,12 +221,14 @@
                         {collection === 'pcIkkeInnlevert' ? 'Elever som har sluttet, der PC-en ikke er innlevert eller ratene ikke er betalt.' : `Alle elevavtaler${hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT]) ? ' i fylket' : ' for skolen din'}.`}
                     </p>
                 </div>
-                {#if showTools && loadState === 'ready'}
-                    <div class="page-actions">
+                <div class="page-actions">
+                    {#if showTools && loadState === 'ready'}
                         <DsCheckbox type="switch" label="Utleveringsmodus" bind:checked={delivery} />
+                    {/if}
+                    {#if showExportButton && loadState === 'ready'}
                         <DsButton variant="secondary" size="sm" on:click={exportCsv}><span class="material-symbols-outlined" aria-hidden="true">download</span>Eksporter CSV</DsButton>
-                    </div>
-                {/if}
+                    {/if}
+                </div>
             </div>
 
             {#if flash}
