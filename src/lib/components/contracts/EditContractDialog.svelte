@@ -13,10 +13,10 @@
     import DsTabs from '../ds/DsTabs.svelte'
     import DsTag from '../ds/DsTag.svelte'
     import StatusTag from '../StatusTag.svelte'
-    import { isTrue } from '$lib/helpers/status.js'
-    import { isElevkontraktAdmin } from '$lib/helpers/roles.js'
-    import { contractType, schoolYear } from '$lib/helpers/contractFilters.js'
-    import { updateContractInfo } from '$lib/useApi'
+    import { isTrue } from '#lib/helpers/status.js'
+    import { isElevkontraktAdmin } from '#lib/helpers/roles.js'
+    import { contractType, schoolYear } from '#lib/helpers/contractFilters.js'
+    import { updateContractInfo } from '#lib/useApi'
 
     export let contract
     export let token

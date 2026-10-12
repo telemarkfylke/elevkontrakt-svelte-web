@@ -1,14 +1,14 @@
 <script>
     import { onDestroy } from 'svelte'
-    import AdminOnly from '$lib/components/AdminOnly.svelte'
-    import DsFileUpload from '$lib/components/ds/DsFileUpload.svelte'
-    import DsSelect from '$lib/components/ds/DsSelect.svelte'
-    import DsInput from '$lib/components/ds/DsInput.svelte'
-    import DsButton from '$lib/components/ds/DsButton.svelte'
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
-    import DsCard from '$lib/components/ds/DsCard.svelte'
-    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
-    import { startBulkInvoice, getBulkRun, listBulkRuns } from '$lib/useApi.js'
+    import AdminOnly from '#lib/components/AdminOnly.svelte'
+    import DsFileUpload from '#lib/components/ds/DsFileUpload.svelte'
+    import DsSelect from '#lib/components/ds/DsSelect.svelte'
+    import DsInput from '#lib/components/ds/DsInput.svelte'
+    import DsButton from '#lib/components/ds/DsButton.svelte'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
+    import DsCard from '#lib/components/ds/DsCard.svelte'
+    import DsSpinner from '#lib/components/ds/DsSpinner.svelte'
+    import { startBulkInvoice, getBulkRun, listBulkRuns } from '#lib/useApi.js'
 
     const POLL_MS = 2000
     const MAX_POLL_FAILURES = 5

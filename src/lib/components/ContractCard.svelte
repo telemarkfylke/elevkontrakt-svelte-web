@@ -12,14 +12,14 @@
     import StatusTag from './StatusTag.svelte'
     import ContractStatusSummary from './ContractStatusSummary.svelte'
     import ContractInvoices from './contracts/ContractInvoices.svelte'
-    import { formatFnr } from '$lib/helpers/formatFnr.js'
-    import { formatShortDate } from '$lib/helpers/formatDate.js'
-    import { contractYear } from '$lib/helpers/contractDate.js'
-    import { returnLatestKnownContractInfo } from '$lib/helpers/latestKnownContractInfo'
-    import { returnLatestKnownStudentInfo } from '$lib/helpers/latestKnownStudentInfo'
-    import { isTrue, yesNoInfo } from '$lib/helpers/status.js'
-    import { isElevkontraktAdmin } from '$lib/helpers/roles.js'
-    import { formatKr, isInkasso, paidSoFar, rateSum } from '$lib/helpers/remisse.js'
+    import { formatFnr } from '#lib/helpers/formatFnr.js'
+    import { formatShortDate } from '#lib/helpers/formatDate.js'
+    import { contractYear } from '#lib/helpers/contractDate.js'
+    import { returnLatestKnownContractInfo } from '#lib/helpers/latestKnownContractInfo'
+    import { returnLatestKnownStudentInfo } from '#lib/helpers/latestKnownStudentInfo'
+    import { isTrue, yesNoInfo } from '#lib/helpers/status.js'
+    import { isElevkontraktAdmin } from '#lib/helpers/roles.js'
+    import { formatKr, isInkasso, paidSoFar, rateSum } from '#lib/helpers/remisse.js'
 
     export let contract
     export let token

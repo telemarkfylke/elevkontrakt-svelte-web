@@ -1,7 +1,7 @@
 <script>
     // The elev's username as a CODE39 barcode. A click copies the username and shows a large one for the scanner.
     import JsBarcode from 'jsbarcode'
-    import { getStudentShortName } from '$lib/helpers/studentShortName'
+    import { getStudentShortName } from '#lib/helpers/studentShortName'
 
     export let upn = ''
     export let large = false // bigger in delivery mode

@@ -13,9 +13,9 @@
     import DsSelect from '../ds/DsSelect.svelte'
     import DsTag from '../ds/DsTag.svelte'
     import StatusTag from '../StatusTag.svelte'
-    import { formatShortDate } from '$lib/helpers/formatDate.js'
-    import { REMISSE_STATUSES, isRemisseRate, isInkasso, toAmount, storedAmount, paidSoFar, rateSum, remaining, round, formatKr, amountError, correctionError, statusError, reasonError, dateError, beforeBetalt, paysInFull, today } from '$lib/helpers/remisse.js'
-    import { updateContractInfo } from '$lib/useApi'
+    import { formatShortDate } from '#lib/helpers/formatDate.js'
+    import { REMISSE_STATUSES, isRemisseRate, isInkasso, toAmount, storedAmount, paidSoFar, rateSum, remaining, round, formatKr, amountError, correctionError, statusError, reasonError, dateError, beforeBetalt, paysInFull, today } from '#lib/helpers/remisse.js'
+    import { updateContractInfo } from '#lib/useApi'
 
     export let contract
     export let open = false
