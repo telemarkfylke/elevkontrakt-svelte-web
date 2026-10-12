@@ -3,8 +3,8 @@
     import DsAlert from '../ds/DsAlert.svelte'
     import DsSpinner from '../ds/DsSpinner.svelte'
     import StatusTag from '../StatusTag.svelte'
-    import { formatShortDate } from '$lib/helpers/formatDate.js'
-    import { invoiceTotal, isPreliminaryInvoice } from '$lib/helpers/prices.js'
+    import { formatShortDate } from '#lib/helpers/formatDate.js'
+    import { invoiceTotal, isPreliminaryInvoice } from '#lib/helpers/prices.js'
 
     export let invoices = null // null while loading
     export let state = 'ready' // loading | ready | error

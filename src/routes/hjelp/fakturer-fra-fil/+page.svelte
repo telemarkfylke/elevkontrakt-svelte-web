@@ -1,6 +1,6 @@
 <script>
-    import AdminOnly from '$lib/components/AdminOnly.svelte'
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
+    import AdminOnly from '#lib/components/AdminOnly.svelte'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
 </script>
 
     <AdminOnly>

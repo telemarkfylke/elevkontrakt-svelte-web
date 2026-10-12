@@ -5,8 +5,8 @@
      * This decides what is SHOWN - the bundle ships to every signed-in user, so it is not a security
      * boundary. The API enforces the same role on every request.
      */
-    import { getElevkontraktToken } from '$lib/useApi.js'
-    import { isElevkontraktAdmin } from '$lib/helpers/roles.js'
+    import { getElevkontraktToken } from '#lib/useApi.js'
+    import { isElevkontraktAdmin } from '#lib/helpers/roles.js'
     import DsSpinner from './ds/DsSpinner.svelte'
     import DsAlert from './ds/DsAlert.svelte'
 

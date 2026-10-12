@@ -4,9 +4,9 @@
      * layers.css must load first: the first @layer statement sets the layer order.
      * designsystemet-web adds the behaviour: dialog closedby, tooltips, popovers and more.
      */
-    import '$lib/styles/layers.css'
+    import '#lib/styles/layers.css'
     import '@digdir/designsystemet-css'
-    import '$lib/styles/designsystemet/telemark.css'
+    import '#lib/styles/designsystemet/telemark.css'
     import '@digdir/designsystemet-web'
 
     // Its warnings are for us, not for users.

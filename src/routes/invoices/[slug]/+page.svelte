@@ -1,19 +1,19 @@
 <script>
     // One invoice as a document: lines and total, status, who it went to, and who created it.
     import { onDestroy } from 'svelte'
-    import { page } from '$app/stores'
+    import { page } from '$app/state'
     import { goto } from '$app/navigation'
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
-    import DsButton from '$lib/components/ds/DsButton.svelte'
-    import DsDialog from '$lib/components/ds/DsDialog.svelte'
-    import DsSteps from '$lib/components/ds/DsSteps.svelte'
-    import StatusTag from '$lib/components/StatusTag.svelte'
-    import { formatShortDate } from '$lib/helpers/formatDate'
-    import { formatTimeUntilExport } from '$lib/helpers/xledgerExport.js'
-    import { ratePrice } from '$lib/helpers/prices.js'
-    import { hasAnyRole, BILLING_ROLES } from '$lib/helpers/roles.js'
-    import { flashMessage } from '$lib/store'
-    import { deleteInvoices, getContractsWithId, getElevkontraktToken, getSettings } from '$lib/useApi'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
+    import DsButton from '#lib/components/ds/DsButton.svelte'
+    import DsDialog from '#lib/components/ds/DsDialog.svelte'
+    import DsSteps from '#lib/components/ds/DsSteps.svelte'
+    import StatusTag from '#lib/components/StatusTag.svelte'
+    import { formatShortDate } from '#lib/helpers/formatDate'
+    import { formatTimeUntilExport } from '#lib/helpers/xledgerExport.js'
+    import { ratePrice } from '#lib/helpers/prices.js'
+    import { hasAnyRole, BILLING_ROLES } from '#lib/helpers/roles.js'
+    import { flashMessage } from '#lib/store'
+    import { deleteInvoices, getContractsWithId, getElevkontraktToken, getSettings } from '#lib/useApi'
 
     const TYPE = { buyOut: 'Rater', extraInvoice: 'Tilleggstjenester' }
     const STANDARD_FIELDS = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
@@ -33,7 +33,7 @@
     const tokenPromise = getElevkontraktToken(true)
     const ready = tokenPromise.then(async token => {
         if (!hasAnyRole(token, BILLING_ROLES)) return token
-        const [result, settingsResponse] = await Promise.all([getContractsWithId($page.params.slug, 'invoices'), getSettings()])
+        const [result, settingsResponse] = await Promise.all([getContractsWithId(page.params.slug, 'invoices'), getSettings()])
         settings = settingsResponse?.data?.result?.[0] ?? null
         if (Array.isArray(result) && result.length) {
             invoice = result[0]

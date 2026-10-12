@@ -3,23 +3,23 @@
      * Invoice an elev: rates and tilleggstjenester on the left, the invoice (cart) on the right.
      * Rates and tilleggstjenester become two invoices. Nothing is sent before the user confirms.
      */
-    import { page } from '$app/stores'
+    import { page } from '$app/state'
     import { get } from 'svelte/store'
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
-    import DsButton from '$lib/components/ds/DsButton.svelte'
-    import DsDialog from '$lib/components/ds/DsDialog.svelte'
-    import DsInput from '$lib/components/ds/DsInput.svelte'
-    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
-    import DsTag from '$lib/components/ds/DsTag.svelte'
-    import StatusTag from '$lib/components/StatusTag.svelte'
-    import ContractCard from '$lib/components/ContractCard.svelte'
-    import { formatFnr } from '$lib/helpers/formatFnr.js'
-    import { formatShortDate } from '$lib/helpers/formatDate.js'
-    import { returnLatestKnownStudentInfo } from '$lib/helpers/latestKnownStudentInfo'
-    import { hasAnyRole, isElevkontraktAdmin, ELEVKONTRAKT_ADMIN } from '$lib/helpers/roles.js'
-    import { ADMIN_ONLY_PRODUCTS, productPrice, checkProductPrice, ratePrice, hasReducedPrice } from '$lib/helpers/prices.js'
-    import { billingTargetCollection } from '$lib/store'
-    import { getContractsWithId, getElevkontraktToken, getProducts, getSettings, sendInvoice } from '$lib/useApi'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
+    import DsButton from '#lib/components/ds/DsButton.svelte'
+    import DsDialog from '#lib/components/ds/DsDialog.svelte'
+    import DsInput from '#lib/components/ds/DsInput.svelte'
+    import DsSpinner from '#lib/components/ds/DsSpinner.svelte'
+    import DsTag from '#lib/components/ds/DsTag.svelte'
+    import StatusTag from '#lib/components/StatusTag.svelte'
+    import ContractCard from '#lib/components/ContractCard.svelte'
+    import { formatFnr } from '#lib/helpers/formatFnr.js'
+    import { formatShortDate } from '#lib/helpers/formatDate.js'
+    import { returnLatestKnownStudentInfo } from '#lib/helpers/latestKnownStudentInfo'
+    import { hasAnyRole, isElevkontraktAdmin, ELEVKONTRAKT_ADMIN } from '#lib/helpers/roles.js'
+    import { ADMIN_ONLY_PRODUCTS, productPrice, checkProductPrice, ratePrice, hasReducedPrice } from '#lib/helpers/prices.js'
+    import { billingTargetCollection } from '#lib/store'
+    import { getContractsWithId, getElevkontraktToken, getProducts, getSettings, sendInvoice } from '#lib/useApi'
 
     const BILLING_WRITE_ROLES = [ELEVKONTRAKT_ADMIN, 'elevkontrakt.billing-readwrite']
     const STANDARD_FIELDS = ['_id', 'name', 'price', 'description', 'active', 'metadata', 'auditLog']
@@ -44,7 +44,7 @@
 
     async function load (token) {
         const [contractResult, settingsResponse, productsResponse] = await Promise.all([
-            getContractsWithId($page.params.slug, collection),
+            getContractsWithId(page.params.slug, collection),
             getSettings(),
             getProducts()
         ])
