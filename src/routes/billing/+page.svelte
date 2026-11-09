@@ -49,6 +49,7 @@
                     <p class="ds-paragraph" data-size="sm">Fakturering er for administratorer og økonomi. Ta kontakt med din nærmeste servicedesk hvis du trenger tilgang.</p>
                 </DsAlert>
             {:else}
+                <BillingPausedNotice />
                 <p class="ds-paragraph lead" data-size="sm">Finn eleven du skal fakturere. På neste side lager du fakturaen, enten fra elevens avtale eller for andre tjenester.</p>
 
                 {#if isElevkontraktAdmin(token)}

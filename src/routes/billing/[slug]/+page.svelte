@@ -161,6 +161,7 @@
                     </div>
                 </header>
 
+                <BillingPausedNotice />
                 {#if flash}
                     <DsAlert color="success" dismissible on:dismiss={() => (flash = '')}>
                         <p class="ds-paragraph" data-size="sm">{flash}</p>
