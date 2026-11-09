@@ -5,15 +5,15 @@
      * Feedback goes to the page's alert through the `say` event.
      */
     import { createEventDispatcher, onMount } from 'svelte'
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
-    import DsButton from '$lib/components/ds/DsButton.svelte'
-    import DsCheckbox from '$lib/components/ds/DsCheckbox.svelte'
-    import DsDialog from '$lib/components/ds/DsDialog.svelte'
-    import DsInput from '$lib/components/ds/DsInput.svelte'
-    import DsPagination from '$lib/components/ds/DsPagination.svelte'
-    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
-    import DsTag from '$lib/components/ds/DsTag.svelte'
-    import { getAccessGroups, searchAccessGroupCandidates, addAccessGroupMember, removeAccessGroupMember } from '$lib/useApi.js'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
+    import DsButton from '#lib/components/ds/DsButton.svelte'
+    import DsCheckbox from '#lib/components/ds/DsCheckbox.svelte'
+    import DsDialog from '#lib/components/ds/DsDialog.svelte'
+    import DsInput from '#lib/components/ds/DsInput.svelte'
+    import DsPagination from '#lib/components/ds/DsPagination.svelte'
+    import DsSpinner from '#lib/components/ds/DsSpinner.svelte'
+    import DsTag from '#lib/components/ds/DsTag.svelte'
+    import { getAccessGroups, searchAccessGroupCandidates, addAccessGroupMember, removeAccessGroupMember } from '#lib/useApi.js'
 
     export let me = '' // the signed-in user's object id
 

@@ -1,5 +1,5 @@
 // Invoices per contract, for Oversikt and Historikk. Only admin and billing roles may fetch them.
-import { getInvoices, getSettings } from '$lib/useApi'
+import { getInvoices, getSettings } from '#lib/useApi'
 
 // All invoices the user may see, and the settings for preliminary rate prices.
 export async function loadInvoiceData (token) {

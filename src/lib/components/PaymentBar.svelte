@@ -1,6 +1,6 @@
 <script>
     // "2 av 3 betalt" with one bar segment per rate, coloured by status.
-    import { statusInfo } from '$lib/helpers/status.js'
+    import { statusInfo } from '#lib/helpers/status.js'
 
     export let statuses = [] // e.g. ['Betalt', 'Fakturert', 'Ikke Fakturert']
 

@@ -2,8 +2,8 @@
     // Contract at a glance: Signert → PC utlevert → Innlevert/kjøpt ut, and how many rates are paid.
     import DsSteps from './ds/DsSteps.svelte'
     import PaymentBar from './PaymentBar.svelte'
-    import { isTrue } from '$lib/helpers/status.js'
-    import { formatShortDate } from '$lib/helpers/formatDate.js'
+    import { isTrue } from '#lib/helpers/status.js'
+    import { formatShortDate } from '#lib/helpers/formatDate.js'
 
     export let contract
 

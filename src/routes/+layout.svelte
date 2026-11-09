@@ -3,20 +3,20 @@
     import { login, getMsalClient } from '../lib/auth/msal-auth.js'
     import { getElevkontraktToken } from '../lib/useApi.js'
     import { onMount } from 'svelte'
-    import { page } from '$app/stores'
+    import { page } from '$app/state'
     import { goto, afterNavigate } from '$app/navigation'
-    import DsScope from '$lib/components/ds/DsScope.svelte'
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
-    import DsDialog from '$lib/components/ds/DsDialog.svelte'
-    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
-    import NavMenu from '$lib/components/NavMenu.svelte'
-    import UserMenu from '$lib/components/UserMenu.svelte'
-    import { setPreview, previewRoleInfo } from '$lib/helpers/rolePreview.js'
-    import { hasAnyRole, ELEVKONTRAKT_ADMIN, CONTRACT_ROLES, HISTORY_ROLES, BILLING_ROLES } from '$lib/helpers/roles.js'
-    import logoTFK from '$lib/assets/logo.svg'
-    import logoVFK from '$lib/assets/VFK_logo.svg'
-    import favTFK from '$lib/assets/favicon-32x32.png'
-    import favVFK from '$lib/assets/vestfold-favicon-32x32.png'
+    import DsScope from '#lib/components/ds/DsScope.svelte'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
+    import DsDialog from '#lib/components/ds/DsDialog.svelte'
+    import DsSpinner from '#lib/components/ds/DsSpinner.svelte'
+    import NavMenu from '#lib/components/NavMenu.svelte'
+    import UserMenu from '#lib/components/UserMenu.svelte'
+    import { setPreview, previewRoleInfo } from '#lib/helpers/rolePreview.js'
+    import { hasAnyRole, ELEVKONTRAKT_ADMIN, CONTRACT_ROLES, HISTORY_ROLES, BILLING_ROLES } from '#lib/helpers/roles.js'
+    import logoTFK from '#lib/assets/logo.svg'
+    import logoVFK from '#lib/assets/VFK_logo.svg'
+    import favTFK from '#lib/assets/favicon-32x32.png'
+    import favVFK from '#lib/assets/vestfold-favicon-32x32.png'
 
     const appTitle = 'Elevavtaler'
     const telemark = import.meta.env.VITE_COUNTY === 'Telemark'
@@ -50,9 +50,9 @@
         if (msalClient.getActiveAccount()) account = msalClient.getActiveAccount()
         if (!account) {
             // Sends you to MS login, and back here with an active account
-            const loginResponse = await login(false, $page.url.pathname)
+            const loginResponse = await login(false, page.url.pathname)
             account = loginResponse.account
-            if ($page.url.pathname !== loginResponse.loginRequestUrl) {
+            if (page.url.pathname !== loginResponse.loginRequestUrl) {
                 goto(loginResponse.loginRequestUrl, { replaceState: false, invalidateAll: true })
             }
         }
@@ -92,7 +92,7 @@
                 <div class="app">
                     <aside class="sidebar">
                         <a class="logo" href="/"><img src={logo} alt="Fylkeskommunens logo, til Oversikt" /></a>
-                        <NavMenu {groups} bottom={[HELP]} path={$page.url.pathname} id="side" />
+                        <NavMenu {groups} bottom={[HELP]} path={page.url.pathname} id="side" />
                     </aside>
                     <div class="main">
                         <header class="topbar">
@@ -117,7 +117,7 @@
 
                 <DsDialog bind:open={menuOpen} placement="left" width="min(20rem, 88vw)" label="Meny" closeLabel="Lukk meny">
                     <p class="ds-heading" data-size="xs">{appTitle}</p>
-                    <NavMenu {groups} bottom={[HELP]} path={$page.url.pathname} id="drawer" />
+                    <NavMenu {groups} bottom={[HELP]} path={page.url.pathname} id="drawer" />
                 </DsDialog>
             {/if}
         {/await}

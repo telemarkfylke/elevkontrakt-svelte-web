@@ -3,26 +3,26 @@
      * Oversikt: all elevavtaler the user may see. Search or filter, open a contract in the side panel,
      * and edit, move or delete it there. Administrators and IT-servicedesk also get delivery mode and export.
      */
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
-    import DsButton from '$lib/components/ds/DsButton.svelte'
-    import DsCheckbox from '$lib/components/ds/DsCheckbox.svelte'
-    import DsDialog from '$lib/components/ds/DsDialog.svelte'
-    import DsDropdown from '$lib/components/ds/DsDropdown.svelte'
-    import DsInput from '$lib/components/ds/DsInput.svelte'
-    import DsPagination from '$lib/components/ds/DsPagination.svelte'
-    import DsSelect from '$lib/components/ds/DsSelect.svelte'
-    import DsTabs from '$lib/components/ds/DsTabs.svelte'
-    import DsTag from '$lib/components/ds/DsTag.svelte'
-    import StatusTag from '$lib/components/StatusTag.svelte'
-    import ContractCard from '$lib/components/ContractCard.svelte'
-    import Barcode from '$lib/components/contracts/Barcode.svelte'
-    import EditContractDialog from '$lib/components/contracts/EditContractDialog.svelte'
-    import MoveContractDialog from '$lib/components/contracts/MoveContractDialog.svelte'
-    import { yesNoInfo } from '$lib/helpers/status.js'
-    import { isElevkontraktAdmin, hasAnyRole, ELEVKONTRAKT_ADMIN, BILLING_ROLES } from '$lib/helpers/roles.js'
-    import { searchContracts, filterContracts, schoolsIn, classesIn, contractType, isNewThisYear, missingInFint, sortContracts } from '$lib/helpers/contractFilters.js'
-    import { getContracts, getElevkontraktToken, getExtendedUserInfo } from '$lib/useApi'
-    import { loadInvoiceData, invoicesFor, countInvoices } from '$lib/helpers/contractInvoices.js'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
+    import DsButton from '#lib/components/ds/DsButton.svelte'
+    import DsCheckbox from '#lib/components/ds/DsCheckbox.svelte'
+    import DsDialog from '#lib/components/ds/DsDialog.svelte'
+    import DsDropdown from '#lib/components/ds/DsDropdown.svelte'
+    import DsInput from '#lib/components/ds/DsInput.svelte'
+    import DsPagination from '#lib/components/ds/DsPagination.svelte'
+    import DsSelect from '#lib/components/ds/DsSelect.svelte'
+    import DsTabs from '#lib/components/ds/DsTabs.svelte'
+    import DsTag from '#lib/components/ds/DsTag.svelte'
+    import StatusTag from '#lib/components/StatusTag.svelte'
+    import ContractCard from '#lib/components/ContractCard.svelte'
+    import Barcode from '#lib/components/contracts/Barcode.svelte'
+    import EditContractDialog from '#lib/components/contracts/EditContractDialog.svelte'
+    import MoveContractDialog from '#lib/components/contracts/MoveContractDialog.svelte'
+    import { yesNoInfo } from '#lib/helpers/status.js'
+    import { isElevkontraktAdmin, hasAnyRole, ELEVKONTRAKT_ADMIN, BILLING_ROLES } from '#lib/helpers/roles.js'
+    import { searchContracts, filterContracts, schoolsIn, classesIn, contractType, isNewThisYear, missingInFint, sortContracts } from '#lib/helpers/contractFilters.js'
+    import { getContracts, getElevkontraktToken, getExtendedUserInfo } from '#lib/useApi'
+    import { loadInvoiceData, invoicesFor, countInvoices } from '#lib/helpers/contractInvoices.js'
 
     const IT = 'elevkontrakt.itservicedesk-readwrite'
     const SCHOOL_WRITE = 'elevkontrakt.skoleadministrator-write'
@@ -102,6 +102,7 @@
     $: isAdmin = isElevkontraktAdmin(token)
     $: canEdit = hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT, SCHOOL_WRITE])
     $: showTools = hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT])
+    $: showExportButton = hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT, SCHOOL_WRITE])
     $: showBarcode = hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT, SCHOOL_READ])
 
     $: columns = delivery
@@ -220,12 +221,14 @@
                         {collection === 'pcIkkeInnlevert' ? 'Elever som har sluttet, der PC-en ikke er innlevert eller ratene ikke er betalt.' : `Alle elevavtaler${hasAnyRole(token, [ELEVKONTRAKT_ADMIN, IT]) ? ' i fylket' : ' for skolen din'}.`}
                     </p>
                 </div>
-                {#if showTools && loadState === 'ready'}
-                    <div class="page-actions">
+                <div class="page-actions">
+                    {#if showTools && loadState === 'ready'}
                         <DsCheckbox type="switch" label="Utleveringsmodus" bind:checked={delivery} />
+                    {/if}
+                    {#if showExportButton && loadState === 'ready'}
                         <DsButton variant="secondary" size="sm" on:click={exportCsv}><span class="material-symbols-outlined" aria-hidden="true">download</span>Eksporter CSV</DsButton>
-                    </div>
-                {/if}
+                    {/if}
+                </div>
             </div>
 
             {#if flash}

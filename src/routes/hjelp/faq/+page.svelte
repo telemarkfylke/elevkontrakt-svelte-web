@@ -1,10 +1,10 @@
 <script>
     // Frequently asked questions, filtered by the user's roles. The content is in questions.js.
-    import DsInput from '$lib/components/ds/DsInput.svelte'
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
-    import DsTag from '$lib/components/ds/DsTag.svelte'
-    import { getElevkontraktToken } from '$lib/useApi.js'
-    import { hasAnyRole, isElevkontraktAdmin } from '$lib/helpers/roles.js'
+    import DsInput from '#lib/components/ds/DsInput.svelte'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
+    import DsTag from '#lib/components/ds/DsTag.svelte'
+    import { getElevkontraktToken } from '#lib/useApi.js'
+    import { hasAnyRole, isElevkontraktAdmin } from '#lib/helpers/roles.js'
     import { TOPICS } from './questions.js'
 
     let query = ''

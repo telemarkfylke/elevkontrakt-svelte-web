@@ -4,9 +4,9 @@
     import DsCheckbox from './ds/DsCheckbox.svelte'
     import DsDialog from './ds/DsDialog.svelte'
     import DsSelect from './ds/DsSelect.svelte'
-    import { ELEVKONTRAKT_ADMIN } from '$lib/helpers/roles.js'
-    import { PREVIEW_ROLES, previewRoleInfo, setPreview } from '$lib/helpers/rolePreview.js'
-    import { getSchools } from '$lib/useApi.js'
+    import { ELEVKONTRAKT_ADMIN } from '#lib/helpers/roles.js'
+    import { PREVIEW_ROLES, previewRoleInfo, setPreview } from '#lib/helpers/rolePreview.js'
+    import { getSchools } from '#lib/useApi.js'
 
     export let token
 

@@ -13,9 +13,9 @@
     import DsAlert from './DsAlert.svelte'
     import DsCard from './DsCard.svelte'
     import DsFileUpload from './DsFileUpload.svelte'
-    import { lookupOrganisation, checkIdentifier, getSchools } from '$lib/useApi.js'
-    import { detectIdentifierType, isValidOrgnrChecksum, formatOrgnr, normalizeIdentifier } from '$lib/helpers/identifier.js'
-    import { isElevkontraktAdmin } from '$lib/helpers/roles.js'
+    import { lookupOrganisation, checkIdentifier, getSchools } from '#lib/useApi.js'
+    import { detectIdentifierType, isValidOrgnrChecksum, formatOrgnr, normalizeIdentifier } from '#lib/helpers/identifier.js'
+    import { isElevkontraktAdmin } from '#lib/helpers/roles.js'
 
     export let identity = null // the resolved elev, from checkIdentifier or checkStudent
     export let onSubmit = () => {}

@@ -8,15 +8,15 @@
      * each belongs to a different person: the admin checks the number, an archive administrator
      * fixes a missing saksnummer, and an unreachable archive is nobody's fault.
      */
-    import DsSpinner from '$lib/components/ds/DsSpinner.svelte'
-    import DsInput from '$lib/components/ds/DsInput.svelte'
-    import DsButton from '$lib/components/ds/DsButton.svelte'
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
-    import DsCard from '$lib/components/ds/DsCard.svelte'
-    import ContractForm from '$lib/components/ds/ContractForm.svelte'
-    import { checkStudent, checkIdentifier, getElevkontraktToken, postManualContract } from '$lib/useApi.js'
-    import { detectIdentifierType, normalizeIdentifier } from '$lib/helpers/identifier.js'
-    import { isElevkontraktAdmin } from '$lib/helpers/roles.js'
+    import DsSpinner from '#lib/components/ds/DsSpinner.svelte'
+    import DsInput from '#lib/components/ds/DsInput.svelte'
+    import DsButton from '#lib/components/ds/DsButton.svelte'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
+    import DsCard from '#lib/components/ds/DsCard.svelte'
+    import ContractForm from '#lib/components/ds/ContractForm.svelte'
+    import { checkStudent, checkIdentifier, getElevkontraktToken, postManualContract } from '#lib/useApi.js'
+    import { detectIdentifierType, normalizeIdentifier } from '#lib/helpers/identifier.js'
+    import { isElevkontraktAdmin } from '#lib/helpers/roles.js'
 
     let studentSSN = ''
     let identity = null

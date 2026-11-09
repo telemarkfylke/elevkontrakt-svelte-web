@@ -1,8 +1,8 @@
 <script>
-    import AdminOnly from '$lib/components/AdminOnly.svelte'
-    import RoleOnly from '$lib/components/RoleOnly.svelte'
-    import DsCard from '$lib/components/ds/DsCard.svelte'
-    import { CONTRACT_ROLES } from '$lib/helpers/roles.js'
+    import AdminOnly from '#lib/components/AdminOnly.svelte'
+    import RoleOnly from '#lib/components/RoleOnly.svelte'
+    import DsCard from '#lib/components/ds/DsCard.svelte'
+    import { CONTRACT_ROLES } from '#lib/helpers/roles.js'
 </script>
 
     <main>
