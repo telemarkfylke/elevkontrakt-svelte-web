@@ -13,6 +13,7 @@
     import DsTag from '$lib/components/ds/DsTag.svelte'
     import StatusTag from '$lib/components/StatusTag.svelte'
     import ContractCard from '$lib/components/ContractCard.svelte'
+    import BillingPausedNotice from '$lib/components/BillingPausedNotice.svelte'
     import { formatFnr } from '$lib/helpers/formatFnr.js'
     import { formatShortDate } from '$lib/helpers/formatDate.js'
     import { returnLatestKnownStudentInfo } from '$lib/helpers/latestKnownStudentInfo'
@@ -161,6 +162,7 @@
                     </div>
                 </header>
 
+                <BillingPausedNotice />
                 {#if flash}
                     <DsAlert color="success" dismissible on:dismiss={() => (flash = '')}>
                         <p class="ds-paragraph" data-size="sm">{flash}</p>
