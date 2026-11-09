@@ -1,6 +1,6 @@
 <script>
     // Shown while the invoice job is paused. Set to false when the job is running again.
-    import DsAlert from '$lib/components/ds/DsAlert.svelte'
+    import DsAlert from '#lib/components/ds/DsAlert.svelte'
 
     const BILLING_PAUSED = true
 </script>

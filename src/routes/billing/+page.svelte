@@ -5,6 +5,7 @@
     import DsAlert from '#lib/components/ds/DsAlert.svelte'
     import DsSpinner from '#lib/components/ds/DsSpinner.svelte'
     import StudentSearch from '#lib/components/StudentSearch.svelte'
+    import BillingPausedNotice from '#lib/components/BillingPausedNotice.svelte'
     import { hasAnyRole, isElevkontraktAdmin, ELEVKONTRAKT_ADMIN } from '#lib/helpers/roles.js'
     import { billingTargetCollection } from '#lib/store'
     import { getElevkontraktToken, getSearchScope } from '#lib/useApi'
